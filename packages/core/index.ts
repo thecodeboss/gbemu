@@ -1,1 +1,1 @@
-export const corePlaceholder = true;
+export * from "./src/index.js";
