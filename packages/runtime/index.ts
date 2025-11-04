@@ -1,1 +1,1 @@
-export const runtimePlaceholder = true;
+export * from "./src/index.js";

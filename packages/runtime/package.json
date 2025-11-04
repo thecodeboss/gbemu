@@ -12,7 +12,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
+  "dependencies": {
+    "comlink": "4.4.1",
+    "@gbemu/core": "workspace:*"
+  },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@types/audioworklet": "0.0.90"
   }
 }
