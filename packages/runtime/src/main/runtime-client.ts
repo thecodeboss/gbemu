@@ -6,9 +6,9 @@ import { Canvas2DRenderer } from "../video/canvas2d-renderer.js";
 import type { Canvas2DRendererOptions } from "../video/canvas2d-renderer.js";
 import {
   deserializeSavePayload,
-  SaveStorageAdapter,
   serializeSavePayload,
 } from "../save/storage.js";
+import type { SaveStorageAdapter } from "../save/storage.js";
 import type { EmulatorWorkerApi, WorkerCallbacks } from "../worker/index.js";
 
 export interface RuntimeClientOptions {
@@ -65,8 +65,14 @@ export async function createRuntimeClient(
         await options.saveStorage.write(serializeSavePayload(payload));
       }
     },
-    handleLog: options.onLog,
-    handleError(error) {
+    handleLog(message: string) {
+      if (options.onLog) {
+        options.onLog(message);
+      } else {
+        console.log("[gbemu/runtime]", message);
+      }
+    },
+    handleError(error: unknown) {
       if (options.onError) {
         options.onError(error);
       } else {
@@ -75,10 +81,19 @@ export async function createRuntimeClient(
     },
   };
 
-  await workerEndpoint.initialize({
-    callbacks: Comlink.proxy(callbacks),
-    audioBufferSize: options.audioBufferSize,
-  });
+  const callbackChannel = new MessageChannel();
+  Comlink.expose(callbacks, callbackChannel.port1);
+  callbackChannel.port1.start();
+
+  await workerEndpoint.initialize(
+    Comlink.transfer(
+      {
+        callbacksPort: callbackChannel.port2,
+        audioBufferSize: options.audioBufferSize,
+      },
+      [callbackChannel.port2]
+    )
+  );
 
   async function loadRom(rom: Uint8Array): Promise<void> {
     const romCopy = rom.slice();
@@ -128,6 +143,7 @@ export async function createRuntimeClient(
     audioNode.flush();
     audioNode.disconnect();
     worker.terminate();
+    callbackChannel.port1.close();
   }
 
   return {

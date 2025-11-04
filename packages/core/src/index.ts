@@ -6,3 +6,4 @@ export * from "./mbc.js";
 export * from "./clock.js";
 export * from "./emulator.js";
 export * from "./runtime.js";
+export * from "./stub-emulator.js";

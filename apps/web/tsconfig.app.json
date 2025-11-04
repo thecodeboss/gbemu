@@ -22,7 +22,11 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "paths": {
+      "@gbemu/runtime": ["../../packages/runtime/src/index.ts"],
+      "@gbemu/runtime/*": ["../../packages/runtime/src/*"]
+    }
   },
   "include": ["src"]
 }

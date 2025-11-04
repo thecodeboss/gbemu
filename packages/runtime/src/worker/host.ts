@@ -7,6 +7,7 @@ import type {
   VideoFrame,
 } from "@gbemu/core";
 import * as Comlink from "comlink";
+import type { Remote } from "comlink";
 
 export interface WorkerCallbacks {
   handleVideoFrame(frame: VideoFrame): Promise<void> | void;
@@ -17,7 +18,7 @@ export interface WorkerCallbacks {
 }
 
 export interface WorkerInitializeOptions {
-  callbacks: WorkerCallbacks;
+  callbacksPort: MessagePort;
   audioBufferSize?: number;
 }
 
@@ -44,10 +45,11 @@ export interface EmulatorWorkerApi {
 }
 
 export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
-  let callbacks: WorkerCallbacks | null = null;
+  let callbacks: Remote<WorkerCallbacks> | null = null;
   let emulator: Emulator | null = null;
   let isDisposed = false;
   let audioBufferSize: number | undefined;
+  let callbacksPort: MessagePort | null = null;
 
   async function ensureEmulator(): Promise<Emulator> {
     if (isDisposed) {
@@ -73,7 +75,9 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
 
   return {
     async initialize(options: WorkerInitializeOptions): Promise<void> {
-      callbacks = options.callbacks;
+      callbacksPort = options.callbacksPort;
+      callbacks = Comlink.wrap<WorkerCallbacks>(callbacksPort);
+      callbacksPort.start();
       audioBufferSize = options.audioBufferSize;
     },
 
@@ -113,6 +117,11 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
         emulator = null;
       }
       isDisposed = true;
+      callbacks = null;
+      if (callbacksPort) {
+        callbacksPort.close();
+        callbacksPort = null;
+      }
     },
 
     async getRomInfo(): Promise<EmulatorRomInfo | null> {
@@ -144,7 +153,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
 }
 
 function createEmulatorCallbacks(
-  callbacks: WorkerCallbacks
+  callbacks: Remote<WorkerCallbacks>
 ): EmulatorCallbacks {
   return {
     onVideoFrame(frame: VideoFrame) {
@@ -190,14 +199,18 @@ function createEmulatorCallbacks(
       );
     },
     onLog(message: string) {
-      void callbacks.handleLog?.(message);
+      const log = callbacks.handleLog;
+      if (typeof log === "function") {
+        void log(message);
+      }
     },
     onError(error: unknown) {
-      if (callbacks.handleError) {
-        void callbacks.handleError(error);
-      } else {
-        console.error("[gbemu/runtime]", error);
+      const handler = callbacks.handleError;
+      if (typeof handler === "function") {
+        void handler(error);
+        return;
       }
+      console.error("[gbemu/runtime]", error);
     },
   };
 }
