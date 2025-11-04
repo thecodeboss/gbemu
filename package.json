@@ -9,17 +9,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.20.0",
-  "pnpm": {
-    "catalogs": {
-      "typescript": {
-        "dependencies": {
-          "typescript": "^5.6.2"
-        },
-        "devDependencies": {
-          "typescript": "^5.6.2"
-        }
-      }
-    }
-  }
+  "packageManager": "pnpm@10.20.0"
 }
