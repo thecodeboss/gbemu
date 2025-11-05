@@ -179,6 +179,18 @@ export class Emulator {
     this.#runFrame();
   }
 
+  stepInstruction(): void {
+    if (this.#running) {
+      this.pause();
+    }
+    const cycles = this.cpu.step();
+    this.bus.tick(cycles);
+    for (let i = 0; i < cycles; i += 1) {
+      this.clock.step();
+    }
+    this.#emitVideoFrame();
+  }
+
   isRunning(): boolean {
     return this.#running;
   }

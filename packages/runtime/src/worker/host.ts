@@ -39,6 +39,7 @@ export interface EmulatorWorkerApi {
   pause(): Promise<void>;
   reset(options?: { hard?: boolean }): Promise<void>;
   stepFrame(): Promise<void>;
+  stepInstruction(): Promise<void>;
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
@@ -110,6 +111,11 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
     async stepFrame(): Promise<void> {
       const system = await ensureEmulator();
       system.stepFrame();
+    },
+
+    async stepInstruction(): Promise<void> {
+      const system = await ensureEmulator();
+      system.stepInstruction();
     },
 
     async dispose(): Promise<void> {

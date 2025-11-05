@@ -8,6 +8,7 @@ export interface EmulatorWorkerRequestMap {
   pause: undefined;
   reset: { hard?: boolean } | undefined;
   stepFrame: undefined;
+  stepInstruction: undefined;
   dispose: undefined;
   getRomInfo: undefined;
   getSave: undefined;

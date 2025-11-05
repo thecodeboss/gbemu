@@ -24,7 +24,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@gbemu/runtime": ["../packages/runtime/src/index.ts"],
+      "@gbemu/runtime/*": ["../packages/runtime/src/*"],
+      "@gbemu/core": ["../packages/core/src/index.ts"],
+      "@gbemu/core/*": ["../packages/core/src/*"]
     }
   },
   "include": ["src"]

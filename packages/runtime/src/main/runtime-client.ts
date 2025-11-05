@@ -31,6 +31,7 @@ export interface RuntimeClient {
   pause(): Promise<void>;
   reset(options?: { hard?: boolean }): Promise<void>;
   stepFrame(): Promise<void>;
+  stepInstruction(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
   loadPersistentSave(): Promise<void>;
@@ -154,6 +155,7 @@ export async function createRuntimeClient(
     pause: () => workerEndpoint.pause(),
     reset: (opts) => workerEndpoint.reset(opts),
     stepFrame: () => workerEndpoint.stepFrame(),
+    stepInstruction: () => workerEndpoint.stepInstruction(),
     getRomInfo: () => workerEndpoint.getRomInfo(),
     async getSave() {
       const payload = await workerEndpoint.getSave();

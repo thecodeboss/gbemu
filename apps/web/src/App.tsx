@@ -20,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
@@ -53,6 +54,8 @@ function App() {
   const [disassembly, setDisassembly] = useState<string | null>(null);
   const [disassemblyError, setDisassemblyError] = useState<string | null>(null);
   const [isDisassembling, setIsDisassembling] = useState(false);
+  const [stepModeEnabled, setStepModeEnabled] = useState(true);
+  const [isStepping, setIsStepping] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -143,7 +146,9 @@ function App() {
         await runtime.loadRom(rom);
         const info = await runtime.getRomInfo();
         setRomInfo(info);
-        await runtime.start();
+        if (!stepModeEnabled) {
+          await runtime.start();
+        }
 
         setPhase("running");
       } catch (err) {
@@ -152,7 +157,7 @@ function App() {
         setPhase("error");
       }
     },
-    [ensureRuntimeClient]
+    [ensureRuntimeClient, stepModeEnabled]
   );
 
   const handleFileInputChange = useCallback(
@@ -177,6 +182,7 @@ function App() {
     setDisassembly(null);
     setDisassemblyError(null);
     setIsDisassembling(false);
+    setIsStepping(false);
     setPhase("menu");
     setError(null);
     setRomName(null);
@@ -206,6 +212,49 @@ function App() {
     })();
   }, [ensureRuntimeClient]);
 
+  const handleStepModeToggle = useCallback(
+    (checked: boolean) => {
+      setStepModeEnabled(checked);
+      setIsStepping(false);
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        return;
+      }
+      if (checked) {
+        void runtime.pause().catch((err) => {
+          console.error(err);
+          setError(err instanceof Error ? err.message : String(err));
+        });
+      } else {
+        void runtime.start().catch((err) => {
+          console.error(err);
+          setError(err instanceof Error ? err.message : String(err));
+        });
+      }
+    },
+    [setError]
+  );
+
+  const handleStepInstruction = useCallback(() => {
+    if (!stepModeEnabled) {
+      return;
+    }
+    const runtime = runtimeRef.current;
+    if (!runtime) {
+      return;
+    }
+    setIsStepping(true);
+    void runtime
+      .stepInstruction()
+      .catch((err) => {
+        console.error(err);
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        setIsStepping(false);
+      });
+  }, [setError, stepModeEnabled]);
+
   return (
     <div className="box-border flex w-full max-w-[720px] flex-col gap-6 px-6 py-10 sm:px-8">
       <input
@@ -228,6 +277,22 @@ function App() {
           <Button type="button" variant="default" onClick={openFilePicker}>
             Select ROM
           </Button>
+          <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2">
+            <label
+              htmlFor="step-mode-toggle"
+              className="flex flex-col gap-1 text-left"
+            >
+              <span className="text-sm font-medium">Step Mode</span>
+              <span className="text-xs text-muted-foreground">
+                Execute one CPU instruction at a time.
+              </span>
+            </label>
+            <Switch
+              id="step-mode-toggle"
+              checked={stepModeEnabled}
+              onCheckedChange={handleStepModeToggle}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -255,6 +320,18 @@ function App() {
           />
         </CardContent>
         <CardFooter>
+          {stepModeEnabled ? (
+            <CardAction>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleStepInstruction}
+                disabled={isStepping}
+              >
+                {isStepping ? "Stepping..." : "Step"}
+              </Button>
+            </CardAction>
+          ) : null}
           <CardAction>
             <Button type="button" variant="secondary" onClick={openFilePicker}>
               Change ROM
