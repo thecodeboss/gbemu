@@ -11,30 +11,17 @@ import {
   DEFAULT_CANVAS_WIDTH,
   type RuntimeClient,
 } from "@gbemu/runtime";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
-
-const panelClassName =
-  "flex flex-col gap-6 rounded-[1.25rem] border border-white/5 bg-[rgba(17,21,33,0.9)] p-8 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-[18px] max-sm:px-5 max-sm:py-7";
-const headingClassName =
-  "m-0 text-[1.75rem] font-bold tracking-[-0.01em] max-sm:text-[1.45rem]";
-const descriptionClassName =
-  "m-0 text-base leading-relaxed text-slate-100/80";
-const highlightClassName = "font-semibold text-sky-400";
-const primaryButtonClassName =
-  "inline-flex items-center justify-center rounded-full border border-transparent bg-[linear-gradient(135deg,#5468ff,#8892ff)] px-7 py-3 text-base font-semibold tracking-[0.01em] text-white transition duration-150 ease-out hover:-translate-y-px hover:shadow-[0_12px_30px_rgba(84,104,255,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:brightness-95 active:shadow-none max-sm:w-full";
-const subtleButtonClassName =
-  "inline-flex items-center justify-center rounded-full border border-transparent bg-white/10 px-5 py-2.5 text-base font-semibold tracking-[0.01em] text-white/90 transition duration-150 ease-out hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:brightness-95 max-sm:w-full";
-const actionsClassName = "flex justify-center";
-const headerClassName =
-  "flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch";
-const romInfoClassName = "flex flex-col gap-1 text-left";
-const romLabelClassName =
-  "text-xs uppercase tracking-[0.18em] text-white/60";
-const romValueClassName =
-  "text-base font-semibold text-white/95 [word-break:break-word]";
-const screenClassName =
-  "mx-auto block aspect-[160/144] w-full max-w-[480px] rounded-2xl border-2 border-white/10 bg-black shadow-[inset_0_0_0_1px_rgba(0,0,0,0.6)] [image-rendering:pixelated]";
 
 function App() {
   const [phase, setPhase] = useState<AppPhase>("menu");
@@ -170,67 +157,70 @@ function App() {
         className="hidden"
       />
 
-      <section className={panelClassName} hidden={phase !== "menu"}>
-        <h1 className={headingClassName}>Game Boy Emulator</h1>
-        <p className={descriptionClassName}>
-          Load a Game Boy or Game Boy Color ROM to boot the placeholder system.
-        </p>
-        <button
-          type="button"
-          className={primaryButtonClassName}
-          onClick={openFilePicker}
-        >
-          Select ROM
-        </button>
-      </section>
+      <Card hidden={phase !== "menu"}>
+        <CardHeader>
+          <CardTitle>Game Boy Emulator</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          <p>
+            Load a Game Boy or Game Boy Color ROM to boot the placeholder
+            system.
+          </p>
+          <Button type="button" variant="default" onClick={openFilePicker}>
+            Select ROM
+          </Button>
+        </CardContent>
+      </Card>
 
-      <section className={panelClassName} hidden={phase !== "loading"}>
-        <h2 className={headingClassName}>Loading…</h2>
-        <p className={descriptionClassName}>
-          Preparing <span className={highlightClassName}>{romName ?? "ROM"}</span>
-          .
-        </p>
-      </section>
+      <Card hidden={phase !== "loading"}>
+        <CardHeader>
+          <CardTitle>Loading...</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>
+            Preparing <span>{romName ?? "ROM"}</span>.
+          </p>
+        </CardContent>
+      </Card>
 
-      <section className={panelClassName} hidden={phase !== "running"}>
-        <header className={headerClassName}>
-          <div className={romInfoClassName}>
-            <span className={romLabelClassName}>ROM</span>
-            <span className={romValueClassName}>{romName ?? "Untitled"}</span>
-          </div>
-          <button
-            type="button"
-            className={subtleButtonClassName}
-            onClick={openFilePicker}
-          >
-            Change ROM
-          </button>
-        </header>
-        <canvas
-          ref={canvasRef}
-          className={screenClassName}
-          width={DEFAULT_CANVAS_WIDTH}
-          height={DEFAULT_CANVAS_HEIGHT}
-        />
-      </section>
+      <Card hidden={phase !== "running"}>
+        <CardHeader>
+          <CardTitle>ROM: {romName ?? "Untitled"}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <canvas
+            ref={canvasRef}
+            className="mx-auto block aspect-160/144 min-w-[480px] rounded-2xl border-2 border-white/10 bg-black shadow-[inset_0_0_0_1px_rgba(0,0,0,0.6)] [image-rendering:pixelated]"
+            width={DEFAULT_CANVAS_WIDTH}
+            height={DEFAULT_CANVAS_HEIGHT}
+          />
+        </CardContent>
+        <CardFooter>
+          <CardAction>
+            <Button type="button" variant="secondary" onClick={openFilePicker}>
+              Change ROM
+            </Button>
+          </CardAction>
+        </CardFooter>
+      </Card>
 
-      <section className={panelClassName} hidden={phase !== "error"}>
-        <h2 className={headingClassName}>Something went wrong</h2>
-        <p className={descriptionClassName}>
-          {error
-            ? error
-            : "The ROM could not be loaded. Please verify the file and try again."}
-        </p>
-        <div className={actionsClassName}>
-          <button
-            type="button"
-            className={primaryButtonClassName}
-            onClick={handleReturnToMenu}
-          >
+      <Card hidden={phase !== "error"}>
+        <CardHeader>
+          <CardTitle>Something went wrong</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>
+            {error
+              ? error
+              : "The ROM could not be loaded. Please verify the file and try again."}
+          </p>
+        </CardContent>
+        <CardFooter className="justify-center">
+          <Button type="button" variant="default" onClick={handleReturnToMenu}>
             Back to menu
-          </button>
-        </div>
-      </section>
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
