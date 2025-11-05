@@ -34,6 +34,7 @@ export interface RuntimeClient {
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
   loadPersistentSave(): Promise<void>;
+  disassembleRom(): Promise<string | null>;
   dispose(): Promise<void>;
   readonly renderer: Canvas2DRenderer;
   readonly audio: EmulatorAudioNode;
@@ -162,6 +163,7 @@ export async function createRuntimeClient(
       return payload;
     },
     loadPersistentSave,
+    disassembleRom: () => workerEndpoint.disassembleRom(),
     dispose,
     renderer,
     audio: audioNode,

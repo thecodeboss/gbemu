@@ -50,6 +50,9 @@ function App() {
   const [romInfo, setRomInfo] =
     useState<Awaited<ReturnType<RuntimeClient["getRomInfo"]>>>(null);
   const [error, setError] = useState<string | null>(null);
+  const [disassembly, setDisassembly] = useState<string | null>(null);
+  const [disassemblyError, setDisassemblyError] = useState<string | null>(null);
+  const [isDisassembling, setIsDisassembling] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -125,6 +128,9 @@ function App() {
       setError(null);
       setRomInfo(null);
       setRomName(file.name);
+      setDisassembly(null);
+      setDisassemblyError(null);
+      setIsDisassembling(false);
       setPhase("loading");
 
       try {
@@ -168,11 +174,37 @@ function App() {
       void runtime.pause();
       runtime.renderer.clear("#000000");
     }
+    setDisassembly(null);
+    setDisassemblyError(null);
+    setIsDisassembling(false);
     setPhase("menu");
     setError(null);
     setRomName(null);
     setRomInfo(null);
   }, []);
+
+  const handleDisassemble = useCallback(() => {
+    setDisassemblyError(null);
+    setIsDisassembling(true);
+    void (async () => {
+      try {
+        const runtime = await ensureRuntimeClient();
+        const result = await runtime.disassembleRom();
+        if (result == null) {
+          setDisassemblyError("Disassembly is unavailable for this ROM.");
+          return;
+        }
+        setDisassembly(result);
+      } catch (err) {
+        console.error(err);
+        setDisassemblyError(
+          err instanceof Error ? err.message : "Failed to disassemble the ROM."
+        );
+      } finally {
+        setIsDisassembling(false);
+      }
+    })();
+  }, [ensureRuntimeClient]);
 
   return (
     <div className="box-border flex w-full max-w-[720px] flex-col gap-6 px-6 py-10 sm:px-8">
@@ -237,26 +269,55 @@ function App() {
         </CardHeader>
         <CardContent>
           {romInfo ? (
-            <dl className="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
-              <dt className="font-medium text-muted-foreground">Title</dt>
-              <dd>{romInfo.title}</dd>
-              <dt className="font-medium text-muted-foreground">
-                Cartridge Type
-              </dt>
-              <dd>{formatHexByte(romInfo.cartridgeType)}</dd>
-              <dt className="font-medium text-muted-foreground">ROM Size</dt>
-              <dd>{formatByteSize(romInfo.romSize)}</dd>
-              <dt className="font-medium text-muted-foreground">RAM Size</dt>
-              <dd>{formatByteSize(romInfo.ramSize)}</dd>
-              <dt className="font-medium text-muted-foreground">CGB Flag</dt>
-              <dd>{formatHexByte(romInfo.cgbFlag)}</dd>
-              <dt className="font-medium text-muted-foreground">SGB Flag</dt>
-              <dd>{formatHexByte(romInfo.sgbFlag)}</dd>
-              <dt className="font-medium text-muted-foreground">
-                Destination Code
-              </dt>
-              <dd>{formatHexByte(romInfo.destinationCode)}</dd>
-            </dl>
+            <>
+              <dl className="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
+                <dt className="font-medium text-muted-foreground">Title</dt>
+                <dd>{romInfo.title}</dd>
+                <dt className="font-medium text-muted-foreground">
+                  Cartridge Type
+                </dt>
+                <dd>{formatHexByte(romInfo.cartridgeType)}</dd>
+                <dt className="font-medium text-muted-foreground">ROM Size</dt>
+                <dd>{formatByteSize(romInfo.romSize)}</dd>
+                <dt className="font-medium text-muted-foreground">RAM Size</dt>
+                <dd>{formatByteSize(romInfo.ramSize)}</dd>
+                <dt className="font-medium text-muted-foreground">CGB Flag</dt>
+                <dd>{formatHexByte(romInfo.cgbFlag)}</dd>
+                <dt className="font-medium text-muted-foreground">SGB Flag</dt>
+                <dd>{formatHexByte(romInfo.sgbFlag)}</dd>
+                <dt className="font-medium text-muted-foreground">
+                  Destination Code
+                </dt>
+                <dd>{formatHexByte(romInfo.destinationCode)}</dd>
+              </dl>
+              {disassembly !== null ? (
+                <>
+                  <h3 className="mt-6 mb-2 text-sm font-medium">Disassembly</h3>
+                  <textarea
+                    aria-label="ROM disassembly output"
+                    className="h-64 w-full resize-y rounded-md border border-input bg-muted/40 p-3 font-mono text-xs leading-snug text-foreground"
+                    readOnly
+                    value={disassembly}
+                  />
+                </>
+              ) : (
+                <div className="mt-4 flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleDisassemble}
+                    disabled={isDisassembling}
+                  >
+                    {isDisassembling ? "Disassembling..." : "Disassemble"}
+                  </Button>
+                  {disassemblyError ? (
+                    <p className="text-xs text-destructive">
+                      {disassemblyError}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">
               ROM metadata unavailable.

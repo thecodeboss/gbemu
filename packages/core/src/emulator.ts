@@ -4,7 +4,7 @@ import { SystemBus } from "./bus.js";
 import { Mbc, MbcFactory } from "./mbc.js";
 import { Clock } from "./clock.js";
 import type { EmulatorRomInfo } from "./rom.js";
-import { parseRomInfo } from "./rom.js";
+import { disassembleRom as renderDisassembly, parseRomInfo } from "./rom.js";
 import { Cpu } from "./cpu.js";
 
 export type { EmulatorRomInfo } from "./rom.js";
@@ -185,6 +185,13 @@ export class Emulator {
 
   getRomInfo(): EmulatorRomInfo | null {
     return this.#romInfo ? { ...this.#romInfo } : null;
+  }
+
+  disassembleRom(): string | null {
+    if (!this.#romData) {
+      return null;
+    }
+    return renderDisassembly(this.#romData);
   }
 
   getStateSnapshot(): EmulatorStateSnapshot {

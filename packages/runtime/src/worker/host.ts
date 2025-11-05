@@ -42,6 +42,7 @@ export interface EmulatorWorkerApi {
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
+  disassembleRom(): Promise<string | null>;
 }
 
 export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
@@ -148,6 +149,11 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
         },
         transferables
       );
+    },
+
+    async disassembleRom(): Promise<string | null> {
+      const system = await ensureEmulator();
+      return system.disassembleRom();
     },
   };
 }
