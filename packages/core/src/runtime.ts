@@ -12,6 +12,8 @@ export interface EmulatorWorkerRequestMap {
   dispose: undefined;
   getRomInfo: undefined;
   getSave: undefined;
+  disassembleRom: undefined;
+  getProgramCounter: undefined;
 }
 
 export interface EmulatorWorkerEventMap {

@@ -199,11 +199,15 @@ export class Emulator {
     return this.#romInfo ? { ...this.#romInfo } : null;
   }
 
-  disassembleRom(): string | null {
+  disassembleRom(): Record<number, string> | null {
     if (!this.#romData) {
       return null;
     }
     return renderDisassembly(this.#romData);
+  }
+
+  getProgramCounter(): number | null {
+    return this.cpu.state?.registers?.pc ?? null;
   }
 
   getStateSnapshot(): EmulatorStateSnapshot {

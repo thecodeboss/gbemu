@@ -43,7 +43,8 @@ export interface EmulatorWorkerApi {
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
-  disassembleRom(): Promise<string | null>;
+  disassembleRom(): Promise<Record<number, string> | null>;
+  getProgramCounter(): Promise<number | null>;
 }
 
 export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
@@ -157,9 +158,14 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
       );
     },
 
-    async disassembleRom(): Promise<string | null> {
+    async disassembleRom(): Promise<Record<number, string> | null> {
       const system = await ensureEmulator();
       return system.disassembleRom();
+    },
+
+    async getProgramCounter(): Promise<number | null> {
+      const system = await ensureEmulator();
+      return system.getProgramCounter();
     },
   };
 }

@@ -88,6 +88,8 @@ export class Cpu {
   step(): number {
     const cycles = this.#doubleSpeed ? 8 : 4;
     this.state.cycles += cycles;
+    // TODO: Remove once instruction decoding updates the PC correctly.
+    this.state.registers.pc = (this.state.registers.pc + 1) & 0xffff;
     return cycles;
   }
 

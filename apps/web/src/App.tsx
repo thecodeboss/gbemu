@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -45,17 +46,25 @@ function formatByteSize(size: number): string {
   return `${rounded} ${units[unitIndex]} (${size.toLocaleString()} bytes)`;
 }
 
+function formatAddress(value: number): string {
+  return `0x${value.toString(16).toUpperCase().padStart(4, "0")}`;
+}
+
 function App() {
   const [phase, setPhase] = useState<AppPhase>("menu");
   const [romName, setRomName] = useState<string | null>(null);
   const [romInfo, setRomInfo] =
     useState<Awaited<ReturnType<RuntimeClient["getRomInfo"]>>>(null);
   const [error, setError] = useState<string | null>(null);
-  const [disassembly, setDisassembly] = useState<string | null>(null);
+  const [disassembly, setDisassembly] =
+    useState<Record<number, string> | null>(null);
   const [disassemblyError, setDisassemblyError] = useState<string | null>(null);
   const [isDisassembling, setIsDisassembling] = useState(false);
   const [stepModeEnabled, setStepModeEnabled] = useState(true);
   const [isStepping, setIsStepping] = useState(false);
+  const [currentInstructionOffset, setCurrentInstructionOffset] = useState<
+    number | null
+  >(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -134,6 +143,7 @@ function App() {
       setDisassembly(null);
       setDisassemblyError(null);
       setIsDisassembling(false);
+      setCurrentInstructionOffset(null);
       setPhase("loading");
 
       try {
@@ -146,6 +156,8 @@ function App() {
         await runtime.loadRom(rom);
         const info = await runtime.getRomInfo();
         setRomInfo(info);
+        const programCounter = await runtime.getProgramCounter();
+        setCurrentInstructionOffset(programCounter ?? null);
         if (!stepModeEnabled) {
           await runtime.start();
         }
@@ -183,6 +195,7 @@ function App() {
     setDisassemblyError(null);
     setIsDisassembling(false);
     setIsStepping(false);
+    setCurrentInstructionOffset(null);
     setPhase("menu");
     setError(null);
     setRomName(null);
@@ -201,6 +214,10 @@ function App() {
           return;
         }
         setDisassembly(result);
+        if (currentInstructionOffset === null) {
+          const pc = await runtime.getProgramCounter();
+          setCurrentInstructionOffset(pc ?? null);
+        }
       } catch (err) {
         console.error(err);
         setDisassemblyError(
@@ -210,7 +227,7 @@ function App() {
         setIsDisassembling(false);
       }
     })();
-  }, [ensureRuntimeClient]);
+  }, [currentInstructionOffset, ensureRuntimeClient]);
 
   const handleStepModeToggle = useCallback(
     (checked: boolean) => {
@@ -221,10 +238,16 @@ function App() {
         return;
       }
       if (checked) {
-        void runtime.pause().catch((err) => {
-          console.error(err);
-          setError(err instanceof Error ? err.message : String(err));
-        });
+        void runtime
+          .pause()
+          .then(async () => {
+            const pc = await runtime.getProgramCounter();
+            setCurrentInstructionOffset(pc ?? null);
+          })
+          .catch((err) => {
+            console.error(err);
+            setError(err instanceof Error ? err.message : String(err));
+          });
       } else {
         void runtime.start().catch((err) => {
           console.error(err);
@@ -246,6 +269,10 @@ function App() {
     setIsStepping(true);
     void runtime
       .stepInstruction()
+      .then(async () => {
+        const pc = await runtime.getProgramCounter();
+        setCurrentInstructionOffset(pc ?? null);
+      })
       .catch((err) => {
         console.error(err);
         setError(err instanceof Error ? err.message : String(err));
@@ -254,6 +281,68 @@ function App() {
         setIsStepping(false);
       });
   }, [setError, stepModeEnabled]);
+
+  const { visibleOffsets, activeOffset } = useMemo(() => {
+    if (!disassembly) {
+      return { visibleOffsets: [] as number[], activeOffset: null };
+    }
+
+    const allOffsets = Object.keys(disassembly)
+      .map((key) => Number.parseInt(key, 10))
+      .filter((value) => Number.isFinite(value))
+      .sort((a, b) => a - b);
+
+    if (allOffsets.length === 0) {
+      return { visibleOffsets: [] as number[], activeOffset: null };
+    }
+
+    const minAddress = allOffsets[0]!;
+    const maxAddress = allOffsets[allOffsets.length - 1]!;
+    let focus = currentInstructionOffset ?? minAddress;
+
+    if (disassembly[focus] === undefined) {
+      let cursor = focus;
+      while (cursor >= minAddress && disassembly[cursor] === undefined) {
+        cursor -= 1;
+      }
+      if (cursor >= minAddress && disassembly[cursor] !== undefined) {
+        focus = cursor;
+      } else {
+        cursor = currentInstructionOffset ?? focus;
+        while (cursor <= maxAddress && disassembly[cursor] === undefined) {
+          cursor += 1;
+        }
+        if (cursor <= maxAddress && disassembly[cursor] !== undefined) {
+          focus = cursor;
+        } else {
+          focus = minAddress;
+        }
+      }
+    }
+
+    const before: number[] = [];
+    let inspect = focus - 1;
+    while (before.length < 10 && inspect >= minAddress) {
+      if (disassembly[inspect] !== undefined) {
+        before.unshift(inspect);
+      }
+      inspect -= 1;
+    }
+
+    const after: number[] = [];
+    inspect = focus + 1;
+    while (after.length < 10 && inspect <= maxAddress) {
+      if (disassembly[inspect] !== undefined) {
+        after.push(inspect);
+      }
+      inspect += 1;
+    }
+
+    return {
+      visibleOffsets: [...before, focus, ...after],
+      activeOffset: focus,
+    };
+  }, [currentInstructionOffset, disassembly]);
 
   return (
     <div className="box-border flex w-full max-w-[720px] flex-col gap-6 px-6 py-10 sm:px-8">
@@ -370,12 +459,60 @@ function App() {
               {disassembly !== null ? (
                 <>
                   <h3 className="mt-6 mb-2 text-sm font-medium">Disassembly</h3>
-                  <textarea
-                    aria-label="ROM disassembly output"
-                    className="h-64 w-full resize-y rounded-md border border-input bg-muted/40 p-3 font-mono text-xs leading-snug text-foreground"
-                    readOnly
-                    value={disassembly}
-                  />
+                  <div className="flex flex-col gap-2">
+                    <div className="overflow-hidden rounded-md border border-input">
+                      <div className="grid grid-cols-[max-content_1fr] gap-x-4 bg-muted/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                        <span>Offset</span>
+                        <span>Instruction</span>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {visibleOffsets.length > 0 ? (
+                          visibleOffsets.map((offset) => {
+                            const instruction = disassembly[offset] ?? "";
+                            const isActive = offset === activeOffset;
+                            const rowClasses = [
+                              "grid grid-cols-[max-content_1fr] items-center gap-x-4 px-3 py-1 text-xs font-mono",
+                              isActive ? "bg-primary/10" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+                            const offsetClasses = [
+                              "text-[11px]",
+                              isActive
+                                ? "font-semibold text-primary"
+                                : "text-muted-foreground",
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+                            const instructionClasses = [
+                              "whitespace-pre-wrap",
+                              isActive ? "font-semibold text-primary" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+                            return (
+                              <div key={offset} className={rowClasses}>
+                                <span className={offsetClasses}>
+                                  {formatAddress(offset)}
+                                </span>
+                                <span className={instructionClasses}>
+                                  {instruction}
+                                </span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="px-3 py-4 text-xs text-muted-foreground">
+                            No disassembly available for this region.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Showing up to 10 instructions before and after the current
+                      program counter.
+                    </p>
+                  </div>
                 </>
               ) : (
                 <div className="mt-4 flex flex-col gap-2">

@@ -159,69 +159,61 @@ export function decodeRamSize(code: number): number {
   }
 }
 
-export function disassembleRom(rom: Uint8Array): string {
+export function disassembleRom(rom: Uint8Array): Record<number, string> {
   if (rom.length <= ENTRY_POINT) {
-    return "";
+    return {};
   }
 
-  const sections: string[][] = [];
+  const listing = new Map<number, string>();
 
-  const entrySection = disassembleRange(
+  disassembleRange(
     rom,
     ENTRY_POINT,
-    Math.min(rom.length, NINTENDO_LOGO_START)
+    Math.min(rom.length, NINTENDO_LOGO_START),
+    listing
   );
-  if (entrySection.length > 0) {
-    sections.push(entrySection);
-  }
 
   if (rom.length > NINTENDO_LOGO_START) {
-    sections.push(["; nintendo logo"]);
+    if (rom.length > NINTENDO_LOGO_START) {
+      listing.set(NINTENDO_LOGO_START, "<Nintendo logo>");
+    }
   }
 
   if (rom.length > HEADER_START) {
-    const headerSection = formatHeaderLines(rom);
-    if (headerSection.length > 0) {
-      sections.push(headerSection);
-    }
+    addHeaderEntries(rom, listing);
   }
 
   if (rom.length > PROGRAM_START) {
-    const programSection = disassembleRange(rom, PROGRAM_START, rom.length);
-    if (programSection.length > 0) {
-      sections.push(programSection);
-    }
+    disassembleRange(rom, PROGRAM_START, rom.length, listing);
   }
 
-  return sections.map((section) => section.join("\n")).join("\n\n");
+  return Object.fromEntries(listing.entries());
 }
 
 function disassembleRange(
   rom: Uint8Array,
   start: number,
-  endExclusive: number
-): string[] {
+  endExclusive: number,
+  target: Map<number, string>
+): void {
   if (start >= endExclusive) {
-    return [];
+    return;
   }
 
-  const lines: string[] = [];
   let pc = start;
 
   while (pc < endExclusive) {
     const instruction = disassembleInstruction(rom, pc);
-    if (pc + instruction.length > endExclusive) {
-      lines.push(...formatDataBytes(rom, pc, endExclusive));
+    const length = instruction.length > 0 ? instruction.length : 1;
+
+    if (pc + length > endExclusive || instruction.length <= 0) {
+      addDataBytes(rom, pc, endExclusive, target);
       break;
     }
 
-    lines.push(
-      `${instruction.listing} ; ${formatAddressRange(pc, instruction.length)}`
-    );
-    pc += instruction.length;
+    target.set(pc, instruction.listing);
+    pc += length;
   }
-
-  return lines;
 }
 
 function disassembleInstruction(
@@ -392,9 +384,10 @@ function formatOperand(meta: OpcodeMeta, operand: OperandState): string {
   return text;
 }
 
-function formatHeaderLines(rom: Uint8Array): string[] {
-  const lines: string[] = [];
-
+function addHeaderEntries(
+  rom: Uint8Array,
+  target: Map<number, string>
+): void {
   for (const field of HEADER_FIELDS) {
     if (field.start >= rom.length) {
       break;
@@ -406,7 +399,7 @@ function formatHeaderLines(rom: Uint8Array): string[] {
       continue;
     }
 
-    const body =
+    const directive =
       field.type === "string"
         ? `db ${formatStringLiteral(bytes)}`
         : `db ${Array.from(bytes, (byte) => formatByte(byte)).join(",")}`;
@@ -421,10 +414,8 @@ function formatHeaderLines(rom: Uint8Array): string[] {
         ? `${commentRange} - ${field.description} (${detail})`
         : `${commentRange} - ${field.description}`;
 
-    lines.push(`${body} ; ${comment}`);
+    target.set(field.start, `${directive} ; ${comment}`);
   }
-
-  return lines;
 }
 
 function formatStringLiteral(bytes: Uint8Array): string {
@@ -487,25 +478,16 @@ function formatMemorySize(size: number): string {
   return `${size} bytes`;
 }
 
-function formatDataBytes(
+function addDataBytes(
   rom: Uint8Array,
   start: number,
-  endExclusive: number
-): string[] {
-  const lines: string[] = [];
+  endExclusive: number,
+  target: Map<number, string>
+): void {
   for (let offset = start; offset < endExclusive; offset += 1) {
     const byte = rom[offset] ?? 0;
-    lines.push(`db ${formatByte(byte)} ; ${formatAddressRange(offset, 1)}`);
+    target.set(offset, `db ${formatByte(byte)}`);
   }
-  return lines;
-}
-
-function formatAddressRange(start: number, length: number): string {
-  if (length <= 1) {
-    return formatAddress(start);
-  }
-  const end = start + length - 1;
-  return `${formatAddress(start)}-${formatAddress(end)}`;
 }
 
 function formatRangeBounds(start: number, end: number): string {
