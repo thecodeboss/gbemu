@@ -166,7 +166,11 @@ export function disassembleRom(rom: Uint8Array): string {
 
   const sections: string[][] = [];
 
-  const entrySection = disassembleRange(rom, ENTRY_POINT, Math.min(rom.length, NINTENDO_LOGO_START));
+  const entrySection = disassembleRange(
+    rom,
+    ENTRY_POINT,
+    Math.min(rom.length, NINTENDO_LOGO_START)
+  );
   if (entrySection.length > 0) {
     sections.push(entrySection);
   }
@@ -192,7 +196,11 @@ export function disassembleRom(rom: Uint8Array): string {
   return sections.map((section) => section.join("\n")).join("\n\n");
 }
 
-function disassembleRange(rom: Uint8Array, start: number, endExclusive: number): string[] {
+function disassembleRange(
+  rom: Uint8Array,
+  start: number,
+  endExclusive: number
+): string[] {
   if (start >= endExclusive) {
     return [];
   }
@@ -207,14 +215,19 @@ function disassembleRange(rom: Uint8Array, start: number, endExclusive: number):
       break;
     }
 
-    lines.push(`${instruction.listing} ; ${formatAddressRange(pc, instruction.length)}`);
+    lines.push(
+      `${instruction.listing} ; ${formatAddressRange(pc, instruction.length)}`
+    );
     pc += instruction.length;
   }
 
   return lines;
 }
 
-function disassembleInstruction(rom: Uint8Array, pc: number): DisassembledInstruction {
+function disassembleInstruction(
+  rom: Uint8Array,
+  pc: number
+): DisassembledInstruction {
   const opcode = rom[pc];
   if (opcode === undefined) {
     return { listing: "", length: 0 };
@@ -249,7 +262,9 @@ function disassembleInstruction(rom: Uint8Array, pc: number): DisassembledInstru
   const operands = readOperandStates(meta, rom, pc + 1, pc);
   const formattedOperands = formatOperands(meta, operands);
   const listing =
-    formattedOperands.length > 0 ? `${meta.mnemonic} ${formattedOperands.join(",")}` : meta.mnemonic;
+    formattedOperands.length > 0
+      ? `${meta.mnemonic} ${formattedOperands.join(",")}`
+      : meta.mnemonic;
 
   return { listing, length: meta.length };
 }
@@ -258,7 +273,7 @@ function readOperandStates(
   meta: OpcodeMeta,
   rom: Uint8Array,
   startOffset: number,
-  pc: number,
+  pc: number
 ): OperandState[] {
   let cursor = startOffset;
 
@@ -342,9 +357,9 @@ function formatOperand(meta: OpcodeMeta, operand: OperandState): string {
       if (descriptor.immediate) {
         return formatWord(rawValue ?? 0);
       }
-      return `(${formatWord(rawValue ?? 0)})`;
+      return `[${formatWord(rawValue ?? 0)}]`;
     case "a8":
-      return `($FF00+${formatByte(rawValue ?? 0)})`;
+      return `[$FF${formatByte(rawValue ?? 0).slice(1)}]`;
     case "e8":
       if (meta.mnemonic === "jr" && typeof relativeTarget === "number") {
         return formatWord(relativeTarget);
@@ -396,7 +411,10 @@ function formatHeaderLines(rom: Uint8Array): string[] {
         ? `db ${formatStringLiteral(bytes)}`
         : `db ${Array.from(bytes, (byte) => formatByte(byte)).join(",")}`;
 
-    const commentRange = formatRangeBounds(field.start, field.start + bytes.length - 1);
+    const commentRange = formatRangeBounds(
+      field.start,
+      field.start + bytes.length - 1
+    );
     const detail = field.detail?.(bytes) ?? null;
     const comment =
       detail !== null
@@ -410,11 +428,11 @@ function formatHeaderLines(rom: Uint8Array): string[] {
 }
 
 function formatStringLiteral(bytes: Uint8Array): string {
-  let result = "\"";
+  let result = '"';
 
   for (const byte of bytes) {
     if (byte === 0x22) {
-      result += "\\\"";
+      result += '\\"';
     } else if (byte === 0x5c) {
       result += "\\\\";
     } else if (byte === 0x0a) {
@@ -432,7 +450,7 @@ function formatStringLiteral(bytes: Uint8Array): string {
     }
   }
 
-  result += "\"";
+  result += '"';
   return result;
 }
 
@@ -469,7 +487,11 @@ function formatMemorySize(size: number): string {
   return `${size} bytes`;
 }
 
-function formatDataBytes(rom: Uint8Array, start: number, endExclusive: number): string[] {
+function formatDataBytes(
+  rom: Uint8Array,
+  start: number,
+  endExclusive: number
+): string[] {
   const lines: string[] = [];
   for (let offset = start; offset < endExclusive; offset += 1) {
     const byte = rom[offset] ?? 0;
