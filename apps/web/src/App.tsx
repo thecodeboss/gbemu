@@ -23,9 +23,32 @@ import { Button } from "@/components/ui/button";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
+function formatHexByte(value: number): string {
+  const hex = value.toString(16).toUpperCase().padStart(2, "0");
+  return `0x${hex} (${value})`;
+}
+
+function formatByteSize(size: number): string {
+  if (!size) {
+    return "0 B";
+  }
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let value = size;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  const rounded =
+    value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1);
+  return `${rounded} ${units[unitIndex]} (${size.toLocaleString()} bytes)`;
+}
+
 function App() {
   const [phase, setPhase] = useState<AppPhase>("menu");
   const [romName, setRomName] = useState<string | null>(null);
+  const [romInfo, setRomInfo] =
+    useState<Awaited<ReturnType<RuntimeClient["getRomInfo"]>>>(null);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
@@ -100,6 +123,7 @@ function App() {
       }
 
       setError(null);
+      setRomInfo(null);
       setRomName(file.name);
       setPhase("loading");
 
@@ -111,6 +135,8 @@ function App() {
         await runtime.pause();
         await runtime.reset({ hard: true });
         await runtime.loadRom(rom);
+        const info = await runtime.getRomInfo();
+        setRomInfo(info);
         await runtime.start();
 
         setPhase("running");
@@ -145,6 +171,7 @@ function App() {
     setPhase("menu");
     setError(null);
     setRomName(null);
+    setRomInfo(null);
   }, []);
 
   return (
@@ -202,6 +229,40 @@ function App() {
             </Button>
           </CardAction>
         </CardFooter>
+      </Card>
+
+      <Card hidden={phase !== "running"}>
+        <CardHeader>
+          <CardTitle>ROM Debug Info</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {romInfo ? (
+            <dl className="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
+              <dt className="font-medium text-muted-foreground">Title</dt>
+              <dd>{romInfo.title}</dd>
+              <dt className="font-medium text-muted-foreground">
+                Cartridge Type
+              </dt>
+              <dd>{formatHexByte(romInfo.cartridgeType)}</dd>
+              <dt className="font-medium text-muted-foreground">ROM Size</dt>
+              <dd>{formatByteSize(romInfo.romSize)}</dd>
+              <dt className="font-medium text-muted-foreground">RAM Size</dt>
+              <dd>{formatByteSize(romInfo.ramSize)}</dd>
+              <dt className="font-medium text-muted-foreground">CGB Flag</dt>
+              <dd>{formatHexByte(romInfo.cgbFlag)}</dd>
+              <dt className="font-medium text-muted-foreground">SGB Flag</dt>
+              <dd>{formatHexByte(romInfo.sgbFlag)}</dd>
+              <dt className="font-medium text-muted-foreground">
+                Destination Code
+              </dt>
+              <dd>{formatHexByte(romInfo.destinationCode)}</dd>
+            </dl>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              ROM metadata unavailable.
+            </p>
+          )}
+        </CardContent>
       </Card>
 
       <Card hidden={phase !== "error"}>
