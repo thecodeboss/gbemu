@@ -7,12 +7,13 @@ import type {
   Emulator,
   EmulatorCallbacks,
   EmulatorOptions,
-  EmulatorRomInfo,
   EmulatorStateSnapshot,
   SavePayload,
 } from "./emulator.js";
 import type { Mbc, MbcFactory, MbcType } from "./mbc.js";
 import type { Framebuffer, Ppu, PpuLcdStatus } from "./ppu.js";
+import type { EmulatorRomInfo } from "./rom.js";
+import { parseRomInfo } from "./rom.js";
 
 const SCREEN_WIDTH = 160;
 const SCREEN_HEIGHT = 144;
@@ -548,84 +549,5 @@ export function createStubEmulator(
     mbcFactory,
     audioBufferSize: options.audioBufferSize,
   });
-
   return emulator;
-}
-
-function parseRomInfo(rom: Uint8Array): EmulatorRomInfo | null {
-  if (rom.length < 0x150) {
-    return null;
-  }
-
-  const titleBytes = rom.slice(0x134, 0x144);
-  const decoder = new TextDecoder("ascii");
-  const rawTitle = decoder.decode(titleBytes);
-  const title = rawTitle.replace(/\0+$/u, "").trim() || "Untitled";
-
-  const cartridgeType = rom[0x147] ?? 0;
-  const romSizeCode = rom[0x148] ?? 0;
-  const ramSizeCode = rom[0x149] ?? 0;
-  const destinationCode = rom[0x14a] ?? 0;
-  const cgbFlag = rom[0x143] ?? 0;
-  const sgbFlag = rom[0x146] ?? 0;
-
-  return {
-    title,
-    cartridgeType,
-    romSize: decodeRomSize(romSizeCode),
-    ramSize: decodeRamSize(ramSizeCode),
-    cgbFlag,
-    sgbFlag,
-    destinationCode,
-  };
-}
-
-function decodeRomSize(code: number): number {
-  switch (code) {
-    case 0x00:
-      return 32 * 1024;
-    case 0x01:
-      return 64 * 1024;
-    case 0x02:
-      return 128 * 1024;
-    case 0x03:
-      return 256 * 1024;
-    case 0x04:
-      return 512 * 1024;
-    case 0x05:
-      return 1 * 1024 * 1024;
-    case 0x06:
-      return 2 * 1024 * 1024;
-    case 0x07:
-      return 4 * 1024 * 1024;
-    case 0x08:
-      return 8 * 1024 * 1024;
-    case 0x52:
-      return 1_179_648; // 72 banks.
-    case 0x53:
-      return 1_310_720; // 80 banks.
-    case 0x54:
-      return 1_572_864; // 96 banks.
-    default:
-      return 0;
-  }
-}
-
-function decodeRamSize(code: number): number {
-  switch (code) {
-    case 0x00:
-      return 0;
-    case 0x01:
-      return 2 * 1024;
-    case 0x02:
-      return 8 * 1024;
-    case 0x03:
-      return 32 * 1024;
-    case 0x04:
-      return 128 * 1024;
-    case 0x05:
-      return 64 * 1024;
-    default:
-      return 0;
-  }
 }

@@ -1,9 +1,12 @@
-import type { Cpu } from "./cpu.js";
 import type { Ppu } from "./ppu.js";
 import type { Apu } from "./apu.js";
 import type { SystemBus } from "./bus.js";
 import type { MbcFactory } from "./mbc.js";
 import type { Clock } from "./clock.js";
+import type { EmulatorRomInfo } from "./rom.js";
+import type { Cpu } from "./cpu.js";
+
+export type { EmulatorRomInfo } from "./rom.js";
 
 export interface VideoFrame {
   buffer: Uint8ClampedArray;
@@ -39,16 +42,6 @@ export interface EmulatorOptions {
   mbcFactory: MbcFactory;
   bootRom?: Uint8Array;
   audioBufferSize?: number;
-}
-
-export interface EmulatorRomInfo {
-  title: string;
-  cartridgeType: number;
-  romSize: number;
-  ramSize: number;
-  cgbFlag: number;
-  sgbFlag: number;
-  destinationCode: number;
 }
 
 export interface EmulatorStateSnapshot {

@@ -1,9 +1,5 @@
-import type {
-  AudioBufferChunk,
-  EmulatorRomInfo,
-  SavePayload,
-  VideoFrame,
-} from "./emulator.js";
+import type { AudioBufferChunk, SavePayload, VideoFrame } from "./emulator.js";
+import type { EmulatorRomInfo } from "./rom.js";
 
 export interface EmulatorWorkerRequestMap {
   loadRom: { rom: Uint8Array };
