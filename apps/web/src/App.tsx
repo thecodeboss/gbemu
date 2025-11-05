@@ -14,6 +14,28 @@ import {
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
+const panelClassName =
+  "flex flex-col gap-6 rounded-[1.25rem] border border-white/5 bg-[rgba(17,21,33,0.9)] p-8 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-[18px] max-sm:px-5 max-sm:py-7";
+const headingClassName =
+  "m-0 text-[1.75rem] font-bold tracking-[-0.01em] max-sm:text-[1.45rem]";
+const descriptionClassName =
+  "m-0 text-base leading-relaxed text-slate-100/80";
+const highlightClassName = "font-semibold text-sky-400";
+const primaryButtonClassName =
+  "inline-flex items-center justify-center rounded-full border border-transparent bg-[linear-gradient(135deg,#5468ff,#8892ff)] px-7 py-3 text-base font-semibold tracking-[0.01em] text-white transition duration-150 ease-out hover:-translate-y-px hover:shadow-[0_12px_30px_rgba(84,104,255,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:brightness-95 active:shadow-none max-sm:w-full";
+const subtleButtonClassName =
+  "inline-flex items-center justify-center rounded-full border border-transparent bg-white/10 px-5 py-2.5 text-base font-semibold tracking-[0.01em] text-white/90 transition duration-150 ease-out hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:brightness-95 max-sm:w-full";
+const actionsClassName = "flex justify-center";
+const headerClassName =
+  "flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch";
+const romInfoClassName = "flex flex-col gap-1 text-left";
+const romLabelClassName =
+  "text-xs uppercase tracking-[0.18em] text-white/60";
+const romValueClassName =
+  "text-base font-semibold text-white/95 [word-break:break-word]";
+const screenClassName =
+  "mx-auto block aspect-[160/144] w-full max-w-[480px] rounded-2xl border-2 border-white/10 bg-black shadow-[inset_0_0_0_1px_rgba(0,0,0,0.6)] [image-rendering:pixelated]";
+
 function App() {
   const [phase, setPhase] = useState<AppPhase>("menu");
   const [romName, setRomName] = useState<string | null>(null);
@@ -139,48 +161,46 @@ function App() {
   }, []);
 
   return (
-    <div className="app">
+    <div className="box-border flex w-full max-w-[720px] flex-col gap-6 px-6 py-10 sm:px-8">
       <input
         ref={fileInputRef}
         type="file"
         accept=".gb,.gbc,.bin,application/octet-stream"
         onChange={handleFileInputChange}
-        className="file-input"
+        className="hidden"
       />
 
-      <section className="panel panel--menu" data-visible={phase === "menu"}>
-        <h1 className="panel__title">Game Boy Emulator</h1>
-        <p className="panel__description">
+      <section className={panelClassName} hidden={phase !== "menu"}>
+        <h1 className={headingClassName}>Game Boy Emulator</h1>
+        <p className={descriptionClassName}>
           Load a Game Boy or Game Boy Color ROM to boot the placeholder system.
         </p>
-        <button type="button" className="button" onClick={openFilePicker}>
+        <button
+          type="button"
+          className={primaryButtonClassName}
+          onClick={openFilePicker}
+        >
           Select ROM
         </button>
       </section>
 
-      <section
-        className="panel panel--status"
-        data-visible={phase === "loading"}
-      >
-        <h2 className="panel__title">Loading…</h2>
-        <p className="panel__description">
-          Preparing <span className="panel__highlight">{romName ?? "ROM"}</span>
+      <section className={panelClassName} hidden={phase !== "loading"}>
+        <h2 className={headingClassName}>Loading…</h2>
+        <p className={descriptionClassName}>
+          Preparing <span className={highlightClassName}>{romName ?? "ROM"}</span>
           .
         </p>
       </section>
 
-      <section
-        className="panel panel--player"
-        data-visible={phase === "running"}
-      >
-        <header className="player__header">
-          <div className="player__rom">
-            <span className="player__label">ROM</span>
-            <span className="player__value">{romName ?? "Untitled"}</span>
+      <section className={panelClassName} hidden={phase !== "running"}>
+        <header className={headerClassName}>
+          <div className={romInfoClassName}>
+            <span className={romLabelClassName}>ROM</span>
+            <span className={romValueClassName}>{romName ?? "Untitled"}</span>
           </div>
           <button
             type="button"
-            className="button button--subtle"
+            className={subtleButtonClassName}
             onClick={openFilePicker}
           >
             Change ROM
@@ -188,21 +208,25 @@ function App() {
         </header>
         <canvas
           ref={canvasRef}
-          className="player__screen"
+          className={screenClassName}
           width={DEFAULT_CANVAS_WIDTH}
           height={DEFAULT_CANVAS_HEIGHT}
         />
       </section>
 
-      <section className="panel panel--error" data-visible={phase === "error"}>
-        <h2 className="panel__title">Something went wrong</h2>
-        <p className="panel__description">
+      <section className={panelClassName} hidden={phase !== "error"}>
+        <h2 className={headingClassName}>Something went wrong</h2>
+        <p className={descriptionClassName}>
           {error
             ? error
             : "The ROM could not be loaded. Please verify the file and try again."}
         </p>
-        <div className="panel__actions">
-          <button type="button" className="button" onClick={handleReturnToMenu}>
+        <div className={actionsClassName}>
+          <button
+            type="button"
+            className={primaryButtonClassName}
+            onClick={handleReturnToMenu}
+          >
             Back to menu
           </button>
         </div>
