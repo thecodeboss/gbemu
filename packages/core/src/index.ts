@@ -7,4 +7,3 @@ export * from "./clock.js";
 export * from "./emulator.js";
 export * from "./rom.js";
 export * from "./runtime.js";
-export * from "./stub-emulator.js";

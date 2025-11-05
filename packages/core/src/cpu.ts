@@ -40,20 +40,70 @@ export type InterruptType =
   | "serial"
   | "joypad";
 
-export interface Cpu {
-  readonly state: CpuState;
-  reset(): void;
-  step(): number;
-  requestInterrupt(type: InterruptType): void;
-  clearInterrupt(type: InterruptType): void;
-  setDoubleSpeedMode(enabled: boolean): void;
-  connectBus(bus: CpuBusPort): void;
-}
-
 export interface CpuBusPort {
   readByte(address: number): number;
   writeByte(address: number, value: number): void;
   readWord(address: number): number;
   writeWord(address: number, value: number): void;
   dmaTransfer(source: number): void;
+}
+
+function createDefaultCpuState(): CpuState {
+  return {
+    registers: {
+      a: 0,
+      f: 0,
+      b: 0,
+      c: 0,
+      d: 0,
+      e: 0,
+      h: 0,
+      l: 0,
+      sp: 0xfffe,
+      pc: 0x0100,
+    },
+    flags: {
+      zero: false,
+      subtract: false,
+      halfCarry: false,
+      carry: false,
+    },
+    ime: false,
+    halted: false,
+    stopped: false,
+    cycles: 0,
+  };
+}
+
+export class Cpu {
+  state: CpuState = createDefaultCpuState();
+  #doubleSpeed = false;
+  #bus: CpuBusPort | null = null;
+
+  reset(): void {
+    this.state = createDefaultCpuState();
+    this.#doubleSpeed = false;
+  }
+
+  step(): number {
+    const cycles = this.#doubleSpeed ? 8 : 4;
+    this.state.cycles += cycles;
+    return cycles;
+  }
+
+  requestInterrupt(_type: InterruptType): void {
+    // Intentionally left blank for stub implementation.
+  }
+
+  clearInterrupt(_type: InterruptType): void {
+    // Intentionally left blank for stub implementation.
+  }
+
+  setDoubleSpeedMode(enabled: boolean): void {
+    this.#doubleSpeed = enabled;
+  }
+
+  connectBus(bus: CpuBusPort): void {
+    this.#bus = bus;
+  }
 }

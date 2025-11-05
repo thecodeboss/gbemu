@@ -5,9 +5,20 @@ export interface AudioSample {
   right: number;
 }
 
-export interface Apu {
-  connectBus(bus: SystemBus): void;
-  reset(): void;
-  tick(cycles: number): void;
-  flushSamples(): AudioSample[];
+export class Apu {
+  connectBus(_bus: SystemBus): void {
+    // No-op for stub.
+  }
+
+  reset(): void {
+    // Nothing to reset.
+  }
+
+  tick(_cycles: number): void {
+    // No timing logic in stub.
+  }
+
+  flushSamples(): AudioSample[] {
+    return [];
+  }
 }
