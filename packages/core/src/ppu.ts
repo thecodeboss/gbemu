@@ -22,7 +22,7 @@ export class Ppu {
     width: DEFAULT_SCREEN_WIDTH,
     height: DEFAULT_SCREEN_HEIGHT,
     data: new Uint8ClampedArray(
-      DEFAULT_SCREEN_WIDTH * DEFAULT_SCREEN_HEIGHT * 4
+      DEFAULT_SCREEN_WIDTH * DEFAULT_SCREEN_HEIGHT * 4,
     ),
   };
 

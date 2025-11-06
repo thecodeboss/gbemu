@@ -26,7 +26,7 @@ export interface EmulatorWorkerEventMap {
 export interface EmulatorWorkerPort {
   postMessage<T extends keyof EmulatorWorkerRequestMap>(
     type: T,
-    payload: EmulatorWorkerRequestMap[T]
+    payload: EmulatorWorkerRequestMap[T],
   ): void;
   terminate(): void;
 }
@@ -34,10 +34,10 @@ export interface EmulatorWorkerPort {
 export interface EmulatorWorkerClient {
   onMessage<T extends keyof EmulatorWorkerEventMap>(
     type: T,
-    handler: (payload: EmulatorWorkerEventMap[T]) => void
+    handler: (payload: EmulatorWorkerEventMap[T]) => void,
   ): void;
   offMessage<T extends keyof EmulatorWorkerEventMap>(
     type: T,
-    handler: (payload: EmulatorWorkerEventMap[T]) => void
+    handler: (payload: EmulatorWorkerEventMap[T]) => void,
   ): void;
 }

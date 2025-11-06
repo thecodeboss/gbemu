@@ -47,14 +47,14 @@ export class Mbc {
     this.romBanks = [
       new InMemoryBank(
         { start: 0x0000, end: Math.max(0, romSize - 1) },
-        romSize || 0x4000
+        romSize || 0x4000,
       ),
     ];
     this.ramBanks = ramSize
       ? [
           new InMemoryBank(
             { start: 0xa000, end: 0xa000 + Math.max(0, ramSize - 1) },
-            ramSize
+            ramSize,
           ),
         ]
       : [];

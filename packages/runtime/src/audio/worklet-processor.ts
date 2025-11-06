@@ -48,7 +48,7 @@ class EmulatorAudioWorkletProcessor extends AudioWorkletProcessor {
   process(
     _inputs: Float32Array[][],
     outputs: Float32Array[][],
-    _parameters: Record<string, Float32Array>
+    _parameters: Record<string, Float32Array>,
   ): boolean {
     const output = outputs[0];
     if (!output) {

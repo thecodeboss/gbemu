@@ -20,7 +20,7 @@ export interface EmulatorAudioNodeOptions {
 }
 
 export async function createEmulatorAudioNode(
-  options: EmulatorAudioNodeOptions
+  options: EmulatorAudioNodeOptions,
 ): Promise<EmulatorAudioNode> {
   const { context, workletModuleUrl, outputNode } = options;
   await context.audioWorklet.addModule(workletModuleUrl);
@@ -46,7 +46,7 @@ export async function createEmulatorAudioNode(
           frames: chunk.samples,
           sampleRate: chunk.sampleRate,
         },
-        [transferable]
+        [transferable],
       );
     },
     flush() {

@@ -170,7 +170,7 @@ export function disassembleRom(rom: Uint8Array): Record<number, string> {
     rom,
     ENTRY_POINT,
     Math.min(rom.length, NINTENDO_LOGO_START),
-    listing
+    listing,
   );
 
   if (rom.length > NINTENDO_LOGO_START) {
@@ -194,7 +194,7 @@ function disassembleRange(
   rom: Uint8Array,
   start: number,
   endExclusive: number,
-  target: Map<number, string>
+  target: Map<number, string>,
 ): void {
   if (start >= endExclusive) {
     return;
@@ -218,7 +218,7 @@ function disassembleRange(
 
 function disassembleInstruction(
   rom: Uint8Array,
-  pc: number
+  pc: number,
 ): DisassembledInstruction {
   const opcode = rom[pc];
   if (opcode === undefined) {
@@ -265,7 +265,7 @@ function readOperandStates(
   meta: OpcodeMeta,
   rom: Uint8Array,
   startOffset: number,
-  pc: number
+  pc: number,
 ): OperandState[] {
   let cursor = startOffset;
 
@@ -403,7 +403,7 @@ function addHeaderEntries(rom: Uint8Array, target: Map<number, string>): void {
 
     const commentRange = formatRangeBounds(
       field.start,
-      field.start + bytes.length - 1
+      field.start + bytes.length - 1,
     );
     const detail = field.detail?.(bytes) ?? null;
     const comment =
@@ -479,7 +479,7 @@ function addDataBytes(
   rom: Uint8Array,
   start: number,
   endExclusive: number,
-  target: Map<number, string>
+  target: Map<number, string>,
 ): void {
   for (let offset = start; offset < endExclusive; offset += 1) {
     const byte = rom[offset] ?? 0;

@@ -28,7 +28,7 @@ export interface EmulatorFactoryContext {
 }
 
 export type EmulatorFactory = (
-  context: EmulatorFactoryContext
+  context: EmulatorFactoryContext,
 ) => Promise<Emulator> | Emulator;
 
 export interface EmulatorWorkerApi {
@@ -61,7 +61,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
 
     if (!callbacks) {
       throw new Error(
-        "Worker runtime must be initialized before using the emulator."
+        "Worker runtime must be initialized before using the emulator.",
       );
     }
 
@@ -154,7 +154,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
           battery: batteryCopy,
           rtc: rtcCopy,
         },
-        transferables
+        transferables,
       );
     },
 
@@ -171,7 +171,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
 }
 
 function createEmulatorCallbacks(
-  callbacks: Remote<WorkerCallbacks>
+  callbacks: Remote<WorkerCallbacks>,
 ): EmulatorCallbacks {
   return {
     onVideoFrame(frame: VideoFrame) {
@@ -183,8 +183,8 @@ function createEmulatorCallbacks(
             height: frame.height,
             buffer: bufferCopy,
           },
-          [bufferCopy.buffer]
-        )
+          [bufferCopy.buffer],
+        ),
       );
     },
     onAudioSamples(chunk: AudioBufferChunk) {
@@ -195,8 +195,8 @@ function createEmulatorCallbacks(
             samples: samplesCopy,
             sampleRate: chunk.sampleRate,
           },
-          [samplesCopy.buffer]
-        )
+          [samplesCopy.buffer],
+        ),
       );
     },
     onSaveData(payload: SavePayload) {
@@ -212,8 +212,8 @@ function createEmulatorCallbacks(
             battery: batteryCopy,
             rtc: rtcCopy,
           },
-          transferables
-        )
+          transferables,
+        ),
       );
     },
     onLog(message: string) {

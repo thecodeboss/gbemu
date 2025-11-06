@@ -57,7 +57,7 @@ function App() {
     useState<Awaited<ReturnType<RuntimeClient["getRomInfo"]>>>(null);
   const [error, setError] = useState<string | null>(null);
   const [disassembly, setDisassembly] = useState<Record<number, string> | null>(
-    null
+    null,
   );
   const [disassemblyError, setDisassemblyError] = useState<string | null>(null);
   const [isDisassembling, setIsDisassembling] = useState(false);
@@ -115,14 +115,14 @@ function App() {
         new Worker(
           new URL(
             "@gbemu/runtime/src/worker/emulator-worker.ts",
-            import.meta.url
+            import.meta.url,
           ),
-          { type: "module" }
+          { type: "module" },
         ),
       audioContext: await ensureAudioContext(),
       audioWorkletModuleUrl: new URL(
         "@gbemu/runtime/src/audio/worklet-processor.ts",
-        import.meta.url
+        import.meta.url,
       ),
       canvas,
       autoPersistSaves: false,
@@ -170,7 +170,7 @@ function App() {
         setPhase("error");
       }
     },
-    [ensureRuntimeClient, stepModeEnabled]
+    [ensureRuntimeClient, stepModeEnabled],
   );
 
   const handleFileInputChange = useCallback(
@@ -179,7 +179,7 @@ function App() {
       void handleRomSelection(file ?? null);
       event.target.value = "";
     },
-    [handleRomSelection]
+    [handleRomSelection],
   );
 
   const openFilePicker = useCallback(() => {
@@ -222,7 +222,7 @@ function App() {
       } catch (err) {
         console.error(err);
         setDisassemblyError(
-          err instanceof Error ? err.message : "Failed to disassemble the ROM."
+          err instanceof Error ? err.message : "Failed to disassemble the ROM.",
         );
       } finally {
         setIsDisassembling(false);
@@ -256,7 +256,7 @@ function App() {
         });
       }
     },
-    [setError]
+    [setError],
   );
 
   const handleStepInstruction = useCallback(() => {

@@ -14,7 +14,7 @@ export class Canvas2DRenderer {
 
   constructor(
     canvas: HTMLCanvasElement,
-    options: Canvas2DRendererOptions = {}
+    options: Canvas2DRendererOptions = {},
   ) {
     const width = options.width ?? DEFAULT_CANVAS_WIDTH;
     const height = options.height ?? DEFAULT_CANVAS_HEIGHT;

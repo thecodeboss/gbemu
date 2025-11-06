@@ -5,15 +5,18 @@ Game Boy / Game Boy Color emulator project structured as a pnpm workspace. The r
 The web UI launches the emulator inside a dedicated Web Worker via Comlink, so the main thread stays focused on rendering and input while the worker handles emulation, audio, and save events.
 
 ## Prerequisites
+
 - Node.js 20+
 - `pnpm` 10 (see `packageManager` in `package.json`)
 
 ## Install
+
 ```bash
 pnpm install
 ```
 
 ## Run
+
 - Start the web UI (opens Vite dev server):
   ```bash
   pnpm --filter @gbemu/web dev

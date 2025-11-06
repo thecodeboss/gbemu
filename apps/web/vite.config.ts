@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://vite.dev/config/
 const runtimeRoot = fileURLToPath(
-  new URL("../../packages/runtime/", import.meta.url)
+  new URL("../../packages/runtime/", import.meta.url),
 );
 
 export default defineConfig({

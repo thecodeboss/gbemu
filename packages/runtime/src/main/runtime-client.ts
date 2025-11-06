@@ -44,7 +44,7 @@ export interface RuntimeClient {
 }
 
 export async function createRuntimeClient(
-  options: RuntimeClientOptions
+  options: RuntimeClientOptions,
 ): Promise<RuntimeClient> {
   const worker = options.createWorker();
   const workerEndpoint = Comlink.wrap<EmulatorWorkerApi>(worker);
@@ -94,14 +94,14 @@ export async function createRuntimeClient(
         callbacksPort: callbackChannel.port2,
         audioBufferSize: options.audioBufferSize,
       },
-      [callbackChannel.port2]
-    )
+      [callbackChannel.port2],
+    ),
   );
 
   async function loadRom(rom: Uint8Array): Promise<void> {
     const romCopy = rom.slice();
     await workerEndpoint.loadRom(
-      Comlink.transfer({ rom: romCopy }, [romCopy.buffer])
+      Comlink.transfer({ rom: romCopy }, [romCopy.buffer]),
     );
     if (options.autoPersistSaves) {
       await loadPersistentSave();
@@ -136,8 +136,8 @@ export async function createRuntimeClient(
             rtc: rtcCopy,
           },
         },
-        transferables
-      )
+        transferables,
+      ),
     );
   }
 

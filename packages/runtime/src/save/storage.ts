@@ -13,7 +13,7 @@ export interface SaveStorageAdapter {
 }
 
 export function serializeSavePayload(
-  payload: SavePayload
+  payload: SavePayload,
 ): SerializedSavePayload {
   return {
     battery: encodeBytes(payload.battery),
@@ -23,7 +23,7 @@ export function serializeSavePayload(
 }
 
 export function deserializeSavePayload(
-  serialized: SerializedSavePayload
+  serialized: SerializedSavePayload,
 ): SavePayload {
   return {
     battery: decodeBytes(serialized.battery),

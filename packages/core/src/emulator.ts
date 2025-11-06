@@ -112,7 +112,7 @@ export class Emulator {
     this.clock.setSpeed(1);
     this.#frameCount = 0;
     this.#callbacks?.onLog?.(
-      `Loaded ROM ${this.#romInfo?.title ?? "(untitled)"}`
+      `Loaded ROM ${this.#romInfo?.title ?? "(untitled)"}`,
     );
     this.#emitVideoFrame();
     this.#emitAudioChunk();
