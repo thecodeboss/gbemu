@@ -1,15 +1,15 @@
-import type { EmulatorRomInfo, SavePayload } from "@gbemu/core";
+import { EmulatorRomInfo, SavePayload } from "@gbemu/core";
 import * as Comlink from "comlink";
 import { createEmulatorAudioNode } from "../audio/node.js";
-import type { EmulatorAudioNode } from "../audio/node.js";
+import { EmulatorAudioNode } from "../audio/node.js";
 import { Canvas2DRenderer } from "../video/canvas2d-renderer.js";
-import type { Canvas2DRendererOptions } from "../video/canvas2d-renderer.js";
+import { Canvas2DRendererOptions } from "../video/canvas2d-renderer.js";
 import {
   deserializeSavePayload,
   serializeSavePayload,
 } from "../save/storage.js";
-import type { SaveStorageAdapter } from "../save/storage.js";
-import type { EmulatorWorkerApi, WorkerCallbacks } from "../worker/index.js";
+import { SaveStorageAdapter } from "../save/storage.js";
+import { EmulatorWorkerApi, WorkerCallbacks } from "../worker/index.js";
 
 export interface RuntimeClientOptions {
   createWorker(): Worker;

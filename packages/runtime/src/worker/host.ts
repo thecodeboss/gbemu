@@ -1,4 +1,4 @@
-import type {
+import {
   AudioBufferChunk,
   Emulator,
   EmulatorCallbacks,
@@ -7,7 +7,7 @@ import type {
   VideoFrame,
 } from "@gbemu/core";
 import * as Comlink from "comlink";
-import type { Remote } from "comlink";
+import { Remote } from "comlink";
 
 export interface WorkerCallbacks {
   handleVideoFrame(frame: VideoFrame): Promise<void> | void;

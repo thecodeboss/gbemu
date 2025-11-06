@@ -3,7 +3,7 @@ import { Apu } from "./apu.js";
 import { SystemBus } from "./bus.js";
 import { Mbc, MbcFactory } from "./mbc.js";
 import { Clock } from "./clock.js";
-import type { EmulatorRomInfo } from "./rom.js";
+import { EmulatorRomInfo } from "./rom.js";
 import { disassembleRom as renderDisassembly, parseRomInfo } from "./rom.js";
 import { Cpu } from "./cpu.js";
 

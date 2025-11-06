@@ -1,4 +1,4 @@
-import type { AudioBufferChunk } from "@gbemu/core";
+import { AudioBufferChunk } from "@gbemu/core";
 import {
   AUDIO_WORKLET_OUTPUT_CHANNELS,
   AUDIO_WORKLET_PROCESSOR_ID,

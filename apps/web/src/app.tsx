@@ -1,16 +1,16 @@
 import {
+  ChangeEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
 } from "react";
 import {
-  createRuntimeClient,
   DEFAULT_CANVAS_HEIGHT,
   DEFAULT_CANVAS_WIDTH,
-  type RuntimeClient,
+  RuntimeClient,
+  createRuntimeClient,
 } from "@gbemu/runtime";
 import {
   Card,
@@ -56,8 +56,9 @@ function App() {
   const [romInfo, setRomInfo] =
     useState<Awaited<ReturnType<RuntimeClient["getRomInfo"]>>>(null);
   const [error, setError] = useState<string | null>(null);
-  const [disassembly, setDisassembly] =
-    useState<Record<number, string> | null>(null);
+  const [disassembly, setDisassembly] = useState<Record<number, string> | null>(
+    null
+  );
   const [disassemblyError, setDisassemblyError] = useState<string | null>(null);
   const [isDisassembling, setIsDisassembling] = useState(false);
   const [stepModeEnabled, setStepModeEnabled] = useState(true);

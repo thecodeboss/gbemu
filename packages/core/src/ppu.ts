@@ -1,4 +1,4 @@
-import type { SystemBus } from "./bus.js";
+import { SystemBus } from "./bus.js";
 
 export const DEFAULT_SCREEN_WIDTH = 160;
 export const DEFAULT_SCREEN_HEIGHT = 144;

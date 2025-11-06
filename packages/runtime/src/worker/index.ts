@@ -1,5 +1,5 @@
 import * as Comlink from "comlink";
-import type { EmulatorFactory } from "./host.js";
+import { EmulatorFactory } from "./host.js";
 import { createWorkerHost } from "./host.js";
 
 export function initializeEmulatorWorker(factory: EmulatorFactory): void {

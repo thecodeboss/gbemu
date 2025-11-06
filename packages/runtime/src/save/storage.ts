@@ -1,4 +1,4 @@
-import type { SavePayload } from "@gbemu/core";
+import { SavePayload } from "@gbemu/core";
 
 export interface SerializedSavePayload {
   battery: string;
@@ -12,7 +12,9 @@ export interface SaveStorageAdapter {
   clear(): Promise<void>;
 }
 
-export function serializeSavePayload(payload: SavePayload): SerializedSavePayload {
+export function serializeSavePayload(
+  payload: SavePayload
+): SerializedSavePayload {
   return {
     battery: encodeBytes(payload.battery),
     rtc: payload.rtc ? encodeBytes(payload.rtc) : undefined,

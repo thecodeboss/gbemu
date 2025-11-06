@@ -1,4 +1,4 @@
-import type { AddressRange, MemoryBank } from "./bus.js";
+import { AddressRange, MemoryBank } from "./bus.js";
 
 export type MbcType =
   | "romOnly"

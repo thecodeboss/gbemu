@@ -1,4 +1,4 @@
-import type { SystemBus } from "./bus.js";
+import { SystemBus } from "./bus.js";
 
 export interface AudioSample {
   left: number;

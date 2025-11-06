@@ -1,8 +1,8 @@
 import {
   CB_PREFIXED_OPCODE_TABLE,
   UNPREFIXED_OPCODE_TABLE,
-  type OpcodeMeta,
-  type OpcodeOperandMeta,
+  OpcodeMeta,
+  OpcodeOperandMeta,
 } from "./opcode-tables.js";
 
 export interface EmulatorRomInfo {
@@ -369,7 +369,7 @@ function formatOperand(meta: OpcodeMeta, operand: OperandState): string {
     return name.toLowerCase();
   }
 
-  let text = name.toLowerCase();
+  const text = name.toLowerCase();
 
   if (!descriptor.immediate) {
     if (descriptor.increment) {
@@ -384,10 +384,7 @@ function formatOperand(meta: OpcodeMeta, operand: OperandState): string {
   return text;
 }
 
-function addHeaderEntries(
-  rom: Uint8Array,
-  target: Map<number, string>
-): void {
+function addHeaderEntries(rom: Uint8Array, target: Map<number, string>): void {
   for (const field of HEADER_FIELDS) {
     if (field.start >= rom.length) {
       break;

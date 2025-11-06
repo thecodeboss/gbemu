@@ -78,7 +78,6 @@ function createDefaultCpuState(): CpuState {
 export class Cpu {
   state: CpuState = createDefaultCpuState();
   #doubleSpeed = false;
-  #bus: CpuBusPort | null = null;
 
   reset(): void {
     this.state = createDefaultCpuState();
@@ -105,7 +104,7 @@ export class Cpu {
     this.#doubleSpeed = enabled;
   }
 
-  connectBus(bus: CpuBusPort): void {
-    this.#bus = bus;
+  connectBus(_bus: CpuBusPort): void {
+    // Bus interactions are handled by the future implementation.
   }
 }

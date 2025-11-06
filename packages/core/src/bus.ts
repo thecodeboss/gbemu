@@ -1,4 +1,4 @@
-import type { InterruptType } from "./cpu.js";
+import { InterruptType } from "./cpu.js";
 
 export type DmaTransferType = "oam" | "hdma";
 

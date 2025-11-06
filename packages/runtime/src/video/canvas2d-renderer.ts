@@ -1,8 +1,5 @@
-import type { VideoFrame } from "@gbemu/core";
-import {
-  DEFAULT_CANVAS_HEIGHT,
-  DEFAULT_CANVAS_WIDTH,
-} from "../constants.js";
+import { VideoFrame } from "@gbemu/core";
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from "../constants.js";
 
 export interface Canvas2DRendererOptions {
   smoothing?: boolean;
@@ -15,7 +12,10 @@ export class Canvas2DRenderer {
   readonly #context: CanvasRenderingContext2D;
   #imageData: ImageData;
 
-  constructor(canvas: HTMLCanvasElement, options: Canvas2DRendererOptions = {}) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    options: Canvas2DRendererOptions = {}
+  ) {
     const width = options.width ?? DEFAULT_CANVAS_WIDTH;
     const height = options.height ?? DEFAULT_CANVAS_HEIGHT;
     this.#canvas = canvas;

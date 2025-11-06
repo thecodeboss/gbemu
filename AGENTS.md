@@ -3,6 +3,7 @@
 This document orients automation agents and new contributors to the Game Boy Color emulator workspace. It covers repository layout, build targets, runtime architecture, and key reference material.
 
 ## Workspace Basics
+
 - Package manager: `pnpm` (see `packageManager` in the root `package.json`).
 - TypeScript project references link the packages (root `tsconfig.json` references `packages/core` and `packages/runtime`; `apps/web` composes its own configs).
 - Source is distributed across three workspaces:
@@ -13,6 +14,7 @@ This document orients automation agents and new contributors to the Game Boy Col
 - Human-facing overview: see `README.md`. Keep README and this guide aligned when tooling, commands, or package responsibilities shift.
 
 ## Install & Build
+
 Run all commands from repo root unless noted.
 
 ```bash
@@ -21,7 +23,7 @@ pnpm --filter @gbemu/core build # emit core type declarations (tsc)
 pnpm --filter @gbemu/runtime build
 pnpm --filter @gbemu/web dev    # start Vite dev server at apps/web
 pnpm --filter @gbemu/web build  # type-check + bundle web app
-pnpm --filter @gbemu/web lint   # run ESLint across the React app
+pnpm lint   # run ESLint across all code
 ```
 
 No automated tests exist yet (root `test` script is a placeholder). Add package-level tests alongside relevant implementations before enabling CI.
@@ -29,6 +31,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 ## Package Reference
 
 ### `@gbemu/core` (`packages/core`)
+
 - Exposes TypeScript interfaces for CPU, PPU, APU, system buses, clocks, cartridges (`mbc.ts`), and the overarching `Emulator` contract (`emulator.ts`).
 - `runtime.ts` defines the message protocol shared between workers and the host (`EmulatorWorkerRequestMap`, `EmulatorWorkerEventMap`).
 - `stub-emulator.ts` provides a temporary emulator that:
@@ -39,6 +42,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Future real emulator work should replace the stub while satisfying the existing interfaces. Reference hardware documentation at [gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html).
 
 ### `@gbemu/runtime` (`packages/runtime`)
+
 - Entry module (`src/index.ts`) re-exports runtime utilities for consumers.
 - Worker layer:
   - `src/worker/index.ts` exposes `initializeEmulatorWorker`, wiring Comlink.
@@ -54,6 +58,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Build target: `pnpm --filter @gbemu/runtime build` (tsc emits type declarations and JS to `dist/`).
 
 ### `@gbemu/web` (`apps/web`)
+
 - Vite + React front-end (`vite.config.ts` aliases `@gbemu/runtime` to the source tree for hot development).
 - `src/App.tsx` manages ROM selection, runtime client lifecycle, and simple UI state machine (`menu` → `loading` → `running`/`error`).
 - Loads worker and audio worklet via `new URL("@gbemu/runtime/src/...")` so Vite bundles the TypeScript modules.
@@ -62,6 +67,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Development loop: `pnpm --filter @gbemu/web dev`, then open the provided Vite URL.
 
 ## Runtime Data Flow
+
 1. The UI calls `createRuntimeClient` with a `Worker` constructor, `AudioContext`, `canvas`, and optional save storage.
 2. The runtime sets up:
    - A message channel that Comlink uses to forward worker callbacks (video/audio/save/log/error).
@@ -72,6 +78,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 5. Persisted saves can be transparently reloaded via `RuntimeClient.loadPersistentSave()`, assuming a `SaveStorageAdapter` is provided and `autoPersistSaves` is enabled.
 
 ## Key Contracts & Extension Points
+
 - `Emulator` interface (`packages/core/src/emulator.ts`) defines the minimum functionality required by the runtime. Any real emulator must honour lifecycle methods (`initialize`, `loadRom`, `start`, `pause`, `stepFrame`, `dispose`) and support optional callbacks for logging/error reporting.
 - Worker protocol (`packages/core/src/runtime.ts`) enumerates every message type flowing between UI and worker. Keep this file in sync when adding commands/events.
 - Save storage adapters must implement `{ read, write, clear }` returning/accepting base64-encoded payloads (`packages/runtime/src/save/storage.ts`).
@@ -79,11 +86,13 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Canvas renderer requires RGBA8888 buffers sized to match `frame.width` × `frame.height`.
 
 ## Future Work Notes
+
 - Replace `createStubEmulator` with genuine CPU/PPU/APU implementations. Use the Pandocs reference and update the runtime only if threading contracts change.
 - Add automated tests (unit tests in `packages/core`, integration tests for the runtime client, lint/test scripts at the root).
 - Consider wiring persistent storage in the web app (e.g., IndexedDB-backed adapter) once real save data is available.
 
 ## External References
+
 - Game Boy hardware documentation: [gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html)
 - Comlink (thread bridge): https://github.com/GoogleChromeLabs/comlink
 - Web Audio AudioWorklet docs: https://developer.mozilla.org/docs/Web/API/AudioWorklet
