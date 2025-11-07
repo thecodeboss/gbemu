@@ -3,15 +3,15 @@ import { Apu } from "./apu.js";
 import { SystemBus } from "./bus.js";
 import { Mbc, MbcFactory } from "./mbc.js";
 import { Clock } from "./clock.js";
-import { EmulatorRomInfo } from "./rom.js";
+import { EmulatorRomInfo } from "./rom/index.js";
 import {
   disassembleRom as decodeRom,
   formatDisassembledRom,
   parseRomInfo,
-} from "./rom.js";
+} from "./rom/index.js";
 import { Cpu } from "./cpu.js";
 
-export type { EmulatorRomInfo } from "./rom.js";
+export type { EmulatorRomInfo } from "./rom/index.js";
 
 export interface VideoFrame {
   buffer: Uint8ClampedArray;
