@@ -19,11 +19,11 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "comlink": "4.4.1",
+    "comlink": "4.4.2",
     "@gbemu/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/audioworklet": "0.0.90",
+    "@types/audioworklet": "0.0.91",
     "typescript": "catalog:"
   }
 }
