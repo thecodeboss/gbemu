@@ -4,7 +4,11 @@ import { SystemBus } from "./bus.js";
 import { Mbc, MbcFactory } from "./mbc.js";
 import { Clock } from "./clock.js";
 import { EmulatorRomInfo } from "./rom.js";
-import { disassembleRom as renderDisassembly, parseRomInfo } from "./rom.js";
+import {
+  disassembleRom as decodeRom,
+  formatDisassembledRom,
+  parseRomInfo,
+} from "./rom.js";
 import { Cpu } from "./cpu.js";
 
 export type { EmulatorRomInfo } from "./rom.js";
@@ -203,7 +207,8 @@ export class Emulator {
     if (!this.#romData) {
       return null;
     }
-    return renderDisassembly(this.#romData);
+    const instructions = decodeRom(this.#romData);
+    return formatDisassembledRom(instructions);
   }
 
   getProgramCounter(): number | null {

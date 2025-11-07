@@ -48,6 +48,44 @@ const NINTENDO_LOGO_START = 0x104;
 const HEADER_START = 0x134;
 const PROGRAM_START = 0x150;
 
+export type Instruction =
+  | OpcodeInstruction
+  | DataInstruction
+  | HeaderInstruction
+  | AnnotationInstruction;
+
+export interface OpcodeInstruction {
+  readonly type: "opcode";
+  readonly length: number;
+  readonly opcode: number;
+  readonly prefixed: boolean;
+  readonly mnemonic: string;
+  readonly meta: OpcodeMeta;
+  readonly operands: InstructionOperand[];
+  readonly bytes: Uint8Array;
+}
+
+export interface DataInstruction {
+  readonly type: "data";
+  readonly length: 1;
+  readonly value: number;
+}
+
+export interface HeaderInstruction {
+  readonly type: "header";
+  readonly length: number;
+  readonly bytes: Uint8Array;
+  readonly dataType: HeaderField["type"];
+  readonly description: string;
+  readonly detail: string | null;
+}
+
+export interface AnnotationInstruction {
+  readonly type: "annotation";
+  readonly length: 0;
+  readonly description: string;
+}
+
 interface HeaderField {
   readonly start: number;
   readonly end: number;
@@ -97,16 +135,11 @@ const HEADER_FIELDS: readonly HeaderField[] = [
   },
 ];
 
-interface OperandState {
+export interface InstructionOperand {
   readonly meta: OpcodeOperandMeta;
   readonly rawValue: number | null;
   readonly signedValue?: number;
   readonly relativeTarget?: number;
-}
-
-interface DisassembledInstruction {
-  readonly listing: string;
-  readonly length: number;
 }
 
 export function decodeRomSize(code: number): number {
@@ -159,12 +192,12 @@ export function decodeRamSize(code: number): number {
   }
 }
 
-export function disassembleRom(rom: Uint8Array): Record<number, string> {
+export function disassembleRom(rom: Uint8Array): Record<number, Instruction> {
   if (rom.length <= ENTRY_POINT) {
     return {};
   }
 
-  const listing = new Map<number, string>();
+  const listing = new Map<number, Instruction>();
 
   disassembleRange(
     rom,
@@ -174,9 +207,11 @@ export function disassembleRom(rom: Uint8Array): Record<number, string> {
   );
 
   if (rom.length > NINTENDO_LOGO_START) {
-    if (rom.length > NINTENDO_LOGO_START) {
-      listing.set(NINTENDO_LOGO_START, "<Nintendo logo>");
-    }
+    listing.set(NINTENDO_LOGO_START, {
+      type: "annotation",
+      length: 0,
+      description: "<Nintendo logo>",
+    });
   }
 
   if (rom.length > HEADER_START) {
@@ -190,11 +225,23 @@ export function disassembleRom(rom: Uint8Array): Record<number, string> {
   return Object.fromEntries(listing.entries());
 }
 
+export function formatDisassembledRom(
+  disassembly: Record<number, Instruction>,
+): Record<number, string> {
+  const formattedEntries = Object.entries(disassembly).map(
+    ([offsetText, instruction]) => {
+      const offset = Number(offsetText);
+      return [offset, formatInstruction(offset, instruction)] as const;
+    },
+  );
+  return Object.fromEntries(formattedEntries);
+}
+
 function disassembleRange(
   rom: Uint8Array,
   start: number,
   endExclusive: number,
-  target: Map<number, string>,
+  target: Map<number, Instruction>,
 ): void {
   if (start >= endExclusive) {
     return;
@@ -211,54 +258,47 @@ function disassembleRange(
       break;
     }
 
-    target.set(pc, instruction.listing);
+    target.set(pc, instruction);
     pc += length;
   }
 }
 
-function disassembleInstruction(
-  rom: Uint8Array,
-  pc: number,
-): DisassembledInstruction {
+function disassembleInstruction(rom: Uint8Array, pc: number): Instruction {
   const opcode = rom[pc];
   if (opcode === undefined) {
-    return { listing: "", length: 0 };
+    return createDataInstruction(0);
   }
 
   if (opcode === 0xcb) {
     const next = rom[pc + 1];
     if (next === undefined) {
-      return { listing: `db ${formatByte(opcode)}`, length: 1 };
+      return createDataInstruction(opcode);
     }
 
     const meta = CB_PREFIXED_OPCODE_TABLE[next] as OpcodeMeta | undefined;
     if (!meta || pc + meta.length > rom.length) {
-      return { listing: `db ${formatByte(opcode)}`, length: 1 };
+      return createDataInstruction(opcode);
     }
 
     const operands = readOperandStates(meta, rom, pc + 2, pc);
-    const formattedOperands = formatOperands(meta, operands);
-    const listing =
-      formattedOperands.length > 0
-        ? `${meta.mnemonic} ${formattedOperands.join(",")}`
-        : meta.mnemonic;
-
-    return { listing, length: meta.length };
+    return createOpcodeInstruction(meta, operands, {
+      opcode: next,
+      prefixed: true,
+      bytes: rom.slice(pc, pc + meta.length),
+    });
   }
 
   const meta = UNPREFIXED_OPCODE_TABLE[opcode] as OpcodeMeta | undefined;
   if (!meta || pc + meta.length > rom.length) {
-    return { listing: `db ${formatByte(opcode)}`, length: 1 };
+    return createDataInstruction(opcode);
   }
 
   const operands = readOperandStates(meta, rom, pc + 1, pc);
-  const formattedOperands = formatOperands(meta, operands);
-  const listing =
-    formattedOperands.length > 0
-      ? `${meta.mnemonic} ${formattedOperands.join(",")}`
-      : meta.mnemonic;
-
-  return { listing, length: meta.length };
+  return createOpcodeInstruction(meta, operands, {
+    opcode,
+    prefixed: false,
+    bytes: rom.slice(pc, pc + meta.length),
+  });
 }
 
 function readOperandStates(
@@ -266,7 +306,7 @@ function readOperandStates(
   rom: Uint8Array,
   startOffset: number,
   pc: number,
-): OperandState[] {
+): InstructionOperand[] {
   let cursor = startOffset;
 
   return meta.operands.map((operand) => {
@@ -300,7 +340,10 @@ function readOperandStates(
   });
 }
 
-function formatOperands(meta: OpcodeMeta, operands: OperandState[]): string[] {
+function formatOperands(
+  meta: OpcodeMeta,
+  operands: InstructionOperand[],
+): string[] {
   if (meta.mnemonic === "stop") {
     return [];
   }
@@ -336,7 +379,7 @@ function formatOperands(meta: OpcodeMeta, operands: OperandState[]): string[] {
   return simplifyOperands(meta.mnemonic, formatted);
 }
 
-function formatOperand(meta: OpcodeMeta, operand: OperandState): string {
+function formatOperand(meta: OpcodeMeta, operand: InstructionOperand): string {
   const { meta: descriptor, rawValue, signedValue, relativeTarget } = operand;
   const { name } = descriptor;
 
@@ -384,7 +427,10 @@ function formatOperand(meta: OpcodeMeta, operand: OperandState): string {
   return text;
 }
 
-function addHeaderEntries(rom: Uint8Array, target: Map<number, string>): void {
+function addHeaderEntries(
+  rom: Uint8Array,
+  target: Map<number, Instruction>,
+): void {
   for (const field of HEADER_FIELDS) {
     if (field.start >= rom.length) {
       break;
@@ -396,22 +442,16 @@ function addHeaderEntries(rom: Uint8Array, target: Map<number, string>): void {
       continue;
     }
 
-    const directive =
-      field.type === "string"
-        ? `db ${formatStringLiteral(bytes)}`
-        : `db ${Array.from(bytes, (byte) => formatByte(byte)).join(",")}`;
-
-    const commentRange = formatRangeBounds(
-      field.start,
-      field.start + bytes.length - 1,
-    );
     const detail = field.detail?.(bytes) ?? null;
-    const comment =
-      detail !== null
-        ? `${commentRange} - ${field.description} (${detail})`
-        : `${commentRange} - ${field.description}`;
 
-    target.set(field.start, `${directive} ; ${comment}`);
+    target.set(field.start, {
+      type: "header",
+      length: bytes.length,
+      bytes,
+      dataType: field.type,
+      description: field.description,
+      detail,
+    });
   }
 }
 
@@ -479,12 +519,79 @@ function addDataBytes(
   rom: Uint8Array,
   start: number,
   endExclusive: number,
-  target: Map<number, string>,
+  target: Map<number, Instruction>,
 ): void {
   for (let offset = start; offset < endExclusive; offset += 1) {
     const byte = rom[offset] ?? 0;
-    target.set(offset, `db ${formatByte(byte)}`);
+    target.set(offset, createDataInstruction(byte));
   }
+}
+
+function createDataInstruction(value: number): DataInstruction {
+  return {
+    type: "data",
+    length: 1,
+    value: value & 0xff,
+  };
+}
+
+function createOpcodeInstruction(
+  meta: OpcodeMeta,
+  operands: InstructionOperand[],
+  options: { opcode: number; prefixed: boolean; bytes: Uint8Array },
+): OpcodeInstruction {
+  return {
+    type: "opcode",
+    length: meta.length,
+    opcode: options.opcode,
+    prefixed: options.prefixed,
+    mnemonic: meta.mnemonic,
+    meta,
+    operands,
+    bytes: options.bytes,
+  };
+}
+
+function formatInstruction(offset: number, instruction: Instruction): string {
+  switch (instruction.type) {
+    case "opcode": {
+      const operands = formatOperands(instruction.meta, instruction.operands);
+      return operands.length > 0
+        ? `${instruction.mnemonic} ${operands.join(",")}`
+        : instruction.mnemonic;
+    }
+    case "data":
+      return `db ${formatByte(instruction.value)}`;
+    case "header":
+      return formatHeaderInstruction(offset, instruction);
+    case "annotation":
+      return instruction.description;
+    default:
+      return "";
+  }
+}
+
+function formatHeaderInstruction(
+  offset: number,
+  instruction: HeaderInstruction,
+): string {
+  const directive =
+    instruction.dataType === "string"
+      ? `db ${formatStringLiteral(instruction.bytes)}`
+      : `db ${Array.from(
+          instruction.bytes,
+          (byte) => formatByte(byte),
+        ).join(",")}`;
+
+  const end = offset + instruction.length - 1;
+  const commentRange = formatRangeBounds(offset, end);
+  const detail = instruction.detail;
+  const comment =
+    detail !== null
+      ? `${commentRange} - ${instruction.description} (${detail})`
+      : `${commentRange} - ${instruction.description}`;
+
+  return `${directive} ; ${comment}`;
 }
 
 function formatRangeBounds(start: number, end: number): string {

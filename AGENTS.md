@@ -45,6 +45,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
   - Implements minimal CPU/PPU/APU/bus behavior sufficient to exercise the runtime pipeline.
   - Parses ROM metadata (`parseRomInfo`) but does not execute real instructions.
   - Generates blank audio/video output and supports save serialization with simple RAM banks.
+- `rom.ts` provides `disassembleRom`, which now returns structured `Instruction` objects (mnemonic, operands, bytes, etc.) plus `formatDisassembledRom` for producing the legacy human-readable listing used by the UI.
 - Export surface collected in `src/index.ts`; package compiles to `dist/` via `pnpm --filter @gbemu/core build`.
 - Future real emulator work should replace the stub while satisfying the existing interfaces. Reference hardware documentation at [gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html).
 
