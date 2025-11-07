@@ -1,6 +1,6 @@
 # GBEmu Monorepo Guide
 
-This document orients automation agents and new contributors to the Game Boy Color emulator workspace. It covers repository layout, build targets, runtime architecture, and key reference material.
+This document orients automation agents and new contributors to the Game Boy Color emulator workspace. It covers repository layout, build targets, runtime architecture, and key reference material. ALWAYS keep this file updated as you make changes.
 
 ## Workspace Basics
 
@@ -10,7 +10,7 @@ This document orients automation agents and new contributors to the Game Boy Col
   - `packages/core` – platform-agnostic emulator logic (currently a stub implementation with full type contracts).
   - `packages/runtime` – browser-only integrations (Web Workers, Canvas, AudioWorklet, persistence helpers).
   - `apps/web` – React/Vite UI for selecting ROMs and hosting the runtime client.
-- Tooling: Vite (aliased to `rolldown-vite`), ESLint (flat config), TypeScript strict mode everywhere.
+- Tooling: `rolldown-vite` (Vite's compatibility build that swaps Rollup for the Rust-powered Rolldown bundler per https://vite.dev/guide/rolldown), ESLint (flat config), TypeScript strict mode everywhere.
 - Human-facing overview: see `README.md`. Keep README and this guide aligned when tooling, commands, or package responsibilities shift.
 
 ## Install & Build
@@ -23,8 +23,15 @@ pnpm --filter @gbemu/core build # emit core type declarations (tsc)
 pnpm --filter @gbemu/runtime build
 pnpm --filter @gbemu/web dev    # start Vite dev server at apps/web
 pnpm --filter @gbemu/web build  # type-check + bundle web app
-pnpm lint   # run ESLint across all code
+pnpm lint   # runs `eslint . --fix` then `prettier --cache --write .` (expect safe writes)
 ```
+
+## Linting & Formatting
+
+- ESLint uses the flat config in `eslint.config.mjs`. All `ts/tsx` files extend `@eslint/js` recommended rules plus `@typescript-eslint` recommended, share browser globals, and enable the `unicorn` plugin.
+- Key repo-wide rules: `@typescript-eslint/no-unused-vars` warns but ignores `_`-prefixed arguments, `@typescript-eslint/consistent-type-imports` prefers value imports (type annotations still allowed), and `unicorn/filename-case` enforces consistent casing.
+- `apps/web` adds React-specific configs (`eslint-plugin-react`, `react-hooks`, and `react-refresh`) so hooks rules and Fast Refresh safety checks will fire in that subtree.
+- Running `pnpm lint` will modify files automatically because of the `--fix` flag and subsequent Prettier write step, so review those changes before committing.
 
 No automated tests exist yet (root `test` script is a placeholder). Add package-level tests alongside relevant implementations before enabling CI.
 
@@ -34,7 +41,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 
 - Exposes TypeScript interfaces for CPU, PPU, APU, system buses, clocks, cartridges (`mbc.ts`), and the overarching `Emulator` contract (`emulator.ts`).
 - `runtime.ts` defines the message protocol shared between workers and the host (`EmulatorWorkerRequestMap`, `EmulatorWorkerEventMap`).
-- `stub-emulator.ts` provides a temporary emulator that:
+- `emulator.ts` currently holds the stubbed `Emulator` class that:
   - Implements minimal CPU/PPU/APU/bus behavior sufficient to exercise the runtime pipeline.
   - Parses ROM metadata (`parseRomInfo`) but does not execute real instructions.
   - Generates blank audio/video output and supports save serialization with simple RAM banks.
@@ -47,7 +54,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Worker layer:
   - `src/worker/index.ts` exposes `initializeEmulatorWorker`, wiring Comlink.
   - `src/worker/host.ts` implements `EmulatorWorkerApi`, managing emulator lifecycle, forwarding events to the UI via `WorkerCallbacks`, and ensuring transferable payloads (ROMs, saves, frames, audio samples) copy across thread boundaries.
-  - `src/worker/emulator-worker.ts` is the actual worker entry. It currently constructs the stub emulator but is the place to swap in the real implementation.
+- `src/worker/emulator-worker.ts` is the actual worker entry. It currently instantiates the stubbed `Emulator` from `@gbemu/core/src/emulator.ts` but is the place to swap in the real implementation.
 - Main thread client:
   - `src/main/runtime-client.ts` provides `createRuntimeClient`, which instantiates the worker, sets up a `Canvas2DRenderer`, and initialises `createEmulatorAudioNode`. It also optionally persists saves via `SaveStorageAdapter`.
 - Rendering/audio/persistence helpers:
@@ -60,7 +67,9 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 ### `@gbemu/web` (`apps/web`)
 
 - Vite + React front-end (`vite.config.ts` aliases `@gbemu/runtime` to the source tree for hot development).
-- `src/App.tsx` manages ROM selection, runtime client lifecycle, and simple UI state machine (`menu` → `loading` → `running`/`error`).
+- Shadcn UI components (Tailwind + Radix) provide most primitives; follow https://ui.shadcn.com/docs when touching `apps/web/src/components` so generated styles stay consistent.
+- React Compiler is enabled via `@vitejs/plugin-react` plus `babel-plugin-react-compiler` (see `apps/web/vite.config.ts`); the compiler is now stable, so keep components within its supported patterns (no side effects during render, stable props).
+- `src/app.tsx` manages ROM selection, runtime client lifecycle, and simple UI state machine (`menu` → `loading` → `running`/`error`).
 - Loads worker and audio worklet via `new URL("@gbemu/runtime/src/...")` so Vite bundles the TypeScript modules.
 - Uses `DEFAULT_CANVAS_WIDTH/HEIGHT` from the runtime package to size the display.
 - Styling in `src/index.css`; entry point `src/main.tsx`.
@@ -87,7 +96,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 
 ## Future Work Notes
 
-- Replace `createStubEmulator` with genuine CPU/PPU/APU implementations. Use the Pandocs reference and update the runtime only if threading contracts change.
+- Replace the stubbed logic in `packages/core/src/emulator.ts` with genuine CPU/PPU/APU implementations. Use the Pandocs reference and update the runtime only if threading contracts change.
 - Add automated tests (unit tests in `packages/core`, integration tests for the runtime client, lint/test scripts at the root).
 - Consider wiring persistent storage in the web app (e.g., IndexedDB-backed adapter) once real save data is available.
 
@@ -96,5 +105,8 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Game Boy hardware documentation: [gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html)
 - Comlink (thread bridge): https://github.com/GoogleChromeLabs/comlink
 - Web Audio AudioWorklet docs: https://developer.mozilla.org/docs/Web/API/AudioWorklet
+- Rolldown bundler: https://vite.dev/guide/rolldown
+- Shadcn UI components: https://ui.shadcn.com/docs
+- React Compiler: https://react.dev/learn/react-compiler/introduction
 
 Keep this file updated as packages evolve so future agents have an accurate map of the codebase and workflows. Update `README.md` alongside any notable workflow or command changes so human contributors stay aligned.
