@@ -79,7 +79,10 @@ function disassembleRange(
   }
 }
 
-function disassembleInstruction(rom: Uint8Array, pc: number): Instruction {
+export function disassembleInstruction(
+  rom: Uint8Array,
+  pc: number,
+): Instruction {
   const opcode = rom[pc];
   if (opcode === undefined) {
     return createDataInstruction(0);
