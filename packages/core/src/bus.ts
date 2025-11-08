@@ -38,6 +38,22 @@ export class SystemBus
   #memory = new Uint8Array(0x10000);
   #pendingInterrupts = new Set<InterruptType>();
 
+  loadCartridge(rom: Uint8Array): void {
+    const romBankSize = 0x4000;
+    const bank0 = rom.slice(0, romBankSize);
+    this.#memory.set(bank0, 0x0000);
+
+    const bank1 = rom.slice(romBankSize, romBankSize * 2);
+    if (bank1.length > 0) {
+      this.#memory.set(bank1, romBankSize);
+    } else if (rom.length > 0) {
+      const mirrorSource = rom.slice(0, Math.min(rom.length, romBankSize));
+      this.#memory.set(mirrorSource, romBankSize);
+    }
+
+    this.#memory[0xff50] = 0x01;
+  }
+
   mapBank(_bank: MemoryBank): void {
     // No dynamic mapping in stub.
   }

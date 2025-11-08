@@ -110,10 +110,12 @@ export class Emulator {
     const ramSize = this.#romInfo?.ramSize ?? 0;
     const cartridgeType = this.#mbcFactory.detect(rom);
     this.#mbc = this.#mbcFactory.create(cartridgeType, rom, ramSize);
+    this.bus.loadCartridge(rom);
     this.cpu.reset();
     this.ppu.reset();
     this.apu.reset();
     this.clock.setSpeed(1);
+    this.cpu.state.registers.pc = 0x0100;
     this.#frameCount = 0;
     this.#callbacks?.onLog?.(
       `Loaded ROM ${this.#romInfo?.title ?? "(untitled)"}`,
