@@ -152,6 +152,10 @@ export class Cpu {
       case "nop":
         this.#setProgramCounter(nextPc);
         return;
+      case "ld":
+      case "ldh":
+        this.#executeLd(instruction, nextPc);
+        return;
       case "and":
         this.#executeAnd(instruction, nextPc);
         return;
@@ -354,6 +358,45 @@ export class Cpu {
     const target = this.#parseRstVector(vectorOperand.meta.name);
     this.#pushWord(nextPc);
     this.#setProgramCounter(target);
+  }
+
+  #executeLd(instruction: OpcodeInstruction, nextPc: number): void {
+    if (instruction.operands.length !== 2) {
+      throw new Error("LD instruction pattern not implemented");
+    }
+
+    const [destination, source] = instruction.operands;
+    if (!destination || !source) {
+      throw new Error("LD instruction missing operands");
+    }
+
+    if (this.#isEightBitRegisterOperand(destination)) {
+      const value = this.#readEightBitValue(source, "LD source");
+      this.#writeRegister8(destination.meta.name, value);
+      this.#setProgramCounter(nextPc);
+      return;
+    }
+
+    if (this.#isMemoryOperand(destination)) {
+      const value = this.#readEightBitValue(source, "LD source");
+      this.#writeEightBitValue(destination, value);
+      this.#setProgramCounter(nextPc);
+      return;
+    }
+
+    if (
+      this.#is16BitRegisterOperand(destination) &&
+      this.#isImmediate16Operand(source)
+    ) {
+      const value = this.#readImmediateOperand(source, "LD immediate value");
+      this.#writeRegisterPairByName(destination.meta.name, value);
+      this.#setProgramCounter(nextPc);
+      return;
+    }
+
+    throw new Error(
+      `LD operands not implemented: ${destination.meta.name}, ${source.meta.name}`,
+    );
   }
 
   #executeAnd(instruction: OpcodeInstruction, nextPc: number): void {
@@ -757,21 +800,45 @@ export class Cpu {
   #isEightBitRegisterOperand(
     operand: InstructionOperand | undefined,
   ): boolean {
-    return Boolean(operand && this.#is8BitRegister(operand.meta.name));
+    return Boolean(
+      operand && operand.meta.immediate && this.#is8BitRegister(operand.meta.name),
+    );
   }
 
   #is16BitRegisterOperand(
     operand: InstructionOperand | undefined,
   ): boolean {
-    return Boolean(operand && this.#is16BitRegister(operand.meta.name));
+    return Boolean(
+      operand && operand.meta.immediate && this.#is16BitRegister(operand.meta.name),
+    );
   }
 
   #isMemoryOperand(
     operand: InstructionOperand | undefined,
   ): boolean {
-    return Boolean(
-      operand && operand.meta.name === "HL" && operand.meta.immediate === false,
-    );
+    if (!operand) {
+      return false;
+    }
+    const { meta } = operand;
+    if (meta.name === "HL" && meta.immediate === false) {
+      return true;
+    }
+    if (!meta.immediate && this.#is16BitRegister(meta.name)) {
+      return true;
+    }
+    if (!meta.immediate && meta.name === "C") {
+      return true;
+    }
+    if (meta.name === "a16" || meta.name === "a8") {
+      return true;
+    }
+    return false;
+  }
+
+  #isImmediate16Operand(
+    operand: InstructionOperand | undefined,
+  ): boolean {
+    return Boolean(operand && operand.meta.name === "n16");
   }
 
   #transformMutableOperand(
@@ -787,6 +854,55 @@ export class Cpu {
     const result = outcome.result & 0xff;
     this.#writeEightBitValue(operand, result);
     return { result, carry: outcome.carry };
+  }
+
+  #resolveMemoryReference(
+    operand: InstructionOperand,
+    description: string,
+  ): { address: number; postAccess?: () => void } {
+    const { meta, rawValue } = operand;
+    const name = meta.name;
+
+    if (name === "a16") {
+      if (rawValue === null) {
+        throw new Error(`Missing ${description}`);
+      }
+      return { address: rawValue & 0xffff };
+    }
+
+    if (name === "a8") {
+      if (rawValue === null) {
+        throw new Error(`Missing ${description}`);
+      }
+      return { address: (0xff00 + (rawValue & 0xff)) & 0xffff };
+    }
+
+    if (name === "C" && meta.immediate === false) {
+      const address = (0xff00 + (this.state.registers.c & 0xff)) & 0xffff;
+      return { address };
+    }
+
+    if (name === "HL" && meta.immediate === false) {
+      const address = this.#readRegisterPairHL();
+      const delta = meta.increment ? 1 : meta.decrement ? -1 : 0;
+      if (delta === 0) {
+        return { address };
+      }
+      return {
+        address,
+        postAccess: () => {
+          const next = (address + delta) & 0xffff;
+          this.#writeRegisterPairHL(next);
+        },
+      };
+    }
+
+    if (!meta.immediate && this.#is16BitRegister(name)) {
+      const address = this.#readRegisterPairByName(name);
+      return { address };
+    }
+
+    throw new Error(`Unsupported ${description}: ${name}`);
   }
 
   #parseBitIndex(
@@ -848,8 +964,10 @@ export class Cpu {
     }
 
     if (this.#isMemoryOperand(operand)) {
-      const address = this.#readRegisterPairHL();
-      return this.#requireBus().readByte(address) & 0xff;
+      const reference = this.#resolveMemoryReference(operand, description);
+      const value = this.#requireBus().readByte(reference.address) & 0xff;
+      reference.postAccess?.();
+      return value;
     }
 
     if (operand.meta.name === "n8") {
@@ -872,8 +990,9 @@ export class Cpu {
   ): void {
     const maskedValue = value & 0xff;
     if (this.#isMemoryOperand(operand)) {
-      const address = this.#readRegisterPairHL();
-      this.#requireBus().writeByte(address, maskedValue);
+      const reference = this.#resolveMemoryReference(operand, "memory target");
+      this.#requireBus().writeByte(reference.address, maskedValue);
+      reference.postAccess?.();
       return;
     }
 
