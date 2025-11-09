@@ -13,6 +13,8 @@ export interface EmulatorWorkerRequestMap {
   getSave: undefined;
   disassembleRom: undefined;
   getProgramCounter: undefined;
+  getCpuState: undefined;
+  getMemorySnapshot: undefined;
 }
 
 export interface EmulatorWorkerEventMap {

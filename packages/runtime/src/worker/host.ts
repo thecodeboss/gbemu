@@ -2,6 +2,7 @@ import {
   AudioBufferChunk,
   Emulator,
   EmulatorCallbacks,
+  EmulatorCpuDebugState,
   EmulatorRomInfo,
   SavePayload,
   VideoFrame,
@@ -45,6 +46,8 @@ export interface EmulatorWorkerApi {
   getSave(): Promise<SavePayload | null>;
   disassembleRom(): Promise<Record<number, string> | null>;
   getProgramCounter(): Promise<number | null>;
+  getCpuState(): Promise<EmulatorCpuDebugState>;
+  getMemorySnapshot(): Promise<Uint8Array>;
 }
 
 export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
@@ -166,6 +169,26 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
     async getProgramCounter(): Promise<number | null> {
       const system = await ensureEmulator();
       return system.getProgramCounter();
+    },
+
+    async getCpuState(): Promise<EmulatorCpuDebugState> {
+      const system = await ensureEmulator();
+      const snapshot = system.getCpuState();
+      return {
+        registers: { ...snapshot.registers },
+        flags: { ...snapshot.flags },
+        ime: snapshot.ime,
+        halted: snapshot.halted,
+        stopped: snapshot.stopped,
+        cycles: snapshot.cycles,
+      };
+    },
+
+    async getMemorySnapshot(): Promise<Uint8Array> {
+      const system = await ensureEmulator();
+      const snapshot = system.getMemorySnapshot();
+      const copy = snapshot.slice();
+      return Comlink.transfer(copy, [copy.buffer]);
     },
   };
 }

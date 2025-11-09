@@ -9,7 +9,7 @@ import {
   formatDisassembledRom,
   parseRomInfo,
 } from "./rom/index.js";
-import { Cpu } from "./cpu.js";
+import { Cpu, CpuFlags, CpuRegisters } from "./cpu.js";
 
 export type { EmulatorRomInfo } from "./rom/index.js";
 
@@ -56,6 +56,15 @@ export interface EmulatorStateSnapshot {
   bus: unknown;
   clock: unknown;
   mbc: unknown;
+}
+
+export interface EmulatorCpuDebugState {
+  registers: CpuRegisters;
+  flags: CpuFlags;
+  ime: boolean;
+  halted: boolean;
+  stopped: boolean;
+  cycles: number;
 }
 
 interface EmulatorDependencies {
@@ -215,6 +224,21 @@ export class Emulator {
 
   getProgramCounter(): number | null {
     return this.cpu.state?.registers?.pc ?? null;
+  }
+
+  getCpuState(): EmulatorCpuDebugState {
+    return {
+      registers: { ...this.cpu.state.registers },
+      flags: { ...this.cpu.state.flags },
+      ime: this.cpu.state.ime,
+      halted: this.cpu.state.halted,
+      stopped: this.cpu.state.stopped,
+      cycles: this.cpu.state.cycles,
+    };
+  }
+
+  getMemorySnapshot(): Uint8Array {
+    return this.bus.dumpMemory();
   }
 
   getStateSnapshot(): EmulatorStateSnapshot {

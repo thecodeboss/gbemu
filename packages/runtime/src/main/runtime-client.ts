@@ -1,4 +1,8 @@
-import { EmulatorRomInfo, SavePayload } from "@gbemu/core";
+import {
+  EmulatorCpuDebugState,
+  EmulatorRomInfo,
+  SavePayload,
+} from "@gbemu/core";
 import * as Comlink from "comlink";
 import { createEmulatorAudioNode } from "../audio/node.js";
 import { EmulatorAudioNode } from "../audio/node.js";
@@ -37,6 +41,8 @@ export interface RuntimeClient {
   loadPersistentSave(): Promise<void>;
   disassembleRom(): Promise<Record<number, string> | null>;
   getProgramCounter(): Promise<number | null>;
+  getCpuState(): Promise<EmulatorCpuDebugState>;
+  getMemorySnapshot(): Promise<Uint8Array>;
   dispose(): Promise<void>;
   readonly renderer: Canvas2DRenderer;
   readonly audio: EmulatorAudioNode;
@@ -168,6 +174,8 @@ export async function createRuntimeClient(
     loadPersistentSave,
     disassembleRom: () => workerEndpoint.disassembleRom(),
     getProgramCounter: () => workerEndpoint.getProgramCounter(),
+    getCpuState: () => workerEndpoint.getCpuState(),
+    getMemorySnapshot: () => workerEndpoint.getMemorySnapshot(),
     dispose,
     renderer,
     audio: audioNode,

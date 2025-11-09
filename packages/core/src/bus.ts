@@ -81,6 +81,10 @@ export class SystemBus
     this.writeByte(address + 1, (value >> 8) & 0xff);
   }
 
+  dumpMemory(): Uint8Array {
+    return this.#memory.slice();
+  }
+
   dmaTransfer(_source: number): void {
     // No DMA support in stub.
   }
