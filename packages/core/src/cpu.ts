@@ -101,7 +101,7 @@ export class Cpu {
 
   step(): number {
     const bus = this.#requireBus();
-    if (this.state.halted) {
+    if (this.state.halted || this.state.stopped) {
       return this.#consumeCycles();
     }
 
@@ -151,6 +151,18 @@ export class Cpu {
     switch (instruction.mnemonic) {
       case "nop":
         this.#setProgramCounter(nextPc);
+        return;
+      case "daa":
+        this.#executeDaa(nextPc);
+        return;
+      case "di":
+        this.#executeDi(nextPc);
+        return;
+      case "ei":
+        this.#executeEi(nextPc);
+        return;
+      case "halt":
+        this.#executeHalt(nextPc);
         return;
       case "ld":
       case "ldh":
@@ -251,6 +263,9 @@ export class Cpu {
         return;
       case "rst":
         this.#executeRst(instruction, nextPc);
+        return;
+      case "stop":
+        this.#executeStop(nextPc);
         return;
       default:
         throw new Error(
@@ -454,6 +469,61 @@ export class Cpu {
       subtract: true,
       halfCarry: true,
     });
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executeDaa(nextPc: number): void {
+    const registers = this.state.registers;
+    const flags = this.state.flags;
+    let correction = 0;
+    let carry = flags.carry;
+
+    if (!flags.subtract) {
+      if (flags.carry || registers.a > 0x99) {
+        correction |= 0x60;
+        carry = true;
+      }
+      if (flags.halfCarry || (registers.a & 0x0f) > 0x09) {
+        correction |= 0x06;
+      }
+      registers.a = (registers.a + correction) & 0xff;
+    } else {
+      if (flags.carry) {
+        correction |= 0x60;
+      }
+      if (flags.halfCarry) {
+        correction |= 0x06;
+      }
+      registers.a = (registers.a - correction) & 0xff;
+    }
+
+    this.#updateFlags({
+      zero: (registers.a & 0xff) === 0,
+      halfCarry: false,
+      carry,
+    });
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executeDi(nextPc: number): void {
+    this.state.ime = false;
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executeEi(nextPc: number): void {
+    this.state.ime = true;
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executeHalt(nextPc: number): void {
+    this.state.halted = true;
+    this.state.stopped = false;
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executeStop(nextPc: number): void {
+    this.state.stopped = true;
+    this.state.halted = true;
     this.#setProgramCounter(nextPc);
   }
 
