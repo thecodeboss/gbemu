@@ -42,6 +42,9 @@ interface RegisterEntry {
 const MEMORY_VIEWPORT_HEIGHT = 320;
 const MEMORY_ROW_HEIGHT = 28;
 const MEMORY_OVERSCAN_ROWS = 16;
+const DISASSEMBLY_VIEWPORT_HEIGHT = 256;
+const DISASSEMBLY_ROW_HEIGHT = 28;
+const DISASSEMBLY_OVERSCAN_ROWS = 12;
 
 function formatHexByte(value: number): string {
   const hex = value.toString(16).toUpperCase().padStart(2, "0");
@@ -128,10 +131,14 @@ function App() {
   const [cpuState, setCpuState] = useState<CpuDebugSnapshot | null>(null);
   const [memorySnapshot, setMemorySnapshot] = useState<Uint8Array | null>(null);
   const [memoryScrollTop, setMemoryScrollTop] = useState(0);
+  const [disassemblyScrollTop, setDisassemblyScrollTop] = useState(0);
+  const [autoDisassemblyVersion, setAutoDisassemblyVersion] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const disassemblyScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastAutoDisassemblyVersionRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -154,6 +161,7 @@ function App() {
       setCpuState(null);
       setMemorySnapshot(null);
       setMemoryScrollTop(0);
+      setDisassemblyScrollTop(0);
     }
   }, [phase]);
 
@@ -252,6 +260,7 @@ function App() {
       setDisassembly(null);
       setDisassemblyError(null);
       setIsDisassembling(false);
+      setDisassemblyScrollTop(0);
       setCurrentInstructionOffset(null);
       setPhase("loading");
 
@@ -272,6 +281,9 @@ function App() {
         }
 
         setPhase("running");
+        if (stepModeEnabled) {
+          setAutoDisassemblyVersion((value) => value + 1);
+        }
         void refreshDebugInfo();
       } catch (err) {
         console.error(err);
@@ -299,6 +311,13 @@ function App() {
     setMemoryScrollTop(event.currentTarget.scrollTop);
   }, []);
 
+  const handleDisassemblyScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      setDisassemblyScrollTop(event.currentTarget.scrollTop);
+    },
+    [],
+  );
+
   const handleReturnToMenu = useCallback(() => {
     const runtime = runtimeRef.current;
     if (runtime) {
@@ -308,6 +327,7 @@ function App() {
     setDisassembly(null);
     setDisassemblyError(null);
     setIsDisassembling(false);
+    setDisassemblyScrollTop(0);
     setIsStepping(false);
     setCurrentInstructionOffset(null);
     setPhase("menu");
@@ -343,10 +363,36 @@ function App() {
     })();
   }, [currentInstructionOffset, ensureRuntimeClient]);
 
+  useEffect(() => {
+    if (
+      phase !== "running" ||
+      !stepModeEnabled ||
+      disassembly !== null ||
+      isDisassembling
+    ) {
+      return;
+    }
+    if (autoDisassemblyVersion === lastAutoDisassemblyVersionRef.current) {
+      return;
+    }
+    lastAutoDisassemblyVersionRef.current = autoDisassemblyVersion;
+    handleDisassemble();
+  }, [
+    autoDisassemblyVersion,
+    disassembly,
+    handleDisassemble,
+    isDisassembling,
+    phase,
+    stepModeEnabled,
+  ]);
+
   const handleStepModeToggle = useCallback(
     (checked: boolean) => {
       setStepModeEnabled(checked);
       setIsStepping(false);
+      if (checked && disassembly === null) {
+        setAutoDisassemblyVersion((value) => value + 1);
+      }
       const runtime = runtimeRef.current;
       if (!runtime) {
         return;
@@ -370,7 +416,7 @@ function App() {
         });
       }
     },
-    [refreshDebugInfo, setError],
+    [disassembly, refreshDebugInfo, setError],
   );
 
   const handleStepInstruction = useCallback(() => {
@@ -398,9 +444,20 @@ function App() {
       });
   }, [refreshDebugInfo, setError, stepModeEnabled]);
 
-  const { visibleOffsets, activeOffset } = useMemo(() => {
+  const disassemblyTableMetrics = useMemo(() => {
     if (!disassembly) {
-      return { visibleOffsets: [] as number[], activeOffset: null };
+      return {
+        rows: [] as Array<{
+          offset: number;
+          instruction: string;
+          isActive: boolean;
+        }>,
+        totalHeight: 0,
+        translateY: 0,
+        activeOffset: null as number | null,
+        activeIndex: null as number | null,
+        hasEntries: false,
+      };
     }
 
     const allOffsets = Object.keys(disassembly)
@@ -409,7 +466,18 @@ function App() {
       .sort((a, b) => a - b);
 
     if (allOffsets.length === 0) {
-      return { visibleOffsets: [] as number[], activeOffset: null };
+      return {
+        rows: [] as Array<{
+          offset: number;
+          instruction: string;
+          isActive: boolean;
+        }>,
+        totalHeight: 0,
+        translateY: 0,
+        activeOffset: null as number | null,
+        activeIndex: null as number | null,
+        hasEntries: false,
+      };
     }
 
     const minAddress = allOffsets[0]!;
@@ -436,29 +504,87 @@ function App() {
       }
     }
 
-    const before: number[] = [];
-    let inspect = focus - 1;
-    while (before.length < 10 && inspect >= minAddress) {
-      if (disassembly[inspect] !== undefined) {
-        before.unshift(inspect);
-      }
-      inspect -= 1;
+    const totalRows = allOffsets.length;
+    const viewportRows = Math.ceil(
+      DISASSEMBLY_VIEWPORT_HEIGHT / DISASSEMBLY_ROW_HEIGHT,
+    );
+    const startIndex = Math.max(
+      0,
+      Math.floor(disassemblyScrollTop / DISASSEMBLY_ROW_HEIGHT) -
+        DISASSEMBLY_OVERSCAN_ROWS,
+    );
+    const endIndex = Math.min(
+      totalRows,
+      startIndex + viewportRows + DISASSEMBLY_OVERSCAN_ROWS * 2,
+    );
+
+    const rows: Array<{
+      offset: number;
+      instruction: string;
+      isActive: boolean;
+    }> = [];
+    for (let index = startIndex; index < endIndex; index += 1) {
+      const offset = allOffsets[index]!;
+      rows.push({
+        offset,
+        instruction: disassembly[offset] ?? "",
+        isActive: offset === focus,
+      });
     }
 
-    const after: number[] = [];
-    inspect = focus + 1;
-    while (after.length < 10 && inspect <= maxAddress) {
-      if (disassembly[inspect] !== undefined) {
-        after.push(inspect);
-      }
-      inspect += 1;
-    }
+    const activeIndex = allOffsets.indexOf(focus);
 
     return {
-      visibleOffsets: [...before, focus, ...after],
+      rows,
+      totalHeight: totalRows * DISASSEMBLY_ROW_HEIGHT,
+      translateY: startIndex * DISASSEMBLY_ROW_HEIGHT,
       activeOffset: focus,
+      activeIndex: activeIndex >= 0 ? activeIndex : null,
+      hasEntries: totalRows > 0,
     };
-  }, [currentInstructionOffset, disassembly]);
+  }, [currentInstructionOffset, disassembly, disassemblyScrollTop]);
+
+  useEffect(() => {
+    if (
+      !stepModeEnabled ||
+      phase !== "running" ||
+      !disassembly ||
+      disassemblyTableMetrics.activeIndex === null
+    ) {
+      return;
+    }
+
+    const container = disassemblyScrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const rowTop =
+      disassemblyTableMetrics.activeIndex * DISASSEMBLY_ROW_HEIGHT;
+    const rowBottom = rowTop + DISASSEMBLY_ROW_HEIGHT;
+    const viewportTop = disassemblyScrollTop;
+    const viewportBottom = viewportTop + DISASSEMBLY_VIEWPORT_HEIGHT;
+
+    if (rowTop >= viewportTop && rowBottom <= viewportBottom) {
+      return;
+    }
+
+    const desiredScroll =
+      rowTop - (DISASSEMBLY_VIEWPORT_HEIGHT - DISASSEMBLY_ROW_HEIGHT) / 2;
+    const maxScroll = Math.max(
+      0,
+      disassemblyTableMetrics.totalHeight - DISASSEMBLY_VIEWPORT_HEIGHT,
+    );
+    const nextScroll = Math.max(0, Math.min(maxScroll, desiredScroll));
+    container.scrollTop = nextScroll;
+  }, [
+    disassembly,
+    disassemblyScrollTop,
+    disassemblyTableMetrics.activeIndex,
+    disassemblyTableMetrics.totalHeight,
+    phase,
+    stepModeEnabled,
+  ]);
 
   const memoryTableMetrics = useMemo(() => {
     if (!memorySnapshot) {
@@ -627,81 +753,127 @@ function App() {
                 </dt>
                 <dd>{formatHexByte(romInfo.destinationCode)}</dd>
               </dl>
-              {disassembly !== null ? (
-                <>
-                  <h3 className="mt-6 mb-2 text-sm font-medium">Disassembly</h3>
-                  <div className="flex flex-col gap-2">
+              <div className="mt-6 flex flex-col gap-2">
+                <h3 className="text-sm font-medium">Disassembly</h3>
+                {disassembly !== null ? (
+                  <>
                     <div className="overflow-hidden rounded-md border border-input">
                       <div className="grid grid-cols-[max-content_1fr] gap-x-4 bg-muted/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                         <span>Offset</span>
                         <span>Instruction</span>
                       </div>
-                      <div className="max-h-64 overflow-y-auto">
-                        {visibleOffsets.length > 0 ? (
-                          visibleOffsets.map((offset) => {
-                            const instruction = disassembly[offset] ?? "";
-                            const isActive = offset === activeOffset;
-                            const rowClasses = [
-                              "grid grid-cols-[max-content_1fr] items-center gap-x-4 px-3 py-1 text-xs font-mono",
-                              isActive ? "bg-primary/10" : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ");
-                            const offsetClasses = [
-                              "text-[11px]",
-                              isActive
-                                ? "font-semibold text-primary"
-                                : "text-muted-foreground",
-                            ]
-                              .filter(Boolean)
-                              .join(" ");
-                            const instructionClasses = [
-                              "whitespace-pre-wrap",
-                              isActive ? "font-semibold text-primary" : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ");
-                            return (
-                              <div key={offset} className={rowClasses}>
-                                <span className={offsetClasses}>
-                                  {formatAddress(offset)}
-                                </span>
-                                <span className={instructionClasses}>
-                                  {instruction}
-                                </span>
-                              </div>
-                            );
-                          })
+                      <div
+                        ref={disassemblyScrollContainerRef}
+                        className="overflow-y-auto"
+                        style={{ height: `${DISASSEMBLY_VIEWPORT_HEIGHT}px` }}
+                        onScroll={handleDisassemblyScroll}
+                      >
+                        {disassemblyTableMetrics.hasEntries ? (
+                          <div
+                            style={{
+                              height: `${disassemblyTableMetrics.totalHeight}px`,
+                            }}
+                            className="relative"
+                          >
+                            <div
+                              className="absolute inset-x-0 top-0"
+                              style={{
+                                transform: `translateY(${disassemblyTableMetrics.translateY}px)`,
+                              }}
+                            >
+                              {disassemblyTableMetrics.rows.map((row) => {
+                                const rowClasses = [
+                                  "grid grid-cols-[max-content_1fr] items-center gap-x-4 px-3 text-xs font-mono",
+                                  row.isActive ? "bg-primary/10" : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ");
+                                const offsetClasses = [
+                                  "text-[11px]",
+                                  row.isActive
+                                    ? "font-semibold text-primary"
+                                    : "text-muted-foreground",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ");
+                                const instructionClasses = [
+                                  "whitespace-pre-wrap",
+                                  row.isActive ? "font-semibold text-primary" : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ");
+                                return (
+                                  <div
+                                    key={row.offset}
+                                    className={rowClasses}
+                                    style={{
+                                      height: `${DISASSEMBLY_ROW_HEIGHT}px`,
+                                    }}
+                                  >
+                                    <span className={offsetClasses}>
+                                      {formatAddress(row.offset)}
+                                    </span>
+                                    <span className={instructionClasses}>
+                                      {row.instruction}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         ) : (
                           <div className="px-3 py-4 text-xs text-muted-foreground">
-                            No disassembly available for this region.
+                            No disassembly available for this ROM.
                           </div>
                         )}
                       </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Showing up to 10 instructions before and after the current
-                      program counter.
+                      Scroll to browse the full disassembly. Rows are virtualized
+                      for smoother performance.
                     </p>
+                  </>
+                ) : stepModeEnabled ? (
+                  <div className="rounded-md border border-dashed border-input/60 bg-muted/30 px-3 py-4">
+                    <p className="text-xs text-muted-foreground">
+                      {isDisassembling
+                        ? "Generating disassembly..."
+                        : "Disassembly loads automatically while Step Mode is enabled."}
+                    </p>
+                    {disassemblyError ? (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <p className="text-xs text-destructive">
+                          {disassemblyError}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleDisassemble}
+                          disabled={isDisassembling}
+                        >
+                          {isDisassembling ? "Retrying..." : "Retry disassembly"}
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
-                </>
-              ) : (
-                <div className="mt-4 flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleDisassemble}
-                    disabled={isDisassembling}
-                  >
-                    {isDisassembling ? "Disassembling..." : "Disassemble"}
-                  </Button>
-                  {disassemblyError ? (
-                    <p className="text-xs text-destructive">
-                      {disassemblyError}
-                    </p>
-                  ) : null}
-                </div>
-              )}
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleDisassemble}
+                      disabled={isDisassembling}
+                    >
+                      {isDisassembling ? "Disassembling..." : "Disassemble"}
+                    </Button>
+                    {disassemblyError ? (
+                      <p className="text-xs text-destructive">
+                        {disassemblyError}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
