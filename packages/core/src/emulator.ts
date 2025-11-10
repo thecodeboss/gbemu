@@ -1,4 +1,4 @@
-import { Ppu, DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT } from "./ppu.js";
+import { Ppu } from "./ppu.js";
 import { Apu } from "./apu.js";
 import { SystemBus } from "./bus.js";
 import { Mbc, MbcFactory } from "./mbc.js";
@@ -78,6 +78,7 @@ interface EmulatorDependencies {
 
 const DEFAULT_AUDIO_BUFFER_FRAMES = 1024;
 const AUDIO_SAMPLE_RATE = 44_100;
+const CPU_CYCLES_PER_FRAME = Clock.FRAME_CYCLES / 4;
 
 export class Emulator {
   readonly cpu: Cpu;
@@ -199,11 +200,7 @@ export class Emulator {
       this.pause();
     }
     const cycles = this.cpu.step();
-    this.bus.tick(cycles);
-    this.ppu.tick(cycles);
-    for (let i = 0; i < cycles; i += 1) {
-      this.clock.step();
-    }
+    this.#tickSubsystems(cycles);
     this.#emitVideoFrame();
   }
 
@@ -264,39 +261,49 @@ export class Emulator {
   }
 
   #runFrame(): void {
-    this.clock.runFrame();
-    const stepCycles = this.cpu.step();
-    this.bus.tick(stepCycles);
-    this.ppu.tick(stepCycles);
-    this.#emitVideoFrame();
+    const targetFrame = this.#frameCount + 1;
+    const maxCycles = CPU_CYCLES_PER_FRAME * 2;
+    let accumulatedCycles = 0;
+
+    while (this.#frameCount < targetFrame) {
+      const stepCycles = this.cpu.step();
+      this.#tickSubsystems(stepCycles);
+      accumulatedCycles += stepCycles;
+      this.#emitVideoFrame();
+
+      if (accumulatedCycles >= maxCycles) {
+        this.#callbacks?.onLog?.(
+          "Frame watchdog triggered before VBlank; breaking out early.",
+        );
+        break;
+      }
+    }
+
     this.#emitAudioChunk();
+  }
+
+  #tickSubsystems(cycles: number): void {
+    this.bus.tick(cycles);
+    this.ppu.tick(cycles);
+    this.apu.tick(cycles);
+    for (let i = 0; i < cycles; i += 1) {
+      this.clock.step();
+    }
   }
 
   #emitVideoFrame(): void {
     if (!this.#callbacks) {
       return;
     }
-    const width = DEFAULT_SCREEN_WIDTH;
-    const height = DEFAULT_SCREEN_HEIGHT;
-    const pixels = new Uint8ClampedArray(width * height * 4);
-    const framePhase = this.#frameCount % 256;
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const index = (y * width + x) * 4;
-        const r = (x + framePhase) & 0xff;
-        const g = (y + framePhase) & 0xff;
-        const b = (x ^ y ^ framePhase) & 0xff;
-        pixels[index] = r;
-        pixels[index + 1] = g;
-        pixels[index + 2] = b;
-        pixels[index + 3] = 0xff;
-      }
+    const frame = this.ppu.consumeFrame();
+    if (!frame) {
+      return;
     }
     this.#frameCount += 1;
     this.#callbacks.onVideoFrame({
-      width,
-      height,
-      buffer: pixels,
+      width: frame.width,
+      height: frame.height,
+      buffer: frame.data,
     });
   }
 

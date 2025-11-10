@@ -44,9 +44,10 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - `emulator.ts` currently holds the stubbed `Emulator` class that:
   - Implements minimal CPU/PPU/APU/bus behavior sufficient to exercise the runtime pipeline.
   - Parses ROM metadata (`parseRomInfo`) but does not execute real instructions.
-  - Generates blank audio/video output and supports save serialization with simple RAM banks.
+  - Pipes real PPU output via `Ppu#consumeFrame()` (scanline renderer that respects LCD modes, BG/window scroll, and sprite priority) while still faking CPU/APU timing; audio remains a silent placeholder and saves stick to simple RAM banks.
 - Debug helpers: `Emulator#getCpuState()` clones registers/flags/IME/cycle state and `Emulator#getMemorySnapshot()` returns a copy of the 64 KiB bus image so tooling can display live diagnostics safely.
 - `src/rom/` groups all ROM helpers: `info.ts` parses cartridge metadata (`parseRomInfo`), `sizes.ts` handles ROM/RAM sizing helpers, `disassemble.ts` produces structured `Instruction` objects, and `format.ts` renders them via `formatDisassembledRom`; `index.ts` re-exports the public surface for consumers.
+- `ppu.ts` emulates the LCD controller mode state machine (OAM → XFER → HBLANK/VBLANK), updates LY/STAT, fetches tile data from VRAM, renders background/window layers plus up to 10 sprites per scanline into an RGBA framebuffer, and exposes `consumeFrame()` so the emulator can copy completed frames.
 - Export surface collected in `src/index.ts`; package compiles to `dist/` via `pnpm --filter @gbemu/core build`.
 - Future real emulator work should replace the stub while satisfying the existing interfaces. Reference hardware documentation at [gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html).
 

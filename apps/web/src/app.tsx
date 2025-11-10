@@ -22,7 +22,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
@@ -123,7 +122,7 @@ function App() {
   );
   const [disassemblyError, setDisassemblyError] = useState<string | null>(null);
   const [isDisassembling, setIsDisassembling] = useState(false);
-  const [stepModeEnabled, setStepModeEnabled] = useState(true);
+  const [isBreakMode, setIsBreakMode] = useState(false);
   const [isStepping, setIsStepping] = useState(false);
   const [currentInstructionOffset, setCurrentInstructionOffset] = useState<
     number | null
@@ -262,6 +261,8 @@ function App() {
       setIsDisassembling(false);
       setDisassemblyScrollTop(0);
       setCurrentInstructionOffset(null);
+       setIsBreakMode(false);
+       setIsStepping(false);
       setPhase("loading");
 
       try {
@@ -276,14 +277,11 @@ function App() {
         setRomInfo(info);
         const programCounter = await runtime.getProgramCounter();
         setCurrentInstructionOffset(programCounter ?? null);
-        if (!stepModeEnabled) {
-          await runtime.start();
-        }
+        await runtime.start();
+        setIsBreakMode(false);
 
         setPhase("running");
-        if (stepModeEnabled) {
-          setAutoDisassemblyVersion((value) => value + 1);
-        }
+        setAutoDisassemblyVersion((value) => value + 1);
         void refreshDebugInfo();
       } catch (err) {
         console.error(err);
@@ -291,7 +289,7 @@ function App() {
         setPhase("error");
       }
     },
-    [ensureRuntimeClient, refreshDebugInfo, stepModeEnabled],
+    [ensureRuntimeClient, refreshDebugInfo],
   );
 
   const handleFileInputChange = useCallback(
@@ -329,6 +327,7 @@ function App() {
     setIsDisassembling(false);
     setDisassemblyScrollTop(0);
     setIsStepping(false);
+    setIsBreakMode(false);
     setCurrentInstructionOffset(null);
     setPhase("menu");
     setError(null);
@@ -363,13 +362,51 @@ function App() {
     })();
   }, [currentInstructionOffset, ensureRuntimeClient]);
 
+  const handleBreak = useCallback(() => {
+    if (isBreakMode) {
+      return;
+    }
+    const runtime = runtimeRef.current;
+    if (!runtime) {
+      return;
+    }
+    setIsStepping(false);
+    void runtime
+      .pause()
+      .then(async () => {
+        setIsBreakMode(true);
+        const pc = await runtime.getProgramCounter();
+        setCurrentInstructionOffset(pc ?? null);
+        void refreshDebugInfo();
+      })
+      .catch((err) => {
+        console.error(err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
+  }, [isBreakMode, refreshDebugInfo, setError]);
+
+  const handleResume = useCallback(() => {
+    if (!isBreakMode) {
+      return;
+    }
+    const runtime = runtimeRef.current;
+    if (!runtime) {
+      return;
+    }
+    setIsStepping(false);
+    void runtime
+      .start()
+      .then(() => {
+        setIsBreakMode(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
+  }, [isBreakMode, setError]);
+
   useEffect(() => {
-    if (
-      phase !== "running" ||
-      !stepModeEnabled ||
-      disassembly !== null ||
-      isDisassembling
-    ) {
+    if (phase !== "running" || disassembly !== null || isDisassembling) {
       return;
     }
     if (autoDisassemblyVersion === lastAutoDisassemblyVersionRef.current) {
@@ -383,44 +420,10 @@ function App() {
     handleDisassemble,
     isDisassembling,
     phase,
-    stepModeEnabled,
   ]);
 
-  const handleStepModeToggle = useCallback(
-    (checked: boolean) => {
-      setStepModeEnabled(checked);
-      setIsStepping(false);
-      if (checked && disassembly === null) {
-        setAutoDisassemblyVersion((value) => value + 1);
-      }
-      const runtime = runtimeRef.current;
-      if (!runtime) {
-        return;
-      }
-      if (checked) {
-        void runtime
-          .pause()
-          .then(async () => {
-            const pc = await runtime.getProgramCounter();
-            setCurrentInstructionOffset(pc ?? null);
-            void refreshDebugInfo();
-          })
-          .catch((err) => {
-            console.error(err);
-            setError(err instanceof Error ? err.message : String(err));
-          });
-      } else {
-        void runtime.start().catch((err) => {
-          console.error(err);
-          setError(err instanceof Error ? err.message : String(err));
-        });
-      }
-    },
-    [disassembly, refreshDebugInfo, setError],
-  );
-
   const handleStepInstruction = useCallback(() => {
-    if (!stepModeEnabled) {
+    if (!isBreakMode) {
       return;
     }
     const runtime = runtimeRef.current;
@@ -442,7 +445,7 @@ function App() {
       .finally(() => {
         setIsStepping(false);
       });
-  }, [refreshDebugInfo, setError, stepModeEnabled]);
+  }, [isBreakMode, refreshDebugInfo, setError]);
 
   const disassemblyTableMetrics = useMemo(() => {
     if (!disassembly) {
@@ -546,7 +549,7 @@ function App() {
 
   useEffect(() => {
     if (
-      !stepModeEnabled ||
+      !isBreakMode ||
       phase !== "running" ||
       !disassembly ||
       disassemblyTableMetrics.activeIndex === null
@@ -559,8 +562,7 @@ function App() {
       return;
     }
 
-    const rowTop =
-      disassemblyTableMetrics.activeIndex * DISASSEMBLY_ROW_HEIGHT;
+    const rowTop = disassemblyTableMetrics.activeIndex * DISASSEMBLY_ROW_HEIGHT;
     const rowBottom = rowTop + DISASSEMBLY_ROW_HEIGHT;
     const viewportTop = disassemblyScrollTop;
     const viewportBottom = viewportTop + DISASSEMBLY_VIEWPORT_HEIGHT;
@@ -582,8 +584,8 @@ function App() {
     disassemblyScrollTop,
     disassemblyTableMetrics.activeIndex,
     disassemblyTableMetrics.totalHeight,
+    isBreakMode,
     phase,
-    stepModeEnabled,
   ]);
 
   const memoryTableMetrics = useMemo(() => {
@@ -663,22 +665,6 @@ function App() {
           <Button type="button" variant="default" onClick={openFilePicker}>
             Select ROM
           </Button>
-          <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2">
-            <label
-              htmlFor="step-mode-toggle"
-              className="flex flex-col gap-1 text-left"
-            >
-              <span className="text-sm font-medium">Step Mode</span>
-              <span className="text-xs text-muted-foreground">
-                Execute one CPU instruction at a time.
-              </span>
-            </label>
-            <Switch
-              id="step-mode-toggle"
-              checked={stepModeEnabled}
-              onCheckedChange={handleStepModeToggle}
-            />
-          </div>
         </CardContent>
       </Card>
 
@@ -706,8 +692,8 @@ function App() {
           />
         </CardContent>
         <CardFooter>
-          {stepModeEnabled ? (
-            <CardAction>
+          <CardAction>
+            {isBreakMode ? (
               <Button
                 type="button"
                 variant="outline"
@@ -715,6 +701,27 @@ function App() {
                 disabled={isStepping}
               >
                 {isStepping ? "Stepping..." : "Step"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBreak}
+                disabled={isStepping}
+              >
+                Break
+              </Button>
+            )}
+          </CardAction>
+          {isBreakMode ? (
+            <CardAction>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleResume}
+                disabled={isStepping}
+              >
+                Resume
               </Button>
             </CardAction>
           ) : null}
@@ -798,7 +805,9 @@ function App() {
                                   .join(" ");
                                 const instructionClasses = [
                                   "whitespace-pre-wrap",
-                                  row.isActive ? "font-semibold text-primary" : "",
+                                  row.isActive
+                                    ? "font-semibold text-primary"
+                                    : "",
                                 ]
                                   .filter(Boolean)
                                   .join(" ");
@@ -829,16 +838,16 @@ function App() {
                       </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Scroll to browse the full disassembly. Rows are virtualized
-                      for smoother performance.
+                      Scroll to browse the full disassembly. Rows are
+                      virtualized for smoother performance.
                     </p>
                   </>
-                ) : stepModeEnabled ? (
+                ) : (
                   <div className="rounded-md border border-dashed border-input/60 bg-muted/30 px-3 py-4">
                     <p className="text-xs text-muted-foreground">
                       {isDisassembling
                         ? "Generating disassembly..."
-                        : "Disassembly loads automatically while Step Mode is enabled."}
+                        : "Disassembly loads automatically once a ROM is running."}
                     </p>
                     {disassemblyError ? (
                       <div className="mt-2 flex flex-col gap-2">
@@ -851,25 +860,11 @@ function App() {
                           onClick={handleDisassemble}
                           disabled={isDisassembling}
                         >
-                          {isDisassembling ? "Retrying..." : "Retry disassembly"}
+                          {isDisassembling
+                            ? "Retrying..."
+                            : "Retry disassembly"}
                         </Button>
                       </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleDisassemble}
-                      disabled={isDisassembling}
-                    >
-                      {isDisassembling ? "Disassembling..." : "Disassemble"}
-                    </Button>
-                    {disassemblyError ? (
-                      <p className="text-xs text-destructive">
-                        {disassemblyError}
-                      </p>
                     ) : null}
                   </div>
                 )}
