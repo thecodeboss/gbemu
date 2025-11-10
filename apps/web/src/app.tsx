@@ -744,17 +744,13 @@ function App() {
                     <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                       Halted
                     </p>
-                    <p className="text-sm">
-                      {cpuState.halted ? "Yes" : "No"}
-                    </p>
+                    <p className="text-sm">{cpuState.halted ? "Yes" : "No"}</p>
                   </div>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                       Stopped
                     </p>
-                    <p className="text-sm">
-                      {cpuState.stopped ? "Yes" : "No"}
-                    </p>
+                    <p className="text-sm">{cpuState.stopped ? "Yes" : "No"}</p>
                   </div>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">

@@ -1,5 +1,5 @@
 import { disassembleInstruction } from "./rom/disassemble.js";
-import type { InstructionOperand, OpcodeInstruction } from "./rom/types.js";
+import { InstructionOperand, OpcodeInstruction } from "./rom/types.js";
 
 export type CpuFlag = "Z" | "N" | "H" | "C";
 
@@ -419,7 +419,7 @@ export class Cpu {
     this.#assertAccumulatorDestination(destination, "AND");
     const value = this.#readEightBitValue(source, "AND source");
     const registers = this.state.registers;
-    const result = (registers.a & value) & 0xff;
+    const result = registers.a & value & 0xff;
     registers.a = result;
     this.#updateFlags({
       zero: result === 0,
@@ -464,7 +464,7 @@ export class Cpu {
 
   #executeCpl(nextPc: number): void {
     const registers = this.state.registers;
-    registers.a = (~registers.a) & 0xff;
+    registers.a = ~registers.a & 0xff;
     this.#updateFlags({
       subtract: true,
       halfCarry: true,
@@ -808,7 +808,10 @@ export class Cpu {
       throw new Error("INC instruction missing operand");
     }
 
-    if (this.#isMemoryOperand(operand) || this.#isEightBitRegisterOperand(operand)) {
+    if (
+      this.#isMemoryOperand(operand) ||
+      this.#isEightBitRegisterOperand(operand)
+    ) {
       this.#increment8(operand);
       this.#setProgramCounter(nextPc);
       return;
@@ -829,7 +832,10 @@ export class Cpu {
       throw new Error("DEC instruction missing operand");
     }
 
-    if (this.#isMemoryOperand(operand) || this.#isEightBitRegisterOperand(operand)) {
+    if (
+      this.#isMemoryOperand(operand) ||
+      this.#isEightBitRegisterOperand(operand)
+    ) {
       this.#decrement8(operand);
       this.#setProgramCounter(nextPc);
       return;
@@ -849,7 +855,9 @@ export class Cpu {
     mnemonic: string,
   ): void {
     if (!operand || operand.meta.name !== "A") {
-      throw new Error(`${mnemonic} instruction expects accumulator destination`);
+      throw new Error(
+        `${mnemonic} instruction expects accumulator destination`,
+      );
     }
   }
 
@@ -867,25 +875,23 @@ export class Cpu {
     return this.#readRegisterPairByName(name);
   }
 
-  #isEightBitRegisterOperand(
-    operand: InstructionOperand | undefined,
-  ): boolean {
+  #isEightBitRegisterOperand(operand: InstructionOperand | undefined): boolean {
     return Boolean(
-      operand && operand.meta.immediate && this.#is8BitRegister(operand.meta.name),
+      operand &&
+        operand.meta.immediate &&
+        this.#is8BitRegister(operand.meta.name),
     );
   }
 
-  #is16BitRegisterOperand(
-    operand: InstructionOperand | undefined,
-  ): boolean {
+  #is16BitRegisterOperand(operand: InstructionOperand | undefined): boolean {
     return Boolean(
-      operand && operand.meta.immediate && this.#is16BitRegister(operand.meta.name),
+      operand &&
+        operand.meta.immediate &&
+        this.#is16BitRegister(operand.meta.name),
     );
   }
 
-  #isMemoryOperand(
-    operand: InstructionOperand | undefined,
-  ): boolean {
+  #isMemoryOperand(operand: InstructionOperand | undefined): boolean {
     if (!operand) {
       return false;
     }
@@ -905,9 +911,7 @@ export class Cpu {
     return false;
   }
 
-  #isImmediate16Operand(
-    operand: InstructionOperand | undefined,
-  ): boolean {
+  #isImmediate16Operand(operand: InstructionOperand | undefined): boolean {
     return Boolean(operand && operand.meta.name === "n16");
   }
 
@@ -1054,10 +1058,7 @@ export class Cpu {
     throw new Error(`Unsupported ${description}: ${operand.meta.name}`);
   }
 
-  #writeEightBitValue(
-    operand: InstructionOperand,
-    value: number,
-  ): void {
+  #writeEightBitValue(operand: InstructionOperand, value: number): void {
     const maskedValue = value & 0xff;
     if (this.#isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, "memory target");
@@ -1114,7 +1115,7 @@ export class Cpu {
     const current = registers.a & 0xff;
     const sum = current + operand;
     const result = sum & 0xff;
-    const halfCarry = ((current & 0x0f) + (operand & 0x0f)) > 0x0f;
+    const halfCarry = (current & 0x0f) + (operand & 0x0f) > 0x0f;
     const carry = sum > 0xff;
     registers.a = result;
     this.#updateFlags({
@@ -1132,8 +1133,7 @@ export class Cpu {
     const carryIn = this.state.flags.carry ? 1 : 0;
     const sum = current + operand + carryIn;
     const result = sum & 0xff;
-    const halfCarry =
-      ((current & 0x0f) + (operand & 0x0f) + carryIn) > 0x0f;
+    const halfCarry = (current & 0x0f) + (operand & 0x0f) + carryIn > 0x0f;
     const carry = sum > 0xff;
     registers.a = result;
     this.#updateFlags({
@@ -1168,7 +1168,7 @@ export class Cpu {
     const subtrahend = operand + carryIn;
     const result = (current - subtrahend) & 0xff;
     const borrow = current < subtrahend;
-    const halfBorrow = (current & 0x0f) < ((operand & 0x0f) + carryIn);
+    const halfBorrow = (current & 0x0f) < (operand & 0x0f) + carryIn;
     registers.a = result;
     this.#updateFlags({
       zero: result === 0,
@@ -1197,7 +1197,7 @@ export class Cpu {
     const current = this.#readRegisterPairHL();
     const sum = current + operand;
     const result = sum & 0xffff;
-    const halfCarry = ((current & 0x0fff) + (operand & 0x0fff)) > 0x0fff;
+    const halfCarry = (current & 0x0fff) + (operand & 0x0fff) > 0x0fff;
     const carry = sum > 0xffff;
     this.#writeRegisterPairHL(result);
     this.#updateFlags({

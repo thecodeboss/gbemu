@@ -200,6 +200,7 @@ export class Emulator {
     }
     const cycles = this.cpu.step();
     this.bus.tick(cycles);
+    this.ppu.tick(cycles);
     for (let i = 0; i < cycles; i += 1) {
       this.clock.step();
     }
@@ -266,6 +267,7 @@ export class Emulator {
     this.clock.runFrame();
     const stepCycles = this.cpu.step();
     this.bus.tick(stepCycles);
+    this.ppu.tick(stepCycles);
     this.#emitVideoFrame();
     this.#emitAudioChunk();
   }

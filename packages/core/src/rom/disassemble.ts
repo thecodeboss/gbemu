@@ -26,12 +26,7 @@ export function disassembleRom(rom: Uint8Array): Record<number, Instruction> {
 
   const listing = new Map<number, Instruction>();
 
-  disassembleRange(
-    rom,
-    ENTRY_POINT,
-    Math.min(rom.length, NINTENDO_LOGO_START),
-    listing,
-  );
+  disassembleRange(rom, 0, Math.min(rom.length, NINTENDO_LOGO_START), listing);
 
   if (rom.length > NINTENDO_LOGO_START) {
     const logoAnnotation: AnnotationInstruction = {
