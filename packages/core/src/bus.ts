@@ -9,6 +9,54 @@ const INTERRUPT_BITS: Record<InterruptType, number> = {
   joypad: 0x10,
 };
 
+// DMG defaults gathered from Pan Docs' Power-Up Sequence tables.
+const DMG_HARDWARE_REGISTER_DEFAULTS: ReadonlyArray<readonly [number, number]> =
+  [
+    [0xff00, 0xcf], // P1
+    [0xff01, 0x00], // SB
+    [0xff02, 0x7e], // SC
+    [0xff04, 0xab], // DIV
+    [0xff05, 0x00], // TIMA
+    [0xff06, 0x00], // TMA
+    [0xff07, 0xf8], // TAC (upper bits read as 1)
+    [0xff0f, 0xe1], // IF
+    [0xff10, 0x80], // NR10
+    [0xff11, 0xbf], // NR11
+    [0xff12, 0xf3], // NR12
+    [0xff13, 0xff], // NR13
+    [0xff14, 0xbf], // NR14
+    [0xff16, 0x3f], // NR21
+    [0xff17, 0x00], // NR22
+    [0xff18, 0xff], // NR23
+    [0xff19, 0xbf], // NR24
+    [0xff1a, 0x7f], // NR30
+    [0xff1b, 0xff], // NR31
+    [0xff1c, 0x9f], // NR32
+    [0xff1d, 0xff], // NR33
+    [0xff1e, 0xbf], // NR34
+    [0xff20, 0xff], // NR41
+    [0xff21, 0x00], // NR42
+    [0xff22, 0x00], // NR43
+    [0xff23, 0xbf], // NR44
+    [0xff24, 0x77], // NR50
+    [0xff25, 0xf3], // NR51
+    [0xff26, 0xf1], // NR52
+    [0xff40, 0x91], // LCDC
+    [0xff41, 0x85], // STAT
+    [0xff42, 0x00], // SCY
+    [0xff43, 0x00], // SCX
+    [0xff44, 0x00], // LY
+    [0xff45, 0x00], // LYC
+    [0xff46, 0xff], // DMA
+    [0xff47, 0xfc], // BGP
+    [0xff48, 0xff], // OBP0 (uninitialized on hardware; default to white)
+    [0xff49, 0xff], // OBP1 (uninitialized on hardware; default to white)
+    [0xff4a, 0x00], // WY
+    [0xff4b, 0x00], // WX
+    [0xff50, 0x01], // BANK
+    [0xffff, 0x00], // IE
+  ];
+
 export type DmaTransferType = "oam" | "hdma";
 
 export interface AddressRange {
@@ -61,7 +109,7 @@ export class SystemBus
       this.#memory.set(mirrorSource, romBankSize);
     }
 
-    this.#memory[0xff50] = 0x01;
+    this.#initializeHardwareRegisters();
   }
 
   mapBank(_bank: MemoryBank): void {
@@ -137,6 +185,12 @@ export class SystemBus
       if ((value & bit) !== 0) {
         this.#pendingInterrupts.add(type as InterruptType);
       }
+    }
+  }
+
+  #initializeHardwareRegisters(): void {
+    for (const [address, value] of DMG_HARDWARE_REGISTER_DEFAULTS) {
+      this.#memory[address] = value & 0xff;
     }
   }
 }
