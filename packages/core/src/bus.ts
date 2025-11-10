@@ -1,5 +1,14 @@
 import { InterruptType } from "./cpu.js";
 
+const INTERRUPT_FLAG_ADDRESS = 0xff0f;
+const INTERRUPT_BITS: Record<InterruptType, number> = {
+  vblank: 0x01,
+  lcdStat: 0x02,
+  timer: 0x04,
+  serial: 0x08,
+  joypad: 0x10,
+};
+
 export type DmaTransferType = "oam" | "hdma";
 
 export interface AddressRange {
@@ -39,6 +48,7 @@ export class SystemBus
   #pendingInterrupts = new Set<InterruptType>();
 
   loadCartridge(rom: Uint8Array): void {
+    this.#pendingInterrupts.clear();
     const romBankSize = 0x4000;
     const bank0 = rom.slice(0, romBankSize);
     this.#memory.set(bank0, 0x0000);
@@ -67,7 +77,13 @@ export class SystemBus
   }
 
   writeByte(address: number, value: number): void {
-    this.#memory[address & 0xffff] = value & 0xff;
+    const mappedAddress = address & 0xffff;
+    const byteValue = value & 0xff;
+    this.#memory[mappedAddress] = byteValue;
+
+    if (mappedAddress === INTERRUPT_FLAG_ADDRESS) {
+      this.#syncPendingInterrupts(byteValue);
+    }
   }
 
   readWord(address: number): number {
@@ -94,11 +110,17 @@ export class SystemBus
   }
 
   requestInterrupt(type: InterruptType): void {
+    const bit = INTERRUPT_BITS[type];
     this.#pendingInterrupts.add(type);
+    const nextValue = this.#memory[INTERRUPT_FLAG_ADDRESS] | bit;
+    this.#memory[INTERRUPT_FLAG_ADDRESS] = nextValue & 0xff;
   }
 
   acknowledgeInterrupt(type: InterruptType): void {
+    const bit = INTERRUPT_BITS[type];
     this.#pendingInterrupts.delete(type);
+    const nextValue = this.#memory[INTERRUPT_FLAG_ADDRESS] & ~bit;
+    this.#memory[INTERRUPT_FLAG_ADDRESS] = nextValue & 0xff;
   }
 
   getPendingInterrupts(): InterruptType[] {
@@ -107,5 +129,14 @@ export class SystemBus
 
   tick(_cycles: number): void {
     // No bus timing in stub.
+  }
+
+  #syncPendingInterrupts(value: number): void {
+    this.#pendingInterrupts.clear();
+    for (const [type, bit] of Object.entries(INTERRUPT_BITS)) {
+      if ((value & bit) !== 0) {
+        this.#pendingInterrupts.add(type as InterruptType);
+      }
+    }
   }
 }

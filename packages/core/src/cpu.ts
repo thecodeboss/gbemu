@@ -83,6 +83,29 @@ const MAX_PREFETCH_BYTES = 3;
 const EIGHT_BIT_REGISTERS = new Set(["A", "B", "C", "D", "E", "H", "L"]);
 const SIXTEEN_BIT_REGISTERS = new Set(["AF", "BC", "DE", "HL", "SP"]);
 const STACK_REGISTER_NAMES = new Set(["AF", "BC", "DE", "HL"]);
+const INTERRUPT_FLAG_ADDRESS = 0xff0f;
+const INTERRUPT_ENABLE_ADDRESS = 0xffff;
+const INTERRUPT_PRIORITY_ORDER: InterruptType[] = [
+  "vblank",
+  "lcdStat",
+  "timer",
+  "serial",
+  "joypad",
+];
+const INTERRUPT_VECTORS: Record<InterruptType, number> = {
+  vblank: 0x40,
+  lcdStat: 0x48,
+  timer: 0x50,
+  serial: 0x58,
+  joypad: 0x60,
+};
+const INTERRUPT_BITS: Record<InterruptType, number> = {
+  vblank: 0x01,
+  lcdStat: 0x02,
+  timer: 0x04,
+  serial: 0x08,
+  joypad: 0x10,
+};
 
 export class Cpu {
   state: CpuState = createDefaultCpuState();
@@ -102,6 +125,12 @@ export class Cpu {
 
   step(): number {
     const bus = this.#requireBus();
+
+    const interruptServiced = this.#serviceInterruptIfNeeded(bus);
+    if (interruptServiced) {
+      return this.#consumeCycles();
+    }
+
     if (this.state.halted || this.state.stopped) {
       return this.#consumeCycles();
     }
@@ -134,6 +163,41 @@ export class Cpu {
   connectBus(bus: CpuBusPort): void {
     this.#bus = bus;
     this.#instructionView.fill(0);
+  }
+
+  #serviceInterruptIfNeeded(bus: CpuBusPort): boolean {
+    const interruptEnable = bus.readByte(INTERRUPT_ENABLE_ADDRESS) & 0xff;
+    const interruptFlags = bus.readByte(INTERRUPT_FLAG_ADDRESS) & 0xff;
+    const pendingMask = (interruptEnable & interruptFlags) & 0x1f;
+
+    if (pendingMask === 0) {
+      return false;
+    }
+
+    if (this.state.halted) {
+      this.state.halted = false;
+    }
+
+    if (!this.state.ime) {
+      return false;
+    }
+
+    this.state.stopped = false;
+
+    const pendingType = INTERRUPT_PRIORITY_ORDER.find((type) => {
+      return (pendingMask & INTERRUPT_BITS[type]) !== 0;
+    });
+
+    if (!pendingType) {
+      return false;
+    }
+
+    this.state.ime = false;
+    this.#pushWord(this.state.registers.pc);
+    const clearedFlags = interruptFlags & ~INTERRUPT_BITS[pendingType];
+    bus.writeByte(INTERRUPT_FLAG_ADDRESS, clearedFlags);
+    this.#setProgramCounter(INTERRUPT_VECTORS[pendingType]);
+    return true;
   }
 
   #prefetchInstructionBytes(bus: CpuBusPort, pc: number): void {
