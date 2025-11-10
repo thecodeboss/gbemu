@@ -174,13 +174,16 @@ export class Ppu {
   }
 
   #resetWhenLcdDisabled(): void {
+    const wasActive = this.#lcdActive;
     this.#lineDot = 0;
     if (this.#ly !== 0) {
       this.#writeLyRegister(0);
     }
     this.#setMode("hblank");
     this.#lcdActive = false;
-    this.#frameReady = true;
+    if (wasActive) {
+      this.#frameReady = true;
+    }
     this.#windowLineCounter = 0;
   }
 

@@ -131,13 +131,11 @@ function App() {
   const [memorySnapshot, setMemorySnapshot] = useState<Uint8Array | null>(null);
   const [memoryScrollTop, setMemoryScrollTop] = useState(0);
   const [disassemblyScrollTop, setDisassemblyScrollTop] = useState(0);
-  const [autoDisassemblyVersion, setAutoDisassemblyVersion] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const disassemblyScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const lastAutoDisassemblyVersionRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -281,7 +279,6 @@ function App() {
         setIsBreakMode(false);
 
         setPhase("running");
-        setAutoDisassemblyVersion((value) => value + 1);
         void refreshDebugInfo();
       } catch (err) {
         console.error(err);
@@ -404,23 +401,6 @@ function App() {
         setError(err instanceof Error ? err.message : String(err));
       });
   }, [isBreakMode, setError]);
-
-  useEffect(() => {
-    if (phase !== "running" || disassembly !== null || isDisassembling) {
-      return;
-    }
-    if (autoDisassemblyVersion === lastAutoDisassemblyVersionRef.current) {
-      return;
-    }
-    lastAutoDisassemblyVersionRef.current = autoDisassemblyVersion;
-    handleDisassemble();
-  }, [
-    autoDisassemblyVersion,
-    disassembly,
-    handleDisassemble,
-    isDisassembling,
-    phase,
-  ]);
 
   const handleStepInstruction = useCallback(() => {
     if (!isBreakMode) {
@@ -847,25 +827,25 @@ function App() {
                     <p className="text-xs text-muted-foreground">
                       {isDisassembling
                         ? "Generating disassembly..."
-                        : "Disassembly loads automatically once a ROM is running."}
+                        : "Click the button below to generate a disassembly."}
                     </p>
                     {disassemblyError ? (
-                      <div className="mt-2 flex flex-col gap-2">
-                        <p className="text-xs text-destructive">
-                          {disassemblyError}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleDisassemble}
-                          disabled={isDisassembling}
-                        >
-                          {isDisassembling
-                            ? "Retrying..."
-                            : "Retry disassembly"}
-                        </Button>
-                      </div>
+                      <p className="mt-2 text-xs text-destructive">
+                        {disassemblyError}
+                      </p>
                     ) : null}
+                    <div className="mt-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleDisassemble}
+                        disabled={isDisassembling}
+                      >
+                        {isDisassembling
+                          ? "Generating..."
+                          : "Generate disassembly"}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>

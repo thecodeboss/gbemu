@@ -272,9 +272,12 @@ export class Emulator {
       this.#emitVideoFrame();
 
       if (accumulatedCycles >= maxCycles) {
-        this.#callbacks?.onLog?.(
-          "Frame watchdog triggered before VBlank; breaking out early.",
-        );
+        const lcdEnabled = this.ppu.getStatus().lcdEnabled;
+        if (lcdEnabled) {
+          this.#callbacks?.onLog?.(
+            "Frame watchdog triggered before VBlank; breaking out early.",
+          );
+        }
         break;
       }
     }
