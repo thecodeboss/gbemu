@@ -26,6 +26,7 @@ export interface RuntimeClientOptions {
   autoPersistSaves?: boolean;
   onLog?(message: string): void;
   onError?(error: unknown): void;
+  onBreakpointHit?(offset: number): void;
 }
 
 export interface RuntimeClient {
@@ -36,6 +37,7 @@ export interface RuntimeClient {
   reset(options?: { hard?: boolean }): Promise<void>;
   stepFrame(): Promise<void>;
   stepInstruction(): Promise<void>;
+  setBreakpoints(breakpoints: number[]): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
   loadPersistentSave(): Promise<void>;
@@ -87,6 +89,9 @@ export async function createRuntimeClient(
       } else {
         console.error("[gbemu/runtime]", error);
       }
+    },
+    handleBreakpointHit(offset: number) {
+      options.onBreakpointHit?.(offset);
     },
   };
 
@@ -163,6 +168,8 @@ export async function createRuntimeClient(
     reset: (opts) => workerEndpoint.reset(opts),
     stepFrame: () => workerEndpoint.stepFrame(),
     stepInstruction: () => workerEndpoint.stepInstruction(),
+    setBreakpoints: (breakpoints) =>
+      workerEndpoint.setBreakpoints({ offsets: breakpoints }),
     getRomInfo: () => workerEndpoint.getRomInfo(),
     async getSave() {
       const payload = await workerEndpoint.getSave();

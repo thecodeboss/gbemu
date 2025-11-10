@@ -35,6 +35,7 @@ export interface EmulatorCallbacks {
   onSaveData(payload: SavePayload): void;
   onLog?(message: string): void;
   onError?(error: unknown): void;
+  onBreakpointHit?(offset: number): void;
 }
 
 export interface EmulatorOptions {
@@ -97,6 +98,8 @@ export class Emulator {
   #mbcFactory: MbcFactory;
   #mbc: Mbc;
   #running = false;
+  #breakpoints = new Set<number>();
+  #lastBreakpointHit: number | null = null;
 
   constructor(deps: EmulatorDependencies) {
     this.clock = deps.clock;
@@ -126,6 +129,7 @@ export class Emulator {
     this.apu.reset();
     this.clock.setSpeed(1);
     this.cpu.state.registers.pc = 0x0100;
+    this.#lastBreakpointHit = null;
     this.#frameCount = 0;
     this.#callbacks?.onLog?.(
       `Loaded ROM ${this.#romInfo?.title ?? "(untitled)"}`,
@@ -159,6 +163,7 @@ export class Emulator {
     this.apu.reset();
     this.clock.step();
     this.#frameCount = 0;
+    this.#lastBreakpointHit = null;
     if (hard) {
       this.#romData = null;
       this.#romInfo = null;
@@ -202,6 +207,7 @@ export class Emulator {
     const cycles = this.cpu.step();
     this.#tickSubsystems(cycles);
     this.#emitVideoFrame();
+    this.#refreshBreakpointLatch();
   }
 
   isRunning(): boolean {
@@ -239,6 +245,16 @@ export class Emulator {
     return this.bus.dumpMemory();
   }
 
+  setBreakpoints(offsets: Iterable<number>): void {
+    this.#breakpoints.clear();
+    for (const value of offsets) {
+      if (Number.isFinite(value)) {
+        this.#breakpoints.add((Number(value) >>> 0) & 0xffff);
+      }
+    }
+    this.#lastBreakpointHit = null;
+  }
+
   getStateSnapshot(): EmulatorStateSnapshot {
     return {
       cpu: { cycles: this.cpu.state.cycles },
@@ -266,6 +282,9 @@ export class Emulator {
     let accumulatedCycles = 0;
 
     while (this.#frameCount < targetFrame) {
+      if (this.#shouldPauseForBreakpoint()) {
+        return;
+      }
       const stepCycles = this.cpu.step();
       this.#tickSubsystems(stepCycles);
       accumulatedCycles += stepCycles;
@@ -283,6 +302,32 @@ export class Emulator {
     }
 
     this.#emitAudioChunk();
+  }
+
+  #shouldPauseForBreakpoint(): boolean {
+    if (!this.#running || this.#breakpoints.size === 0) {
+      return false;
+    }
+
+    this.#refreshBreakpointLatch();
+    const pc = this.cpu.state.registers.pc;
+    if (!this.#breakpoints.has(pc) || this.#lastBreakpointHit === pc) {
+      return false;
+    }
+
+    this.#lastBreakpointHit = pc;
+    this.pause();
+    this.#callbacks?.onBreakpointHit?.(pc);
+    return true;
+  }
+
+  #refreshBreakpointLatch(): void {
+    if (
+      this.#lastBreakpointHit !== null &&
+      this.cpu.state.registers.pc !== this.#lastBreakpointHit
+    ) {
+      this.#lastBreakpointHit = null;
+    }
   }
 
   #tickSubsystems(cycles: number): void {

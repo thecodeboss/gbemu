@@ -49,6 +49,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - `src/rom/` groups all ROM helpers: `info.ts` parses cartridge metadata (`parseRomInfo`), `sizes.ts` handles ROM/RAM sizing helpers, `disassemble.ts` produces structured `Instruction` objects, and `format.ts` renders them via `formatDisassembledRom`; `index.ts` re-exports the public surface for consumers.
 - `ppu.ts` emulates the LCD controller mode state machine (OAM → XFER → HBLANK/VBLANK), updates LY/STAT, fetches tile data from VRAM, renders background/window layers plus up to 10 sprites per scanline into an RGBA framebuffer, and exposes `consumeFrame()` so the emulator can copy completed frames. When LCDC bit 7 disables the LCD, it now emits a single blank frame on the transition but otherwise keeps the flag cleared so the CPU loop continues to advance at full speed instead of short-circuiting every tick.
 - `emulator.ts` keeps the frame watchdog warning quiet while the LCD is disabled (it still advances timing via the max-cycle escape hatch so ROMs that intentionally disable the LCD keep running at the same cadence).
+- Breakpoints are managed inside `Emulator#setBreakpoints()`, which stores 16-bit offsets, pauses the run loop when the CPU PC matches one while running, and triggers `callbacks.onBreakpointHit` after pausing so hosts can flip into break mode without racing the UI.
 - Export surface collected in `src/index.ts`; package compiles to `dist/` via `pnpm --filter @gbemu/core build`.
 - Future real emulator work should replace the stub while satisfying the existing interfaces. Reference hardware documentation at [gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html).
 
@@ -62,6 +63,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - `src/worker/emulator-worker.ts` is the actual worker entry. It currently instantiates the stubbed `Emulator` from `@gbemu/core/src/emulator.ts` but is the place to swap in the real implementation.
 - Main thread client:
   - `src/main/runtime-client.ts` provides `createRuntimeClient`, which instantiates the worker, sets up a `Canvas2DRenderer`, and initialises `createEmulatorAudioNode`. It also optionally persists saves via `SaveStorageAdapter`.
+  - `createRuntimeClient` exposes a `setBreakpoints(offsets: number[])` method on the returned client and accepts an `onBreakpointHit` option so UIs can be notified when the worker halted on a breakpoint.
 - Rendering/audio/persistence helpers:
   - `src/video/canvas2d-renderer.ts` wraps a `<canvas>` and handles resizing, drawing frames, and clearing.
   - `src/audio/node.ts` sets up an `AudioWorkletNode` (`worklet-processor.ts` implements the processor) and exposes a queue-based audio API.
@@ -75,6 +77,8 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Shadcn UI components (Tailwind + Radix) provide most primitives; follow https://ui.shadcn.com/docs when touching `apps/web/src/components` so generated styles stay consistent.
 - React Compiler is enabled via `@vitejs/plugin-react` plus `babel-plugin-react-compiler` (see `apps/web/vite.config.ts`); the compiler is now stable, so keep components within its supported patterns (no side effects during render, stable props).
 - `src/app.tsx` manages ROM selection, runtime client lifecycle, and simple UI state machine (`menu` → `loading` → `running`/`error`).
+- ROMs now load directly into break mode—the emulator stays paused until the user clicks Resume or steps an instruction, which makes the initial PC visible before execution.
+- The disassembly view adds a leading BP column; clicking a cell toggles a red-circle breakpoint that propagates to the runtime and automatically pauses when the PC hits that offset.
 - The debug panel now polls `RuntimeClient.getCpuState()`/`getMemorySnapshot()` to render live CPU register + flag cards and a virtualized memory browser (type/offset/value columns with infinite scroll). Keep the polling cadence reasonable (currently ~750 ms) if runtime performance changes.
 - Loads worker and audio worklet via `new URL("@gbemu/runtime/src/...")` so Vite bundles the TypeScript modules.
 - Uses `DEFAULT_CANVAS_WIDTH/HEIGHT` from the runtime package to size the display.

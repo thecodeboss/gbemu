@@ -8,6 +8,7 @@ export interface EmulatorWorkerRequestMap {
   reset: { hard?: boolean } | undefined;
   stepFrame: undefined;
   stepInstruction: undefined;
+  setBreakpoints: { offsets: number[] };
   dispose: undefined;
   getRomInfo: undefined;
   getSave: undefined;
@@ -23,6 +24,7 @@ export interface EmulatorWorkerEventMap {
   saveData: SavePayload;
   log: string;
   error: unknown;
+  breakpointHit: number;
 }
 
 export interface EmulatorWorkerPort {

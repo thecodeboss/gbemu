@@ -131,6 +131,8 @@ function App() {
   const [memorySnapshot, setMemorySnapshot] = useState<Uint8Array | null>(null);
   const [memoryScrollTop, setMemoryScrollTop] = useState(0);
   const [disassemblyScrollTop, setDisassemblyScrollTop] = useState(0);
+  const [breakpoints, setBreakpoints] = useState<Set<number>>(() => new Set());
+  const [shouldCenterDisassembly, setShouldCenterDisassembly] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const disassemblyScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
@@ -174,6 +176,40 @@ function App() {
     return audioContext;
   }, []);
 
+  const refreshDebugInfo = useCallback(async (): Promise<void> => {
+    const runtime = runtimeRef.current;
+    if (!runtime) {
+      return;
+    }
+    try {
+      const [cpuSnapshot, memorySnapshotValue] = await Promise.all([
+        runtime.getCpuState(),
+        runtime.getMemorySnapshot(),
+      ]);
+      setCpuState(cpuSnapshot);
+      setMemorySnapshot(memorySnapshotValue);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const syncRuntimeBreakpoints = useCallback(
+    (next: Set<number>) => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        return;
+      }
+      const offsets = Array.from(next).sort((a, b) => a - b);
+      void runtime
+        .setBreakpoints(offsets)
+        .catch((err) => {
+          console.error(err);
+          setError(err instanceof Error ? err.message : String(err));
+        });
+    },
+    [setError],
+  );
+
   const ensureRuntimeClient = useCallback(async (): Promise<RuntimeClient> => {
     const runtime = runtimeRef.current;
     if (runtime) {
@@ -201,28 +237,20 @@ function App() {
       ),
       canvas,
       autoPersistSaves: false,
+      onBreakpointHit: (offset) => {
+        setIsBreakMode(true);
+        setIsStepping(false);
+        setCurrentInstructionOffset(offset);
+        setShouldCenterDisassembly(true);
+        void refreshDebugInfo();
+      },
     });
 
     runtimeRef.current = runtimeClient;
     return runtimeClient;
-  }, [ensureAudioContext]);
+  }, [ensureAudioContext, refreshDebugInfo]);
 
-  const refreshDebugInfo = useCallback(async (): Promise<void> => {
-    const runtime = runtimeRef.current;
-    if (!runtime) {
-      return;
-    }
-    try {
-      const [cpuSnapshot, memorySnapshotValue] = await Promise.all([
-        runtime.getCpuState(),
-        runtime.getMemorySnapshot(),
-      ]);
-      setCpuState(cpuSnapshot);
-      setMemorySnapshot(memorySnapshotValue);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+  
 
   useEffect(() => {
     if (phase !== "running") {
@@ -259,8 +287,10 @@ function App() {
       setIsDisassembling(false);
       setDisassemblyScrollTop(0);
       setCurrentInstructionOffset(null);
-       setIsBreakMode(false);
-       setIsStepping(false);
+      setIsBreakMode(false);
+      setIsStepping(false);
+      setBreakpoints(new Set());
+      setShouldCenterDisassembly(false);
       setPhase("loading");
 
       try {
@@ -271,12 +301,13 @@ function App() {
         await runtime.pause();
         await runtime.reset({ hard: true });
         await runtime.loadRom(rom);
+        await runtime.setBreakpoints([]);
         const info = await runtime.getRomInfo();
         setRomInfo(info);
         const programCounter = await runtime.getProgramCounter();
         setCurrentInstructionOffset(programCounter ?? null);
-        await runtime.start();
-        setIsBreakMode(false);
+        setIsBreakMode(true);
+        setIsStepping(false);
 
         setPhase("running");
         void refreshDebugInfo();
@@ -313,10 +344,27 @@ function App() {
     [],
   );
 
+  const handleToggleBreakpoint = useCallback(
+    (offset: number) => {
+      setBreakpoints((prev) => {
+        const next = new Set(prev);
+        if (next.has(offset)) {
+          next.delete(offset);
+        } else {
+          next.add(offset);
+        }
+        syncRuntimeBreakpoints(next);
+        return next;
+      });
+    },
+    [syncRuntimeBreakpoints],
+  );
+
   const handleReturnToMenu = useCallback(() => {
     const runtime = runtimeRef.current;
     if (runtime) {
       void runtime.pause();
+      void runtime.setBreakpoints([]);
       runtime.renderer.clear("#000000");
     }
     setDisassembly(null);
@@ -326,6 +374,8 @@ function App() {
     setIsStepping(false);
     setIsBreakMode(false);
     setCurrentInstructionOffset(null);
+    setBreakpoints(new Set());
+    setShouldCenterDisassembly(false);
     setPhase("menu");
     setError(null);
     setRomName(null);
@@ -416,6 +466,7 @@ function App() {
       .then(async () => {
         const pc = await runtime.getProgramCounter();
         setCurrentInstructionOffset(pc ?? null);
+        setShouldCenterDisassembly(true);
         void refreshDebugInfo();
       })
       .catch((err) => {
@@ -529,6 +580,7 @@ function App() {
 
   useEffect(() => {
     if (
+      !shouldCenterDisassembly ||
       !isBreakMode ||
       phase !== "running" ||
       !disassembly ||
@@ -559,11 +611,13 @@ function App() {
     );
     const nextScroll = Math.max(0, Math.min(maxScroll, desiredScroll));
     container.scrollTop = nextScroll;
+    setShouldCenterDisassembly(false);
   }, [
     disassembly,
     disassemblyScrollTop,
     disassemblyTableMetrics.activeIndex,
     disassemblyTableMetrics.totalHeight,
+    shouldCenterDisassembly,
     isBreakMode,
     phase,
   ]);
@@ -745,7 +799,8 @@ function App() {
                 {disassembly !== null ? (
                   <>
                     <div className="overflow-hidden rounded-md border border-input">
-                      <div className="grid grid-cols-[max-content_1fr] gap-x-4 bg-muted/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                      <div className="grid grid-cols-[28px_max-content_1fr] items-center gap-x-4 bg-muted/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                        <span className="text-center">BP</span>
                         <span>Offset</span>
                         <span>Instruction</span>
                       </div>
@@ -769,9 +824,16 @@ function App() {
                               }}
                             >
                               {disassemblyTableMetrics.rows.map((row) => {
+                                const hasBreakpoint = breakpoints.has(row.offset);
                                 const rowClasses = [
-                                  "grid grid-cols-[max-content_1fr] items-center gap-x-4 px-3 text-xs font-mono",
+                                  "grid grid-cols-[28px_max-content_1fr] items-center gap-x-4 px-3 text-xs font-mono",
                                   row.isActive ? "bg-primary/10" : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ");
+                                const breakpointButtonClasses = [
+                                  "flex h-6 w-6 items-center justify-center text-lg leading-none transition-opacity",
+                                  hasBreakpoint ? "opacity-100" : "opacity-40 hover:opacity-70",
                                 ]
                                   .filter(Boolean)
                                   .join(" ");
@@ -799,6 +861,26 @@ function App() {
                                       height: `${DISASSEMBLY_ROW_HEIGHT}px`,
                                     }}
                                   >
+                                    <button
+                                      type="button"
+                                      aria-label={
+                                        hasBreakpoint
+                                          ? "Remove breakpoint"
+                                          : "Add breakpoint"
+                                      }
+                                      title={
+                                        hasBreakpoint
+                                          ? "Remove breakpoint"
+                                          : "Add breakpoint"
+                                      }
+                                      aria-pressed={hasBreakpoint}
+                                      className={breakpointButtonClasses}
+                                      onClick={() =>
+                                        handleToggleBreakpoint(row.offset)
+                                      }
+                                    >
+                                      {hasBreakpoint ? "🔴" : "⚪"}
+                                    </button>
                                     <span className={offsetClasses}>
                                       {formatAddress(row.offset)}
                                     </span>
@@ -819,7 +901,8 @@ function App() {
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       Scroll to browse the full disassembly. Rows are
-                      virtualized for smoother performance.
+                      virtualized for smoother performance. Click the BP
+                      column to toggle breakpoints.
                     </p>
                   </>
                 ) : (

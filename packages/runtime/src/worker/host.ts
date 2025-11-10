@@ -16,6 +16,7 @@ export interface WorkerCallbacks {
   handleSaveData(payload: SavePayload): Promise<void> | void;
   handleLog?(message: string): Promise<void> | void;
   handleError?(error: unknown): Promise<void> | void;
+  handleBreakpointHit?(offset: number): Promise<void> | void;
 }
 
 export interface WorkerInitializeOptions {
@@ -41,6 +42,7 @@ export interface EmulatorWorkerApi {
   reset(options?: { hard?: boolean }): Promise<void>;
   stepFrame(): Promise<void>;
   stepInstruction(): Promise<void>;
+  setBreakpoints(message: { offsets: number[] }): Promise<void>;
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
@@ -120,6 +122,11 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
     async stepInstruction(): Promise<void> {
       const system = await ensureEmulator();
       system.stepInstruction();
+    },
+
+    async setBreakpoints(message: { offsets: number[] }): Promise<void> {
+      const system = await ensureEmulator();
+      system.setBreakpoints(message.offsets ?? []);
     },
 
     async dispose(): Promise<void> {
@@ -252,6 +259,12 @@ function createEmulatorCallbacks(
         return;
       }
       console.error("[gbemu/runtime]", error);
+    },
+    onBreakpointHit(offset: number) {
+      const handler = callbacks.handleBreakpointHit;
+      if (typeof handler === "function") {
+        void handler(offset);
+      }
     },
   };
 }
