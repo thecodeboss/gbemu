@@ -81,7 +81,8 @@ function createDefaultCpuState(): CpuState {
 const MEMORY_SIZE = 0x10000;
 const MAX_PREFETCH_BYTES = 3;
 const EIGHT_BIT_REGISTERS = new Set(["A", "B", "C", "D", "E", "H", "L"]);
-const SIXTEEN_BIT_REGISTERS = new Set(["BC", "DE", "HL", "SP"]);
+const SIXTEEN_BIT_REGISTERS = new Set(["AF", "BC", "DE", "HL", "SP"]);
+const STACK_REGISTER_NAMES = new Set(["AF", "BC", "DE", "HL"]);
 
 export class Cpu {
   state: CpuState = createDefaultCpuState();
@@ -267,6 +268,12 @@ export class Cpu {
       case "stop":
         this.#executeStop(nextPc);
         return;
+      case "pop":
+        this.#executePop(instruction, nextPc);
+        return;
+      case "push":
+        this.#executePush(instruction, nextPc);
+        return;
       default:
         throw new Error(
           `Instruction ${instruction.mnemonic} (0x${instruction.opcode.toString(16)}) not implemented`,
@@ -376,13 +383,46 @@ export class Cpu {
   }
 
   #executeLd(instruction: OpcodeInstruction, nextPc: number): void {
-    if (instruction.operands.length !== 2) {
+    const operands = instruction.operands;
+    if (operands.length === 3) {
+      const [destination, firstSource, secondSource] = operands;
+      if (
+        destination?.meta.name === "HL" &&
+        firstSource?.meta.name === "SP" &&
+        secondSource?.meta.name === "e8"
+      ) {
+        const offset = this.#readSignedImmediateOperand(
+          secondSource,
+          "LD HL,SP+e8 offset",
+        );
+        this.#loadHlWithSpOffset(offset);
+        this.#setProgramCounter(nextPc);
+        return;
+      }
       throw new Error("LD instruction pattern not implemented");
     }
 
-    const [destination, source] = instruction.operands;
+    if (operands.length !== 2) {
+      throw new Error("LD instruction pattern not implemented");
+    }
+
+    const [destination, source] = operands;
     if (!destination || !source) {
       throw new Error("LD instruction missing operands");
+    }
+
+    if (
+      destination.meta.name === "a16" &&
+      source.meta.name === "SP"
+    ) {
+      const address = destination.rawValue;
+      if (address === null) {
+        throw new Error("LD [a16],SP missing target address");
+      }
+      const value = this.state.registers.sp & 0xffff;
+      this.#writeWordToAddress(address, value);
+      this.#setProgramCounter(nextPc);
+      return;
     }
 
     if (this.#isEightBitRegisterOperand(destination)) {
@@ -404,6 +444,16 @@ export class Cpu {
       this.#isImmediate16Operand(source)
     ) {
       const value = this.#readImmediateOperand(source, "LD immediate value");
+      this.#writeRegisterPairByName(destination.meta.name, value);
+      this.#setProgramCounter(nextPc);
+      return;
+    }
+
+    if (
+      this.#is16BitRegisterOperand(destination) &&
+      this.#is16BitRegisterOperand(source)
+    ) {
+      const value = this.#readRegisterPairByName(source.meta.name);
       this.#writeRegisterPairByName(destination.meta.name, value);
       this.#setProgramCounter(nextPc);
       return;
@@ -524,6 +574,34 @@ export class Cpu {
   #executeStop(nextPc: number): void {
     this.state.stopped = true;
     this.state.halted = true;
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executePop(instruction: OpcodeInstruction, nextPc: number): void {
+    const operand = instruction.operands[0];
+    if (!operand) {
+      throw new Error("POP instruction missing register operand");
+    }
+    const registerName = operand.meta.name;
+    if (!STACK_REGISTER_NAMES.has(registerName)) {
+      throw new Error(`POP instruction unsupported register ${registerName}`);
+    }
+    const value = this.#popWord();
+    this.#writeRegisterPairByName(registerName, value);
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executePush(instruction: OpcodeInstruction, nextPc: number): void {
+    const operand = instruction.operands[0];
+    if (!operand) {
+      throw new Error("PUSH instruction missing register operand");
+    }
+    const registerName = operand.meta.name;
+    if (!STACK_REGISTER_NAMES.has(registerName)) {
+      throw new Error(`PUSH instruction unsupported register ${registerName}`);
+    }
+    const value = this.#readRegisterPairByName(registerName);
+    this.#pushWord(value);
     this.#setProgramCounter(nextPc);
   }
 
@@ -763,6 +841,16 @@ export class Cpu {
     if (destination.meta.name === "HL") {
       const value = this.#readRegisterPairOperand(source, "ADD HL source");
       this.#addToRegisterHl(value);
+      this.#setProgramCounter(nextPc);
+      return;
+    }
+
+    if (destination.meta.name === "SP" && source.meta.name === "e8") {
+      const offset = this.#readSignedImmediateOperand(
+        source,
+        "ADD SP,e8 offset",
+      );
+      this.#addSignedImmediateToSp(offset);
       this.#setProgramCounter(nextPc);
       return;
     }
@@ -1014,6 +1102,26 @@ export class Cpu {
     return operand.rawValue & 0xffff;
   }
 
+  #readSignedImmediateOperand(
+    operand: InstructionOperand | undefined,
+    description: string,
+  ): number {
+    if (!operand) {
+      throw new Error(`Missing ${description}`);
+    }
+    if (operand.meta.name !== "e8") {
+      throw new Error(`Expected signed 8-bit operand for ${description}`);
+    }
+    if (operand.signedValue !== undefined && operand.signedValue !== null) {
+      return operand.signedValue;
+    }
+    if (operand.rawValue === null) {
+      throw new Error(`Missing ${description}`);
+    }
+    const raw = operand.rawValue & 0xff;
+    return raw >= 0x80 ? raw - 0x100 : raw;
+  }
+
   #evaluateCondition(name: string): boolean {
     switch (name) {
       case "Z":
@@ -1207,6 +1315,43 @@ export class Cpu {
     });
   }
 
+  #computeSpOffsetResult(offset: number): {
+    result: number;
+    halfCarry: boolean;
+    carry: boolean;
+  } {
+    const registers = this.state.registers;
+    const sp = registers.sp & 0xffff;
+    const signedOffset = (offset << 24) >> 24;
+    const unsignedOffset = offset & 0xff;
+    const result = (sp + signedOffset) & 0xffff;
+    const halfCarry = ((sp & 0x0f) + (unsignedOffset & 0x0f)) > 0x0f;
+    const carry = ((sp & 0xff) + unsignedOffset) > 0xff;
+    return { result, halfCarry, carry };
+  }
+
+  #addSignedImmediateToSp(offset: number): void {
+    const { result, halfCarry, carry } = this.#computeSpOffsetResult(offset);
+    this.state.registers.sp = result;
+    this.#updateFlags({
+      zero: false,
+      subtract: false,
+      halfCarry,
+      carry,
+    });
+  }
+
+  #loadHlWithSpOffset(offset: number): void {
+    const { result, halfCarry, carry } = this.#computeSpOffsetResult(offset);
+    this.#writeRegisterPairHL(result);
+    this.#updateFlags({
+      zero: false,
+      subtract: false,
+      halfCarry,
+      carry,
+    });
+  }
+
   #readRegister8(name: string): number {
     const registers = this.state.registers;
     switch (name) {
@@ -1262,6 +1407,8 @@ export class Cpu {
   #readRegisterPairByName(name: string): number {
     const registers = this.state.registers;
     switch (name) {
+      case "AF":
+        return ((registers.a << 8) | (registers.f & 0xf0)) & 0xffff;
       case "BC":
         return ((registers.b << 8) | registers.c) & 0xffff;
       case "DE":
@@ -1279,6 +1426,11 @@ export class Cpu {
     const registers = this.state.registers;
     const masked = value & 0xffff;
     switch (name) {
+      case "AF":
+        registers.a = (masked >> 8) & 0xff;
+        registers.f = masked & 0xf0;
+        this.#syncFlagsFromRegister();
+        return;
       case "BC":
         registers.b = (masked >> 8) & 0xff;
         registers.c = masked & 0xff;
@@ -1394,6 +1546,23 @@ export class Cpu {
       value |= 0x10;
     }
     registers.f = value;
+  }
+
+  #syncFlagsFromRegister(): void {
+    const registers = this.state.registers;
+    const value = registers.f & 0xf0;
+    registers.f = value;
+    this.state.flags.zero = (value & 0x80) !== 0;
+    this.state.flags.subtract = (value & 0x40) !== 0;
+    this.state.flags.halfCarry = (value & 0x20) !== 0;
+    this.state.flags.carry = (value & 0x10) !== 0;
+  }
+
+  #writeWordToAddress(address: number, value: number): void {
+    const bus = this.#requireBus();
+    const targetAddress = address & 0xffff;
+    bus.writeByte(targetAddress, value & 0xff);
+    bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff);
   }
 
   #pushWord(value: number): void {
