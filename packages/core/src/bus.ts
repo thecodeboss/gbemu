@@ -1,4 +1,5 @@
 import { InterruptType } from "./cpu.js";
+import { Mbc } from "./mbc.js";
 
 const INTERRUPT_FLAG_ADDRESS = 0xff0f;
 const INTERRUPT_BITS: Record<InterruptType, number> = {
@@ -94,19 +95,21 @@ export class SystemBus
 {
   #memory = new Uint8Array(0x10000);
   #pendingInterrupts = new Set<InterruptType>();
+  #mbc: Mbc | null = null;
 
-  loadCartridge(rom: Uint8Array): void {
+  loadCartridge(rom: Uint8Array, mbc?: Mbc): void {
     this.#pendingInterrupts.clear();
-    const romBankSize = 0x4000;
-    const bank0 = rom.slice(0, romBankSize);
-    this.#memory.set(bank0, 0x0000);
+    this.#memory.fill(0);
+    this.#mbc = mbc ?? null;
+    this.#mbc?.reset();
 
-    const bank1 = rom.slice(romBankSize, romBankSize * 2);
-    if (bank1.length > 0) {
-      this.#memory.set(bank1, romBankSize);
-    } else if (rom.length > 0) {
-      const mirrorSource = rom.slice(0, Math.min(rom.length, romBankSize));
-      this.#memory.set(mirrorSource, romBankSize);
+    if (this.#mbc) {
+      this.#mirrorFixedRomBank();
+      this.#mirrorSwitchableRomBank();
+      this.#mirrorExternalRamWindow();
+    } else {
+      const mirrorLength = Math.min(rom.length, 0x8000);
+      this.#memory.set(rom.subarray(0, mirrorLength), 0x0000);
     }
 
     this.#initializeHardwareRegisters();
@@ -121,12 +124,25 @@ export class SystemBus
   }
 
   readByte(address: number): number {
-    return this.#memory[address & 0xffff] ?? 0xff;
+    const mappedAddress = address & 0xffff;
+    if (this.#mbc) {
+      const value = this.#mbc.read(mappedAddress);
+      if (value !== null && value !== undefined) {
+        return value & 0xff;
+      }
+    }
+    return this.#memory[mappedAddress] ?? 0xff;
   }
 
   writeByte(address: number, value: number): void {
     const mappedAddress = address & 0xffff;
     const byteValue = value & 0xff;
+
+    if (this.#mbc?.write(mappedAddress, byteValue)) {
+      this.#mirrorAfterMbcWrite(mappedAddress);
+      return;
+    }
+
     this.#memory[mappedAddress] = byteValue;
 
     if (mappedAddress === INTERRUPT_FLAG_ADDRESS) {
@@ -177,6 +193,66 @@ export class SystemBus
 
   tick(_cycles: number): void {
     // No bus timing in stub.
+  }
+
+  #mirrorAfterMbcWrite(address: number): void {
+    if (!this.#mbc) {
+      return;
+    }
+    if (address < 0x2000) {
+      this.#mirrorExternalRamWindow();
+      return;
+    }
+    if (address < 0x4000) {
+      this.#mirrorSwitchableRomBank();
+      return;
+    }
+    if (address < 0x6000) {
+      this.#mirrorExternalRamWindow();
+      return;
+    }
+    if (address < 0x8000) {
+      return;
+    }
+    if (address >= 0xa000 && address < 0xc000) {
+      const value = this.#mbc.read(address);
+      this.#memory[address] = value ?? 0xff;
+    }
+  }
+
+  #mirrorFixedRomBank(): void {
+    if (!this.#mbc) {
+      return;
+    }
+    for (let offset = 0; offset < 0x4000; offset += 1) {
+      const value = this.#mbc.read(offset) ?? 0xff;
+      this.#memory[offset] = value & 0xff;
+    }
+  }
+
+  #mirrorSwitchableRomBank(): void {
+    if (!this.#mbc) {
+      return;
+    }
+    for (let offset = 0; offset < 0x4000; offset += 1) {
+      const address = 0x4000 + offset;
+      const value = this.#mbc.read(address) ?? 0xff;
+      this.#memory[address] = value & 0xff;
+    }
+  }
+
+  #mirrorExternalRamWindow(): void {
+    if (!this.#mbc) {
+      return;
+    }
+    for (let offset = 0; offset < 0x2000; offset += 1) {
+      const address = 0xa000 + offset;
+      const value = this.#mbc.read(address);
+      if (value === null) {
+        break;
+      }
+      this.#memory[address] = value & 0xff;
+    }
   }
 
   #syncPendingInterrupts(value: number): void {

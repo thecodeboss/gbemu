@@ -123,7 +123,7 @@ export class Emulator {
     const ramSize = this.#romInfo?.ramSize ?? 0;
     const cartridgeType = this.#mbcFactory.detect(rom);
     this.#mbc = this.#mbcFactory.create(cartridgeType, rom, ramSize);
-    this.bus.loadCartridge(rom);
+    this.bus.loadCartridge(rom, this.#mbc);
     this.cpu.reset();
     this.ppu.reset();
     this.apu.reset();
