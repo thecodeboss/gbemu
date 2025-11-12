@@ -1,4 +1,4 @@
-import { InterruptType } from "./cpu.js";
+import { InterruptType } from "./cpu/index.js";
 import { Mbc } from "./mbc.js";
 
 const INTERRUPT_FLAG_ADDRESS = 0xff0f;

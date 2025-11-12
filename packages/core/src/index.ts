@@ -1,4 +1,4 @@
-export * from "./cpu.js";
+export * from "./cpu/index.js";
 export * from "./ppu.js";
 export * from "./apu.js";
 export * from "./bus.js";

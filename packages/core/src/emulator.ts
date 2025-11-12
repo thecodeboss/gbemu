@@ -9,7 +9,7 @@ import {
   formatDisassembledRom,
   parseRomInfo,
 } from "./rom/index.js";
-import { Cpu, CpuFlags, CpuRegisters } from "./cpu.js";
+import { Cpu, CpuFlags, CpuRegisters } from "./cpu/index.js";
 
 export type { EmulatorRomInfo } from "./rom/index.js";
 

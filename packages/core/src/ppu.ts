@@ -1,4 +1,4 @@
-import { InterruptType } from "./cpu.js";
+import { InterruptType } from "./cpu/index.js";
 import { SystemBus } from "./bus.js";
 
 export const DEFAULT_SCREEN_WIDTH = 160;
