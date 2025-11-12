@@ -1,148 +1,151 @@
-import { CpuBase } from "../base.js";
+import type { CpuBase } from "../base.js";
 import { InstructionOperand, OpcodeInstruction } from "../../rom/types.js";
 
-export abstract class ControlCpu extends CpuBase {
-  protected executeCall(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const [first, second] = instruction.operands;
-    let conditionName: string | null = null;
-    let targetOperand: InstructionOperand | undefined = first;
+export function executeCall(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const [first, second] = instruction.operands;
+  let conditionName: string | null = null;
+  let targetOperand: InstructionOperand | undefined = first;
 
-    if (instruction.operands.length === 2) {
-      conditionName = first?.meta?.name ?? null;
-      targetOperand = second;
+  if (instruction.operands.length === 2) {
+    conditionName = first?.meta?.name ?? null;
+    targetOperand = second;
+  }
+
+  if (conditionName && !cpu.evaluateCondition(conditionName)) {
+    cpu.setProgramCounter(nextPc);
+    return;
+  }
+
+  const target = cpu.readImmediateOperand(targetOperand, "call target");
+  cpu.pushWord(nextPc);
+  cpu.setProgramCounter(target);
+}
+
+export function executeJump(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const { operands } = instruction;
+  if (operands.length === 1 && operands[0]?.meta?.name === "HL") {
+    cpu.setProgramCounter(cpu.readRegisterPairHL());
+    return;
+  }
+
+  let conditionName: string | null = null;
+  let targetOperand: InstructionOperand | undefined = operands[0];
+
+  if (operands.length === 2) {
+    conditionName = operands[0]?.meta?.name ?? null;
+    targetOperand = operands[1];
+  }
+
+  if (conditionName && !cpu.evaluateCondition(conditionName)) {
+    cpu.setProgramCounter(nextPc);
+    return;
+  }
+
+  const target = cpu.readImmediateOperand(targetOperand, "jump target");
+  cpu.setProgramCounter(target);
+}
+
+export function executeRelativeJump(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operands = instruction.operands;
+  const offsetOperand = operands[operands.length - 1];
+
+  if (!offsetOperand || offsetOperand.meta?.name !== "e8") {
+    throw new Error("JR instruction missing 8-bit signed offset operand");
+  }
+
+  let conditionName: string | null = null;
+  if (operands.length === 2) {
+    conditionName = operands[0]?.meta?.name ?? null;
+  }
+
+  if (conditionName && !cpu.evaluateCondition(conditionName)) {
+    cpu.setProgramCounter(nextPc);
+    return;
+  }
+
+  const target = offsetOperand.relativeTarget ?? null;
+  if (target === null) {
+    throw new Error("JR instruction missing relative target");
+  }
+
+  cpu.setProgramCounter(target);
+}
+
+export function executeReturn(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const conditionOperand = instruction.operands[0];
+  if (conditionOperand) {
+    const conditionName = conditionOperand.meta?.name;
+    if (!conditionName) {
+      throw new Error("RET condition operand missing metadata");
     }
-
-    if (conditionName && !this.evaluateCondition(conditionName)) {
-      this.setProgramCounter(nextPc);
+    if (!cpu.evaluateCondition(conditionName)) {
+      cpu.setProgramCounter(nextPc);
       return;
     }
-
-    const target = this.readImmediateOperand(targetOperand, "call target");
-    this.pushWord(nextPc);
-    this.setProgramCounter(target);
   }
 
-  protected executeJump(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const { operands } = instruction;
-    if (operands.length === 1 && operands[0]?.meta?.name === "HL") {
-      this.setProgramCounter(this.readRegisterPairHL());
-      return;
-    }
+  const address = cpu.popWord();
+  cpu.setProgramCounter(address);
+}
 
-    let conditionName: string | null = null;
-    let targetOperand: InstructionOperand | undefined = operands[0];
+export function executeReti(cpu: CpuBase): void {
+  const address = cpu.popWord();
+  cpu.state.ime = true;
+  cpu.setProgramCounter(address);
+}
 
-    if (operands.length === 2) {
-      conditionName = operands[0]?.meta?.name ?? null;
-      targetOperand = operands[1];
-    }
-
-    if (conditionName && !this.evaluateCondition(conditionName)) {
-      this.setProgramCounter(nextPc);
-      return;
-    }
-
-    const target = this.readImmediateOperand(targetOperand, "jump target");
-    this.setProgramCounter(target);
+export function executeRst(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const vectorOperand = instruction.operands[0];
+  if (!vectorOperand) {
+    throw new Error("RST instruction missing target vector");
   }
-
-  protected executeRelativeJump(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operands = instruction.operands;
-    const offsetOperand = operands[operands.length - 1];
-
-    if (!offsetOperand || offsetOperand.meta?.name !== "e8") {
-      throw new Error("JR instruction missing 8-bit signed offset operand");
-    }
-
-    let conditionName: string | null = null;
-    if (operands.length === 2) {
-      conditionName = operands[0]?.meta?.name ?? null;
-    }
-
-    if (conditionName && !this.evaluateCondition(conditionName)) {
-      this.setProgramCounter(nextPc);
-      return;
-    }
-
-    const target = offsetOperand.relativeTarget ?? null;
-    if (target === null) {
-      throw new Error("JR instruction missing relative target");
-    }
-
-    this.setProgramCounter(target);
+  const vectorName = vectorOperand.meta?.name;
+  if (!vectorName) {
+    throw new Error("RST vector operand missing metadata");
   }
+  const vector = cpu.parseRstVector(vectorName);
+  cpu.pushWord(nextPc);
+  cpu.setProgramCounter(vector);
+}
 
-  protected executeReturn(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const conditionOperand = instruction.operands[0];
-    if (conditionOperand) {
-      const conditionName = conditionOperand.meta?.name;
-      if (!conditionName) {
-        throw new Error("RET condition operand missing metadata");
-      }
-      if (!this.evaluateCondition(conditionName)) {
-        this.setProgramCounter(nextPc);
-        return;
-      }
-    }
+export function executeStop(cpu: CpuBase, nextPc: number): void {
+  cpu.state.stopped = true;
+  cpu.state.halted = true;
+  cpu.setProgramCounter(nextPc);
+}
 
-    const address = this.popWord();
-    this.setProgramCounter(address);
-  }
+export function executeHalt(cpu: CpuBase, nextPc: number): void {
+  cpu.state.halted = true;
+  cpu.state.stopped = false;
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeReti(): void {
-    const address = this.popWord();
-    this.state.ime = true;
-    this.setProgramCounter(address);
-  }
+export function executeDi(cpu: CpuBase, nextPc: number): void {
+  cpu.state.ime = false;
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRst(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const vectorOperand = instruction.operands[0];
-    if (!vectorOperand) {
-      throw new Error("RST instruction missing target vector");
-    }
-    const vectorName = vectorOperand.meta?.name;
-    if (!vectorName) {
-      throw new Error("RST vector operand missing metadata");
-    }
-    const vector = this.parseRstVector(vectorName);
-    this.pushWord(nextPc);
-    this.setProgramCounter(vector);
-  }
-
-  protected executeStop(nextPc: number): void {
-    this.state.stopped = true;
-    this.state.halted = true;
-    this.setProgramCounter(nextPc);
-  }
-
-  protected executeHalt(nextPc: number): void {
-    this.state.halted = true;
-    this.state.stopped = false;
-    this.setProgramCounter(nextPc);
-  }
-
-  protected executeDi(nextPc: number): void {
-    this.state.ime = false;
-    this.setProgramCounter(nextPc);
-  }
-
-  protected executeEi(nextPc: number): void {
-    this.state.ime = true;
-    this.setProgramCounter(nextPc);
-  }
+export function executeEi(cpu: CpuBase, nextPc: number): void {
+  cpu.state.ime = true;
+  cpu.setProgramCounter(nextPc);
 }

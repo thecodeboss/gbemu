@@ -21,8 +21,6 @@ import {
   InterruptType,
 } from "./types.js";
 
-export type Constructor<T = {}> = new (...args: any[]) => T;
-
 export abstract class CpuBase {
   state: CpuState = createDefaultCpuState();
   #doubleSpeed = false;
@@ -86,7 +84,7 @@ export abstract class CpuBase {
     currentPc: number,
   ): void;
 
-  protected serviceInterruptIfNeeded(bus: CpuBusPort): boolean {
+  public serviceInterruptIfNeeded(bus: CpuBusPort): boolean {
     const interruptEnable = bus.readByte(INTERRUPT_ENABLE_ADDRESS) & 0xff;
     const interruptFlags = bus.readByte(INTERRUPT_FLAG_ADDRESS) & 0xff;
     const pendingMask = (interruptEnable & interruptFlags) & 0x1f;
@@ -121,7 +119,7 @@ export abstract class CpuBase {
     return true;
   }
 
-  protected prefetchInstructionBytes(bus: CpuBusPort, pc: number): void {
+  public prefetchInstructionBytes(bus: CpuBusPort, pc: number): void {
     for (let offset = 0; offset < MAX_PREFETCH_BYTES; offset += 1) {
       const address = pc + offset;
       if (address >= MEMORY_SIZE) {
@@ -131,7 +129,7 @@ export abstract class CpuBase {
     }
   }
 
-  protected assertAccumulatorDestination(
+  public assertAccumulatorDestination(
     operand: InstructionOperand | undefined,
     mnemonic: string,
   ): void {
@@ -142,7 +140,7 @@ export abstract class CpuBase {
     }
   }
 
-  protected readRegisterPairOperand(
+  public readRegisterPairOperand(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -156,7 +154,7 @@ export abstract class CpuBase {
     return this.readRegisterPairByName(name);
   }
 
-  protected isEightBitRegisterOperand(
+  public isEightBitRegisterOperand(
     operand: InstructionOperand | undefined,
   ): operand is InstructionOperandWithMeta {
     return Boolean(
@@ -167,7 +165,7 @@ export abstract class CpuBase {
     );
   }
 
-  protected is16BitRegisterOperand(
+  public is16BitRegisterOperand(
     operand: InstructionOperand | undefined,
   ): operand is InstructionOperandWithMeta {
     return Boolean(
@@ -178,7 +176,7 @@ export abstract class CpuBase {
     );
   }
 
-  protected isMemoryOperand(
+  public isMemoryOperand(
     operand: InstructionOperand | undefined,
   ): operand is InstructionOperandWithMeta {
     if (!operand || !operand.meta) {
@@ -200,13 +198,13 @@ export abstract class CpuBase {
     return false;
   }
 
-  protected isImmediate16Operand(
+  public isImmediate16Operand(
     operand: InstructionOperand | undefined,
   ): operand is InstructionOperandWithMeta {
     return Boolean(operand && operand.meta?.name === "n16");
   }
 
-  protected transformMutableOperand(
+  public transformMutableOperand(
     operand: InstructionOperand | undefined,
     description: string,
     transform: (value: number) => { result: number; carry: boolean },
@@ -221,7 +219,7 @@ export abstract class CpuBase {
     return { result, carry: outcome.carry };
   }
 
-  protected parseBitIndex(
+  public parseBitIndex(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -238,7 +236,7 @@ export abstract class CpuBase {
     return bitIndex;
   }
 
-  protected parseRstVector(name: string): number {
+  public parseRstVector(name: string): number {
     if (!name.startsWith("$")) {
       throw new Error(`Unexpected RST vector operand "${name}"`);
     }
@@ -249,7 +247,7 @@ export abstract class CpuBase {
     return value & 0xffff;
   }
 
-  protected readImmediateOperand(
+  public readImmediateOperand(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -259,7 +257,7 @@ export abstract class CpuBase {
     return operand.rawValue & 0xffff;
   }
 
-  protected readSignedImmediateOperand(
+  public readSignedImmediateOperand(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -279,7 +277,7 @@ export abstract class CpuBase {
     return raw >= 0x80 ? raw - 0x100 : raw;
   }
 
-  protected evaluateCondition(name: string): boolean {
+  public evaluateCondition(name: string): boolean {
     switch (name) {
       case "Z":
         return this.state.flags.zero;
@@ -294,7 +292,7 @@ export abstract class CpuBase {
     }
   }
 
-  protected readEightBitValue(
+  public readEightBitValue(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -323,7 +321,7 @@ export abstract class CpuBase {
     throw new Error(`Unsupported ${description}: ${operand.meta.name}`);
   }
 
-  protected writeEightBitValue(
+  public writeEightBitValue(
     operand: InstructionOperand,
     value: number,
   ): void {
@@ -346,7 +344,7 @@ export abstract class CpuBase {
     throw new Error(`Cannot write to operand ${operand.meta.name}`);
   }
 
-  protected increment8(operand: InstructionOperand): void {
+  public increment8(operand: InstructionOperand): void {
     const current = this.readEightBitValue(operand, "INC operand");
     const result = (current + 1) & 0xff;
     this.writeEightBitValue(operand, result);
@@ -358,7 +356,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected decrement8(operand: InstructionOperand): void {
+  public decrement8(operand: InstructionOperand): void {
     const current = this.readEightBitValue(operand, "DEC operand");
     const result = (current - 1) & 0xff;
     this.writeEightBitValue(operand, result);
@@ -370,17 +368,17 @@ export abstract class CpuBase {
     });
   }
 
-  protected increment16(registerName: string): void {
+  public increment16(registerName: string): void {
     const value = this.readRegisterPairByName(registerName);
     this.writeRegisterPairByName(registerName, (value + 1) & 0xffff);
   }
 
-  protected decrement16(registerName: string): void {
+  public decrement16(registerName: string): void {
     const value = this.readRegisterPairByName(registerName);
     this.writeRegisterPairByName(registerName, (value - 1) & 0xffff);
   }
 
-  protected addToAccumulator(value: number): void {
+  public addToAccumulator(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -397,7 +395,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected addToAccumulatorWithCarry(value: number): void {
+  public addToAccumulatorWithCarry(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -415,7 +413,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected subtractFromAccumulator(value: number): void {
+  public subtractFromAccumulator(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -431,7 +429,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected subtractFromAccumulatorWithCarry(value: number): void {
+  public subtractFromAccumulatorWithCarry(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -449,7 +447,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected compareWithAccumulator(value: number): void {
+  public compareWithAccumulator(value: number): void {
     const operand = value & 0xff;
     const current = this.state.registers.a & 0xff;
     const result = (current - operand) & 0xff;
@@ -463,7 +461,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected addToRegisterHl(value: number): void {
+  public addToRegisterHl(value: number): void {
     const operand = value & 0xffff;
     const current = this.readRegisterPairHL();
     const sum = current + operand;
@@ -478,7 +476,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected computeSpOffsetResult(offset: number): {
+  public computeSpOffsetResult(offset: number): {
     result: number;
     halfCarry: boolean;
     carry: boolean;
@@ -493,7 +491,7 @@ export abstract class CpuBase {
     return { result, halfCarry, carry };
   }
 
-  protected addSignedImmediateToSp(offset: number): void {
+  public addSignedImmediateToSp(offset: number): void {
     const { result, halfCarry, carry } = this.computeSpOffsetResult(offset);
     this.state.registers.sp = result;
     this.updateFlags({
@@ -504,7 +502,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected loadHlWithSpOffset(offset: number): void {
+  public loadHlWithSpOffset(offset: number): void {
     const { result, halfCarry, carry } = this.computeSpOffsetResult(offset);
     this.writeRegisterPairHL(result);
     this.updateFlags({
@@ -515,7 +513,7 @@ export abstract class CpuBase {
     });
   }
 
-  protected rotateLeftThroughCarry(
+  public rotateLeftThroughCarry(
     value: number,
   ): { result: number; carry: boolean } {
     const carryIn = this.state.flags.carry ? 1 : 0;
@@ -524,7 +522,7 @@ export abstract class CpuBase {
     return { result, carry };
   }
 
-  protected rotateLeftCircular(
+  public rotateLeftCircular(
     value: number,
   ): { result: number; carry: boolean } {
     const carry = (value & 0x80) !== 0;
@@ -532,7 +530,7 @@ export abstract class CpuBase {
     return { result, carry };
   }
 
-  protected rotateRightThroughCarry(
+  public rotateRightThroughCarry(
     value: number,
   ): { result: number; carry: boolean } {
     const carryIn = this.state.flags.carry ? 1 : 0;
@@ -541,7 +539,7 @@ export abstract class CpuBase {
     return { result, carry };
   }
 
-  protected rotateRightCircular(
+  public rotateRightCircular(
     value: number,
   ): { result: number; carry: boolean } {
     const carry = (value & 0x01) !== 0;
@@ -549,7 +547,7 @@ export abstract class CpuBase {
     return { result, carry };
   }
 
-  protected shiftLeftArithmetic(
+  public shiftLeftArithmetic(
     value: number,
   ): { result: number; carry: boolean } {
     const carry = (value & 0x80) !== 0;
@@ -557,7 +555,7 @@ export abstract class CpuBase {
     return { result, carry };
   }
 
-  protected shiftRightArithmetic(
+  public shiftRightArithmetic(
     value: number,
   ): { result: number; carry: boolean } {
     const carry = (value & 0x01) !== 0;
@@ -565,7 +563,7 @@ export abstract class CpuBase {
     return { result, carry };
   }
 
-  protected shiftRightLogical(
+  public shiftRightLogical(
     value: number,
   ): { result: number; carry: boolean } {
     const carry = (value & 0x01) !== 0;
@@ -573,21 +571,21 @@ export abstract class CpuBase {
     return { result, carry };
   }
 
-  protected swapNibbles(value: number): number {
+  public swapNibbles(value: number): number {
     const upper = (value & 0xf0) >> 4;
     const lower = value & 0x0f;
     return ((lower << 4) | upper) & 0xff;
   }
 
-  protected is8BitRegister(name: string): boolean {
+  public is8BitRegister(name: string): boolean {
     return EIGHT_BIT_REGISTERS.has(name);
   }
 
-  protected is16BitRegister(name: string): boolean {
+  public is16BitRegister(name: string): boolean {
     return SIXTEEN_BIT_REGISTERS.has(name);
   }
 
-  protected updateFlags(flags: Partial<CpuFlags>): void {
+  public updateFlags(flags: Partial<CpuFlags>): void {
     if (flags.zero !== undefined) {
       this.state.flags.zero = flags.zero;
     }
@@ -603,7 +601,7 @@ export abstract class CpuBase {
     this.syncFlagRegister();
   }
 
-  protected syncFlagRegister(): void {
+  public syncFlagRegister(): void {
     const { flags, registers } = this.state;
     let value = 0;
     if (flags.zero) {
@@ -621,7 +619,7 @@ export abstract class CpuBase {
     registers.f = value;
   }
 
-  protected syncFlagsFromRegister(): void {
+  public syncFlagsFromRegister(): void {
     const registers = this.state.registers;
     const value = registers.f & 0xf0;
     registers.f = value;
@@ -631,14 +629,14 @@ export abstract class CpuBase {
     this.state.flags.carry = (value & 0x10) !== 0;
   }
 
-  protected writeWordToAddress(address: number, value: number): void {
+  public writeWordToAddress(address: number, value: number): void {
     const bus = this.#requireBus();
     const targetAddress = address & 0xffff;
     bus.writeByte(targetAddress, value & 0xff);
     bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff);
   }
 
-  protected pushWord(value: number): void {
+  public pushWord(value: number): void {
     const bus = this.#requireBus();
     const registers = this.state.registers;
     registers.sp = (registers.sp - 1) & 0xffff;
@@ -647,7 +645,7 @@ export abstract class CpuBase {
     bus.writeByte(registers.sp, value & 0xff);
   }
 
-  protected popWord(): number {
+  public popWord(): number {
     const bus = this.#requireBus();
     const registers = this.state.registers;
     const low = bus.readByte(registers.sp);
@@ -657,22 +655,22 @@ export abstract class CpuBase {
     return ((high << 8) | low) & 0xffff;
   }
 
-  protected readRegisterPairHL(): number {
+  public readRegisterPairHL(): number {
     const { h, l } = this.state.registers;
     return ((h << 8) | l) & 0xffff;
   }
 
-  protected setProgramCounter(value: number): void {
+  public setProgramCounter(value: number): void {
     this.state.registers.pc = value & 0xffff;
   }
 
-  protected consumeCycles(): number {
+  public consumeCycles(): number {
     const cycles = this.#doubleSpeed ? 8 : 4;
     this.state.cycles += cycles;
     return cycles;
   }
 
-  protected readRegisterPairByName(name: string): number {
+  public readRegisterPairByName(name: string): number {
     const registers = this.state.registers;
     switch (name) {
       case "AF":
@@ -690,7 +688,7 @@ export abstract class CpuBase {
     }
   }
 
-  protected writeRegisterPairByName(name: string, value: number): void {
+  public writeRegisterPairByName(name: string, value: number): void {
     const registers = this.state.registers;
     const masked = value & 0xffff;
     switch (name) {
@@ -718,13 +716,13 @@ export abstract class CpuBase {
     }
   }
 
-  protected writeRegisterPairHL(value: number): void {
+  public writeRegisterPairHL(value: number): void {
     const registers = this.state.registers;
     registers.h = (value >> 8) & 0xff;
     registers.l = value & 0xff;
   }
 
-  protected readRegister8(name: string): number {
+  public readRegister8(name: string): number {
     const registers = this.state.registers;
     switch (name) {
       case "A":
@@ -746,7 +744,7 @@ export abstract class CpuBase {
     }
   }
 
-  protected writeRegister8(name: string, value: number): void {
+  public writeRegister8(name: string, value: number): void {
     const registers = this.state.registers;
     const masked = value & 0xff;
     switch (name) {
@@ -776,7 +774,7 @@ export abstract class CpuBase {
     }
   }
 
-  protected resolveMemoryReference(
+  public resolveMemoryReference(
     operand: InstructionOperand,
     description: string,
   ): { address: number; postAccess?: () => void } {
@@ -829,7 +827,7 @@ export abstract class CpuBase {
     throw new Error(`Unsupported memory operand for ${description}`);
   }
 
-  protected resolveStackRegister(operand: InstructionOperand): string {
+  public resolveStackRegister(operand: InstructionOperand): string {
     if (!operand.meta) {
       throw new Error("Stack operand missing metadata");
     }

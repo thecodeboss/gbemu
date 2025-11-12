@@ -1,7 +1,12 @@
 import { OpcodeInstruction } from "../rom/types.js";
-import { ArithmeticCpu } from "./instructions/arithmetic.js";
+import { CpuBase } from "./base.js";
+import * as arithmetic from "./instructions/arithmetic.js";
+import * as bit from "./instructions/bit.js";
+import * as control from "./instructions/control.js";
+import * as load from "./instructions/load.js";
+import * as rotate from "./instructions/rotate.js";
 
-export class Cpu extends ArithmeticCpu {
+export class Cpu extends CpuBase {
   protected executeInstruction(
     instruction: OpcodeInstruction,
     currentPc: number,
@@ -13,125 +18,125 @@ export class Cpu extends ArithmeticCpu {
         this.setProgramCounter(nextPc);
         return;
       case "daa":
-        this.executeDaa(nextPc);
+        arithmetic.executeDaa(this, nextPc);
         return;
       case "di":
-        this.executeDi(nextPc);
+        control.executeDi(this, nextPc);
         return;
       case "ei":
-        this.executeEi(nextPc);
+        control.executeEi(this, nextPc);
         return;
       case "halt":
-        this.executeHalt(nextPc);
+        control.executeHalt(this, nextPc);
         return;
       case "ld":
       case "ldh":
-        this.executeLd(instruction, nextPc);
+        load.executeLd(this, instruction, nextPc);
         return;
       case "and":
-        this.executeAnd(instruction, nextPc);
+        arithmetic.executeAnd(this, instruction, nextPc);
         return;
       case "add":
-        this.executeAdd(instruction, nextPc);
+        arithmetic.executeAdd(this, instruction, nextPc);
         return;
       case "adc":
-        this.executeAdc(instruction, nextPc);
+        arithmetic.executeAdc(this, instruction, nextPc);
         return;
       case "sub":
-        this.executeSub(instruction, nextPc);
+        arithmetic.executeSub(this, instruction, nextPc);
         return;
       case "sbc":
-        this.executeSbc(instruction, nextPc);
+        arithmetic.executeSbc(this, instruction, nextPc);
         return;
       case "cp":
-        this.executeCp(instruction, nextPc);
+        arithmetic.executeCp(this, instruction, nextPc);
         return;
       case "cpl":
-        this.executeCpl(nextPc);
+        arithmetic.executeCpl(this, nextPc);
         return;
       case "or":
-        this.executeOr(instruction, nextPc);
+        arithmetic.executeOr(this, instruction, nextPc);
         return;
       case "xor":
-        this.executeXor(instruction, nextPc);
+        arithmetic.executeXor(this, instruction, nextPc);
         return;
       case "inc":
-        this.executeInc(instruction, nextPc);
+        arithmetic.executeInc(this, instruction, nextPc);
         return;
       case "dec":
-        this.executeDec(instruction, nextPc);
+        arithmetic.executeDec(this, instruction, nextPc);
         return;
       case "bit":
-        this.executeBit(instruction, nextPc);
+        bit.executeBit(this, instruction, nextPc);
         return;
       case "res":
-        this.executeRes(instruction, nextPc);
+        bit.executeRes(this, instruction, nextPc);
         return;
       case "set":
-        this.executeSet(instruction, nextPc);
+        bit.executeSet(this, instruction, nextPc);
         return;
       case "rl":
-        this.executeRl(instruction, nextPc);
+        rotate.executeRl(this, instruction, nextPc);
         return;
       case "rlc":
-        this.executeRlc(instruction, nextPc);
+        rotate.executeRlc(this, instruction, nextPc);
         return;
       case "rla":
-        this.executeRla(nextPc);
+        rotate.executeRla(this, nextPc);
         return;
       case "rlca":
-        this.executeRlca(nextPc);
+        rotate.executeRlca(this, nextPc);
         return;
       case "rr":
-        this.executeRr(instruction, nextPc);
+        rotate.executeRr(this, instruction, nextPc);
         return;
       case "rrc":
-        this.executeRrc(instruction, nextPc);
+        rotate.executeRrc(this, instruction, nextPc);
         return;
       case "rra":
-        this.executeRra(nextPc);
+        rotate.executeRra(this, nextPc);
         return;
       case "rrca":
-        this.executeRrca(nextPc);
+        rotate.executeRrca(this, nextPc);
         return;
       case "sla":
-        this.executeSla(instruction, nextPc);
+        rotate.executeSla(this, instruction, nextPc);
         return;
       case "sra":
-        this.executeSra(instruction, nextPc);
+        rotate.executeSra(this, instruction, nextPc);
         return;
       case "srl":
-        this.executeSrl(instruction, nextPc);
+        rotate.executeSrl(this, instruction, nextPc);
         return;
       case "swap":
-        this.executeSwap(instruction, nextPc);
+        rotate.executeSwap(this, instruction, nextPc);
         return;
       case "call":
-        this.executeCall(instruction, nextPc);
+        control.executeCall(this, instruction, nextPc);
         return;
       case "jp":
-        this.executeJump(instruction, nextPc);
+        control.executeJump(this, instruction, nextPc);
         return;
       case "jr":
-        this.executeRelativeJump(instruction, nextPc);
+        control.executeRelativeJump(this, instruction, nextPc);
         return;
       case "ret":
-        this.executeReturn(instruction, nextPc);
+        control.executeReturn(this, instruction, nextPc);
         return;
       case "reti":
-        this.executeReti();
+        control.executeReti(this);
         return;
       case "rst":
-        this.executeRst(instruction, nextPc);
+        control.executeRst(this, instruction, nextPc);
         return;
       case "stop":
-        this.executeStop(nextPc);
+        control.executeStop(this, nextPc);
         return;
       case "pop":
-        this.executePop(instruction, nextPc);
+        load.executePop(this, instruction, nextPc);
         return;
       case "push":
-        this.executePush(instruction, nextPc);
+        load.executePush(this, instruction, nextPc);
         return;
       default:
         throw new Error(

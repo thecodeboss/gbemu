@@ -1,208 +1,214 @@
-import { BitCpu } from "./bit.js";
+import type { CpuBase } from "../base.js";
 import { OpcodeInstruction } from "../../rom/types.js";
 
-export abstract class RotateCpu extends BitCpu {
-  protected executeRl(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.transformMutableOperand(
-      operand,
-      "RL operand",
-      (value) => this.rotateLeftThroughCarry(value),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRl(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result, carry } = cpu.transformMutableOperand(
+    operand,
+    "RL operand",
+    (value) => cpu.rotateLeftThroughCarry(value),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRlc(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.transformMutableOperand(
-      operand,
-      "RLC operand",
-      (value) => this.rotateLeftCircular(value),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRlc(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result, carry } = cpu.transformMutableOperand(
+    operand,
+    "RLC operand",
+    (value) => cpu.rotateLeftCircular(value),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRla(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.rotateLeftThroughCarry(registers.a);
-    registers.a = result;
-    this.updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRla(cpu: CpuBase, nextPc: number): void {
+  const registers = cpu.state.registers;
+  const { result, carry } = cpu.rotateLeftThroughCarry(registers.a);
+  registers.a = result;
+  cpu.updateFlags({
+    zero: false,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRlca(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.rotateLeftCircular(registers.a);
-    registers.a = result;
-    this.updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRlca(cpu: CpuBase, nextPc: number): void {
+  const registers = cpu.state.registers;
+  const { result, carry } = cpu.rotateLeftCircular(registers.a);
+  registers.a = result;
+  cpu.updateFlags({
+    zero: false,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRr(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.transformMutableOperand(
-      operand,
-      "RR operand",
-      (value) => this.rotateRightThroughCarry(value),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRr(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result, carry } = cpu.transformMutableOperand(
+    operand,
+    "RR operand",
+    (value) => cpu.rotateRightThroughCarry(value),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRrc(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.transformMutableOperand(
-      operand,
-      "RRC operand",
-      (value) => this.rotateRightCircular(value),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRrc(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result, carry } = cpu.transformMutableOperand(
+    operand,
+    "RRC operand",
+    (value) => cpu.rotateRightCircular(value),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRra(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.rotateRightThroughCarry(registers.a);
-    registers.a = result;
-    this.updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRra(cpu: CpuBase, nextPc: number): void {
+  const registers = cpu.state.registers;
+  const { result, carry } = cpu.rotateRightThroughCarry(registers.a);
+  registers.a = result;
+  cpu.updateFlags({
+    zero: false,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeRrca(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.rotateRightCircular(registers.a);
-    registers.a = result;
-    this.updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeRrca(cpu: CpuBase, nextPc: number): void {
+  const registers = cpu.state.registers;
+  const { result, carry } = cpu.rotateRightCircular(registers.a);
+  registers.a = result;
+  cpu.updateFlags({
+    zero: false,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeSla(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.transformMutableOperand(
-      operand,
-      "SLA operand",
-      (value) => this.shiftLeftArithmetic(value),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeSla(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result, carry } = cpu.transformMutableOperand(
+    operand,
+    "SLA operand",
+    (value) => cpu.shiftLeftArithmetic(value),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeSra(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.transformMutableOperand(
-      operand,
-      "SRA operand",
-      (value) => this.shiftRightArithmetic(value),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeSra(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result, carry } = cpu.transformMutableOperand(
+    operand,
+    "SRA operand",
+    (value) => cpu.shiftRightArithmetic(value),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeSrl(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.transformMutableOperand(
-      operand,
-      "SRL operand",
-      (value) => this.shiftRightLogical(value),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeSrl(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result, carry } = cpu.transformMutableOperand(
+    operand,
+    "SRL operand",
+    (value) => cpu.shiftRightLogical(value),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry,
+  });
+  cpu.setProgramCounter(nextPc);
+}
 
-  protected executeSwap(
-    instruction: OpcodeInstruction,
-    nextPc: number,
-  ): void {
-    const operand = instruction.operands[0];
-    const { result } = this.transformMutableOperand(
-      operand,
-      "SWAP operand",
-      (value) => ({ result: this.swapNibbles(value), carry: false }),
-    );
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry: false,
-    });
-    this.setProgramCounter(nextPc);
-  }
+export function executeSwap(
+  cpu: CpuBase,
+  instruction: OpcodeInstruction,
+  nextPc: number,
+): void {
+  const operand = instruction.operands[0];
+  const { result } = cpu.transformMutableOperand(
+    operand,
+    "SWAP operand",
+    (value) => ({ result: cpu.swapNibbles(value), carry: false }),
+  );
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry: false,
+    carry: false,
+  });
+  cpu.setProgramCounter(nextPc);
 }
