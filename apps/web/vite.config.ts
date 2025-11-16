@@ -8,6 +8,7 @@ import tailwindcss from "@tailwindcss/vite";
 const runtimeRoot = fileURLToPath(
   new URL("../../packages/runtime/", import.meta.url),
 );
+const coreRoot = fileURLToPath(new URL("../../packages/core/", import.meta.url));
 
 export default defineConfig({
   plugins: [
@@ -27,6 +28,14 @@ export default defineConfig({
       {
         find: /^@gbemu\/runtime\/(.+)$/,
         replacement: `${runtimeRoot}$1`,
+      },
+      {
+        find: /^@gbemu\/core$/,
+        replacement: `${coreRoot}src/index.ts`,
+      },
+      {
+        find: /^@gbemu\/core\/(.+)$/,
+        replacement: `${coreRoot}$1`,
       },
       {
         find: "@",

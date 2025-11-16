@@ -5,7 +5,7 @@ import { Mbc, MbcFactory } from "./mbc.js";
 import { Clock } from "./clock.js";
 import { EmulatorRomInfo } from "./rom/index.js";
 import {
-  disassembleRom as decodeRom,
+  disassembleRom as disassembleBuffer,
   formatDisassembledRom,
   parseRomInfo,
 } from "./rom/index.js";
@@ -222,7 +222,8 @@ export class Emulator {
     if (!this.#romData) {
       return null;
     }
-    const instructions = decodeRom(this.#romData);
+    const memory = this.bus.dumpMemory();
+    const instructions = disassembleBuffer(memory);
     return formatDisassembledRom(instructions);
   }
 
