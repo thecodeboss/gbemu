@@ -138,6 +138,7 @@ function App() {
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasDisassembly = disassembly !== null;
 
   useEffect(() => {
     return () => {
@@ -164,6 +165,40 @@ function App() {
     }
   }, [phase]);
 
+  useEffect(() => {
+    if (!hasDisassembly || !memorySnapshot) {
+      return;
+    }
+    const runtime = runtimeRef.current;
+    if (!runtime) {
+      return;
+    }
+    let cancelled = false;
+    void runtime
+      .disassembleRom()
+      .then((result: Record<number, string> | null) => {
+        if (cancelled) {
+          return;
+        }
+        if (result == null) {
+          setDisassembly(null);
+          setDisassemblyError("Disassembly is unavailable for this ROM.");
+          return;
+        }
+        setDisassemblyError(null);
+        setDisassembly(result);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        console.error(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasDisassembly, memorySnapshot]);
+
   const ensureAudioContext = useCallback(async (): Promise<AudioContext> => {
     let audioContext = audioContextRef.current;
     if (!audioContext) {
@@ -188,7 +223,7 @@ function App() {
       ]);
       setCpuState(cpuSnapshot);
       setMemorySnapshot(memorySnapshotValue);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     }
   }, []);
@@ -202,7 +237,7 @@ function App() {
       const offsets = Array.from(next).sort((a, b) => a - b);
       void runtime
         .setBreakpoints(offsets)
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error(err);
           setError(err instanceof Error ? err.message : String(err));
         });
@@ -237,7 +272,7 @@ function App() {
       ),
       canvas,
       autoPersistSaves: false,
-      onBreakpointHit: (offset) => {
+      onBreakpointHit: (offset: number) => {
         setIsBreakMode(true);
         setIsStepping(false);
         setCurrentInstructionOffset(offset);
@@ -311,7 +346,7 @@ function App() {
 
         setPhase("running");
         void refreshDebugInfo();
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
         setError(err instanceof Error ? err.message : String(err));
         setPhase("error");
@@ -398,7 +433,7 @@ function App() {
           const pc = await runtime.getProgramCounter();
           setCurrentInstructionOffset(pc ?? null);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
         setDisassemblyError(
           err instanceof Error ? err.message : "Failed to disassemble the ROM.",
@@ -426,7 +461,7 @@ function App() {
         setCurrentInstructionOffset(pc ?? null);
         void refreshDebugInfo();
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error(err);
         setError(err instanceof Error ? err.message : String(err));
       });
@@ -446,7 +481,7 @@ function App() {
       .then(() => {
         setIsBreakMode(false);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error(err);
         setError(err instanceof Error ? err.message : String(err));
       });
@@ -469,7 +504,7 @@ function App() {
         setShouldCenterDisassembly(true);
         void refreshDebugInfo();
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error(err);
         setError(err instanceof Error ? err.message : String(err));
       })
