@@ -254,6 +254,12 @@ export class Cpu {
       case "cpl":
         this.#executeCpl(nextPc);
         return;
+      case "ccf":
+        this.#executeCcf(nextPc);
+        return;
+      case "scf":
+        this.#executeScf(nextPc);
+        return;
       case "or":
         this.#executeOr(instruction, nextPc);
         return;
@@ -582,6 +588,24 @@ export class Cpu {
     this.#updateFlags({
       subtract: true,
       halfCarry: true,
+    });
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executeCcf(nextPc: number): void {
+    this.#updateFlags({
+      subtract: false,
+      halfCarry: false,
+      carry: !this.state.flags.carry,
+    });
+    this.#setProgramCounter(nextPc);
+  }
+
+  #executeScf(nextPc: number): void {
+    this.#updateFlags({
+      subtract: false,
+      halfCarry: false,
+      carry: true,
     });
     this.#setProgramCounter(nextPc);
   }

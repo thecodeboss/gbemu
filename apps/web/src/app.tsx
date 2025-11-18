@@ -235,12 +235,10 @@ function App() {
         return;
       }
       const offsets = Array.from(next).sort((a, b) => a - b);
-      void runtime
-        .setBreakpoints(offsets)
-        .catch((err: unknown) => {
-          console.error(err);
-          setError(err instanceof Error ? err.message : String(err));
-        });
+      void runtime.setBreakpoints(offsets).catch((err: unknown) => {
+        console.error(err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
     },
     [setError],
   );
@@ -284,8 +282,6 @@ function App() {
     runtimeRef.current = runtimeClient;
     return runtimeClient;
   }, [ensureAudioContext, refreshDebugInfo]);
-
-  
 
   useEffect(() => {
     if (phase !== "running") {
@@ -713,7 +709,7 @@ function App() {
   }, [cpuState]);
 
   return (
-    <div className="box-border flex w-full max-w-[720px] flex-col gap-6 px-6 py-10 sm:px-8">
+    <div className="box-border flex w-full gap-6 px-6 py-10 sm:px-8">
       <input
         ref={fileInputRef}
         type="file"
@@ -859,7 +855,9 @@ function App() {
                               }}
                             >
                               {disassemblyTableMetrics.rows.map((row) => {
-                                const hasBreakpoint = breakpoints.has(row.offset);
+                                const hasBreakpoint = breakpoints.has(
+                                  row.offset,
+                                );
                                 const rowClasses = [
                                   "grid grid-cols-[28px_max-content_1fr] items-center gap-x-4 px-3 text-xs font-mono",
                                   row.isActive ? "bg-primary/10" : "",
@@ -868,7 +866,9 @@ function App() {
                                   .join(" ");
                                 const breakpointButtonClasses = [
                                   "flex h-6 w-6 items-center justify-center text-lg leading-none transition-opacity",
-                                  hasBreakpoint ? "opacity-100" : "opacity-40 hover:opacity-70",
+                                  hasBreakpoint
+                                    ? "opacity-100"
+                                    : "opacity-40 hover:opacity-70",
                                 ]
                                   .filter(Boolean)
                                   .join(" ");
@@ -934,11 +934,6 @@ function App() {
                         )}
                       </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Scroll to browse the full disassembly. Rows are
-                      virtualized for smoother performance. Click the BP
-                      column to toggle breakpoints.
-                    </p>
                   </>
                 ) : (
                   <div className="rounded-md border border-dashed border-input/60 bg-muted/30 px-3 py-4">
