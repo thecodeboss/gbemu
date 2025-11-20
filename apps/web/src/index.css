@@ -117,4 +117,16 @@
   body {
     @apply bg-background text-foreground;
   }
+  button,
+  [role="button"],
+  [role="tab"] {
+    @apply cursor-pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  [role="button"][data-disabled],
+  [role="tab"][aria-disabled="true"],
+  [role="tab"][data-disabled] {
+    @apply cursor-default;
+  }
 }
