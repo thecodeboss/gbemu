@@ -33,6 +33,7 @@ function App() {
   const [memorySnapshot, setMemorySnapshot] = useState<Uint8Array | null>(null);
   const [breakpoints, setBreakpoints] = useState<Set<number>>(() => new Set());
   const [shouldCenterDisassembly, setShouldCenterDisassembly] = useState(false);
+  const [isDebugVisible, setIsDebugVisible] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -181,7 +182,7 @@ function App() {
   }, [ensureAudioContext, refreshDebugInfo]);
 
   useEffect(() => {
-    if (phase !== "running") {
+    if (phase !== "running" || !isDebugVisible) {
       return;
     }
     let cancelled = false;
@@ -199,7 +200,7 @@ function App() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [phase, refreshDebugInfo]);
+  }, [isDebugVisible, phase, refreshDebugInfo]);
 
   const handleRomSelection = useCallback(
     async (file: File | null): Promise<void> => {
@@ -233,7 +234,8 @@ function App() {
         setRomInfo(info);
         const programCounter = await runtime.getProgramCounter();
         setCurrentInstructionOffset(programCounter ?? null);
-        setIsBreakMode(true);
+        await runtime.start();
+        setIsBreakMode(false);
         setIsStepping(false);
 
         setPhase("running");
@@ -393,6 +395,10 @@ function App() {
       });
   }, [isBreakMode, refreshDebugInfo, setError]);
 
+  const handleToggleDebug = useCallback(() => {
+    setIsDebugVisible((prev) => !prev);
+  }, []);
+
   return (
     <div className="box-border flex w-full gap-6 px-6 py-10 sm:px-8">
       <input
@@ -413,10 +419,12 @@ function App() {
         romName={romName}
         isBreakMode={isBreakMode}
         isStepping={isStepping}
+        isDebugVisible={isDebugVisible}
         onBreak={handleBreak}
         onResume={handleResume}
         onStep={handleStepInstruction}
         onChangeRom={openFilePicker}
+        onToggleDebug={handleToggleDebug}
         canvasDimensions={{
           width: DEFAULT_CANVAS_WIDTH,
           height: DEFAULT_CANVAS_HEIGHT,
@@ -424,7 +432,7 @@ function App() {
       />
 
       <RomDebugCard
-        hidden={phase !== "running"}
+        hidden={phase !== "running" || !isDebugVisible}
         romInfo={romInfo}
         disassembly={disassembly}
         disassemblyError={disassemblyError}

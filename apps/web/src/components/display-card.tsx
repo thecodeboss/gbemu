@@ -16,10 +16,12 @@ interface DisplayCardProps {
   isBreakMode: boolean;
   isStepping: boolean;
   romName: string | null;
+  isDebugVisible: boolean;
   onBreak: () => void;
   onResume: () => void;
   onStep: () => void;
   onChangeRom: () => void;
+  onToggleDebug: () => void;
   canvasDimensions: { width: number; height: number };
 }
 
@@ -29,10 +31,12 @@ export function DisplayCard({
   isBreakMode,
   isStepping,
   romName,
+  isDebugVisible,
   onBreak,
   onResume,
   onStep,
   onChangeRom,
+  onToggleDebug,
   canvasDimensions,
 }: DisplayCardProps) {
   return (
@@ -48,7 +52,7 @@ export function DisplayCard({
           height={canvasDimensions.height}
         />
       </CardContent>
-      <CardFooter>
+      <CardFooter className="gap-1">
         <CardAction>
           {isBreakMode ? (
             <Button
@@ -74,7 +78,7 @@ export function DisplayCard({
           <CardAction>
             <Button
               type="button"
-              variant="secondary"
+              variant="outline"
               onClick={onResume}
               disabled={isStepping}
             >
@@ -83,8 +87,13 @@ export function DisplayCard({
           </CardAction>
         ) : null}
         <CardAction>
-          <Button type="button" variant="secondary" onClick={onChangeRom}>
+          <Button type="button" variant="outline" onClick={onChangeRom}>
             Change ROM
+          </Button>
+        </CardAction>
+        <CardAction>
+          <Button type="button" variant="outline" onClick={onToggleDebug}>
+            {isDebugVisible ? "Hide Debug Panel" : "Show Debug Panel"}
           </Button>
         </CardAction>
       </CardFooter>
