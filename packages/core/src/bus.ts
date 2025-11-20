@@ -2,6 +2,9 @@ import { InterruptType } from "./cpu.js";
 import { Mbc } from "./mbc.js";
 
 const INTERRUPT_FLAG_ADDRESS = 0xff0f;
+const DMA_REGISTER_ADDRESS = 0xff46;
+const OAM_START_ADDRESS = 0xfe00;
+const OAM_TRANSFER_SIZE = 0xa0;
 const INTERRUPT_BITS: Record<InterruptType, number> = {
   vblank: 0x01,
   lcdStat: 0x02,
@@ -148,6 +151,10 @@ export class SystemBus
     if (mappedAddress === INTERRUPT_FLAG_ADDRESS) {
       this.#syncPendingInterrupts(byteValue);
     }
+
+    if (mappedAddress === DMA_REGISTER_ADDRESS) {
+      this.dmaTransfer(byteValue);
+    }
   }
 
   readWord(address: number): number {
@@ -165,12 +172,15 @@ export class SystemBus
     return this.#memory.slice();
   }
 
-  dmaTransfer(_source: number): void {
-    // No DMA support in stub.
+  dmaTransfer(source: number): void {
+    const startAddress = (source & 0xff) << 8;
+    this.performTransfer("oam", startAddress);
   }
 
-  performTransfer(_type: DmaTransferType, _source: number): void {
-    // No general DMA support in stub.
+  performTransfer(type: DmaTransferType, source: number): void {
+    if (type === "oam") {
+      this.#performOamDmaTransfer(source);
+    }
   }
 
   requestInterrupt(type: InterruptType): void {
@@ -267,6 +277,15 @@ export class SystemBus
   #initializeHardwareRegisters(): void {
     for (const [address, value] of DMG_HARDWARE_REGISTER_DEFAULTS) {
       this.#memory[address] = value & 0xff;
+    }
+  }
+
+  #performOamDmaTransfer(source: number): void {
+    const startAddress = source & 0xff00;
+    for (let offset = 0; offset < OAM_TRANSFER_SIZE; offset += 1) {
+      const readAddress = (startAddress + offset) & 0xffff;
+      const value = this.readByte(readAddress);
+      this.#memory[OAM_START_ADDRESS + offset] = value & 0xff;
     }
   }
 }
