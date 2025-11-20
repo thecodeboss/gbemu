@@ -1,13 +1,11 @@
 import { useEffect, useRef } from "react";
 
-import { DMG_PALETTE } from "@gbemu/core";
+import { decodeTileImage, TILE_BYTES, TILE_SIZE } from "./tile-utils";
 
 interface TilesTabProps {
   memorySnapshot: Uint8Array | null;
 }
 
-const TILE_BYTES = 16;
-const TILE_SIZE = 8;
 const TILE_SCALE = 2;
 const TILE_DRAW_SIZE = TILE_SIZE * TILE_SCALE;
 const TILE_GAP = 1;
@@ -21,39 +19,6 @@ const SECTION_DEFINITIONS = [
   { start: 0x8800, label: "$8800-$8FFF" },
   { start: 0x9000, label: "$9000-$97FF" },
 ] as const;
-
-function decodeTileImage(
-  memorySnapshot: Uint8Array,
-  offset: number,
-): ImageData {
-  const pixels = new Uint8ClampedArray(TILE_DRAW_SIZE * TILE_DRAW_SIZE * 4);
-
-  for (let row = 0; row < TILE_SIZE; row += 1) {
-    const loByte = memorySnapshot[offset + row * 2] ?? 0;
-    const hiByte = memorySnapshot[offset + row * 2 + 1] ?? 0;
-
-    for (let col = 0; col < TILE_SIZE; col += 1) {
-      const bitMask = 1 << (7 - col);
-      const colorIndex =
-        (hiByte & bitMask ? 2 : 0) | (loByte & bitMask ? 1 : 0);
-      const color = DMG_PALETTE[colorIndex];
-
-      const destX = col * TILE_SCALE;
-      const destY = row * TILE_SCALE;
-      for (let y = 0; y < TILE_SCALE; y += 1) {
-        for (let x = 0; x < TILE_SCALE; x += 1) {
-          const pixelIndex = ((destY + y) * TILE_DRAW_SIZE + (destX + x)) * 4;
-          pixels[pixelIndex] = color[0];
-          pixels[pixelIndex + 1] = color[1];
-          pixels[pixelIndex + 2] = color[2];
-          pixels[pixelIndex + 3] = color[3];
-        }
-      }
-    }
-  }
-
-  return new ImageData(pixels, TILE_DRAW_SIZE, TILE_DRAW_SIZE);
-}
 
 function renderTileSection(
   canvas: HTMLCanvasElement,
@@ -83,7 +48,11 @@ function renderTileSection(
       break;
     }
 
-    const imageData = decodeTileImage(memorySnapshot, tileOffset);
+    const imageData = decodeTileImage(
+      memorySnapshot,
+      tileOffset,
+      TILE_SCALE,
+    );
     const column = tileIndex % SECTION_COLUMNS;
     const row = Math.floor(tileIndex / SECTION_COLUMNS);
     const destX = column * (TILE_DRAW_SIZE + TILE_GAP);

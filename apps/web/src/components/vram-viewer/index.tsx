@@ -40,7 +40,7 @@ export function VramViewerCard({
             <TilesTab memorySnapshot={memorySnapshot} />
           </TabsContent>
           <TabsContent value="oam" className="text-sm text-muted-foreground">
-            <OamTab />
+            <OamTab memorySnapshot={memorySnapshot} />
           </TabsContent>
           <TabsContent
             value="palettes"
