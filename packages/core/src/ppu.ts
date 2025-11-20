@@ -1,5 +1,6 @@
 import { InterruptType } from "./cpu.js";
 import { SystemBus } from "./bus.js";
+import { DMG_PALETTE } from "./palette.js";
 
 export const DEFAULT_SCREEN_WIDTH = 160;
 export const DEFAULT_SCREEN_HEIGHT = 144;
@@ -61,12 +62,6 @@ const MAX_SPRITES_PER_LINE = 10;
 const TILE_MAP_WIDTH = 32;
 const TILE_HEIGHT = 8;
 const TILE_STRIDE = 16;
-const DMG_COLOR_LUT: readonly [number, number, number, number] = [
-  0xf8,
-  0xd0,
-  0xa8,
-  0x20,
-];
 
 export class Ppu {
   #framebuffer: Framebuffer = {
@@ -477,11 +472,11 @@ export class Ppu {
   }
 
   #writePixel(offset: number, shade: number): void {
-    const color = DMG_COLOR_LUT[shade & 0x03];
-    this.#framebuffer.data[offset] = color;
-    this.#framebuffer.data[offset + 1] = color;
-    this.#framebuffer.data[offset + 2] = color;
-    this.#framebuffer.data[offset + 3] = 0xff;
+    const color = DMG_PALETTE[shade & 0x03];
+    this.#framebuffer.data[offset] = color[0];
+    this.#framebuffer.data[offset + 1] = color[1];
+    this.#framebuffer.data[offset + 2] = color[2];
+    this.#framebuffer.data[offset + 3] = color[3];
   }
 
   #writeLyRegister(value: number): void {

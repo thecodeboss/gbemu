@@ -52,6 +52,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Breakpoints are managed inside `Emulator#setBreakpoints()`, which stores 16-bit offsets, pauses the run loop when the CPU PC matches one while running, and triggers `callbacks.onBreakpointHit` after pausing so hosts can flip into break mode without racing the UI.
 - CPU resets now seed the DMG power-on register/flag values (AF=$01B0, BC=$0013, DE=$00D8, HL=$014D, SP=$FFFE) and `SystemBus#loadCartridge()` preloads every DMG hardware register (`$FF00`–`$FFFF`) with the defaults listed in [Pan Docs’ Power-Up Sequence](https://gbdev.io/pandocs/Power_Up_Sequence.html), so debuggers and runtime clients read realistic state right after a ROM loads.
 - Cartridge mappers now live in `packages/core/src/mbc.ts`. The factory inspects header byte `$147` to pick a controller (ROM-only or `MBC3` today) and `SystemBus#loadCartridge(rom, mbc)` wires it into the bus so writes to `$2000`–`$3FFF` update the switchable ROM bank (`$4000`–`$7FFF`) and `$4000`–`$5FFF` selects the currently mirrored external RAM bank for `$A000`–`$BFFF`.
+- A shared DMG palette (`palette.ts`) is exported and used by both the PPU framebuffer and UI tooling (Tile Viewer) so debug tools and on-screen output use the same hues.
 - Export surface collected in `src/index.ts`; package compiles to `dist/` via `pnpm --filter @gbemu/core build`.
 - Future real emulator work should replace the stub while satisfying the existing interfaces. Reference hardware documentation at [gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html).
 
@@ -76,12 +77,15 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 ### `@gbemu/web` (`apps/web`)
 
 - Vite + React front-end (`vite.config.ts` aliases `@gbemu/runtime` to the source tree for hot development).
+- `apps/web/tsconfig.app.json` sets `baseUrl` + paths so imports like `@gbemu/core`/`@gbemu/runtime` resolve to source during dev without needing a build.
+- `apps/web` declares `@gbemu/core` as a workspace dependency; rebuild core (`pnpm --filter @gbemu/core build`) after changing its exports so editors pick up fresh types.
 - Shadcn UI components (Tailwind + Radix) provide most primitives; follow https://ui.shadcn.com/docs when touching `apps/web/src/components` so generated styles stay consistent.
 - React Compiler is enabled via `@vitejs/plugin-react` plus `babel-plugin-react-compiler` (see `apps/web/vite.config.ts`); the compiler is now stable, so keep components within its supported patterns (no side effects during render, stable props).
 - `src/app.tsx` manages ROM selection, runtime client lifecycle, and simple UI state machine (`menu` → `loading` → `running`/`error`).
 - ROMs now start running immediately after selection; hit Break if you need to pause before inspecting state. Breakpoints still pause automatically when hit.
 - The disassembly view adds a leading BP column; clicking a cell toggles a red-circle breakpoint that propagates to the runtime and automatically pauses when the PC hits that offset.
 - The debug panel now polls `RuntimeClient.getCpuState()`/`getMemorySnapshot()` to render live CPU register + flag cards and a virtualized memory browser (type/offset/value columns with infinite scroll). Keep the polling cadence reasonable (currently ~750 ms) if runtime performance changes.
+- A Tile Viewer card (next to ROM Debug) renders VRAM tiles for $8000–$97FF in three 16×8 sections (blocks at $8000, $8800, $9000), scaling tiles 2× with 1px grey gutters and a 4px separator between sections.
 - Loads worker and audio worklet via `new URL("@gbemu/runtime/src/...")` so Vite bundles the TypeScript modules.
 - Uses `DEFAULT_CANVAS_WIDTH/HEIGHT` from the runtime package to size the display.
 - Styling in `src/index.css`; entry point `src/main.tsx`.

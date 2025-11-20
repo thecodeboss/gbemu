@@ -7,3 +7,4 @@ export * from "./clock.js";
 export * from "./emulator.js";
 export * from "./rom/index.js";
 export * from "./runtime.js";
+export * from "./palette.js";

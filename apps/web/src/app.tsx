@@ -10,6 +10,7 @@ import { ErrorCard } from "@/components/error-card";
 import { LoadingCard } from "@/components/loading-card";
 import { MenuCard } from "@/components/menu-card";
 import { RomDebugCard } from "@/components/debug-card";
+import { TileViewerCard } from "@/components/tile-viewer";
 import type { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
@@ -446,6 +447,11 @@ function App() {
         isBreakMode={isBreakMode}
         memorySnapshot={memorySnapshot}
         cpuState={cpuState}
+      />
+
+      <TileViewerCard
+        hidden={phase !== "running" || !isDebugVisible}
+        memorySnapshot={memorySnapshot}
       />
 
       <ErrorCard
