@@ -2,10 +2,7 @@ import { useEffect, useRef } from "react";
 
 import { DMG_PALETTE } from "@gbemu/core";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-interface TileViewerCardProps {
-  hidden: boolean;
+interface TilesTabProps {
   memorySnapshot: Uint8Array | null;
 }
 
@@ -96,10 +93,7 @@ function renderTileSection(
   }
 }
 
-export function TileViewerCard({
-  hidden,
-  memorySnapshot,
-}: TileViewerCardProps) {
+export function TilesTab({ memorySnapshot }: TilesTabProps) {
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
 
   useEffect(() => {
@@ -116,38 +110,29 @@ export function TileViewerCard({
     });
   }, [memorySnapshot]);
 
-  return (
-    <Card hidden={hidden} className="self-start">
-      <CardHeader>
-        <CardTitle>Tile Viewer</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {memorySnapshot ? (
-          <div className="flex flex-col">
-            {SECTION_DEFINITIONS.map((section, index) => (
-              <div key={section.start}>
-                <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
-                  <span>Block {index + 1}</span>
-                  <span className="font-mono text-[11px]">{section.label}</span>
-                </div>
-                <canvas
-                  ref={(node) => {
-                    canvasRefs.current[index] = node;
-                  }}
-                  className="border border-border/60 bg-slate-200 [image-rendering:pixelated]"
-                />
-                {index < SECTION_DEFINITIONS.length - 1 ? (
-                  <div aria-hidden className="h-1 w-full bg-slate-300" />
-                ) : null}
-              </div>
-            ))}
+  return memorySnapshot ? (
+    <div className="flex flex-col">
+      {SECTION_DEFINITIONS.map((section, index) => (
+        <div key={section.start}>
+          <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+            <span>Block {index + 1}</span>
+            <span className="font-mono text-[11px]">{section.label}</span>
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            VRAM snapshot unavailable. Pause the ROM to capture tiles.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+          <canvas
+            ref={(node) => {
+              canvasRefs.current[index] = node;
+            }}
+            className="border border-border/60 bg-slate-200 [image-rendering:pixelated]"
+          />
+          {index < SECTION_DEFINITIONS.length - 1 ? (
+            <div aria-hidden className="h-1 w-full bg-slate-300" />
+          ) : null}
+        </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-sm text-muted-foreground">
+      VRAM snapshot unavailable. Pause the ROM to capture tiles.
+    </p>
   );
 }

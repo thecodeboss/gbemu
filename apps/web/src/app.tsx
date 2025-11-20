@@ -10,7 +10,7 @@ import { ErrorCard } from "@/components/error-card";
 import { LoadingCard } from "@/components/loading-card";
 import { MenuCard } from "@/components/menu-card";
 import { RomDebugCard } from "@/components/debug-card";
-import { TileViewerCard } from "@/components/tile-viewer";
+import { VramViewerCard } from "@/components/vram-viewer";
 import type { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
@@ -449,7 +449,7 @@ function App() {
         cpuState={cpuState}
       />
 
-      <TileViewerCard
+      <VramViewerCard
         hidden={phase !== "running" || !isDebugVisible}
         memorySnapshot={memorySnapshot}
       />

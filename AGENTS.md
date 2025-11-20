@@ -85,11 +85,13 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - ROMs now start running immediately after selection; hit Break if you need to pause before inspecting state. Breakpoints still pause automatically when hit.
 - The disassembly view adds a leading BP column; clicking a cell toggles a red-circle breakpoint that propagates to the runtime and automatically pauses when the PC hits that offset.
 - The debug panel now polls `RuntimeClient.getCpuState()`/`getMemorySnapshot()` to render live CPU register + flag cards and a virtualized memory browser (type/offset/value columns with infinite scroll). Keep the polling cadence reasonable (currently ~750 ms) if runtime performance changes.
-- A Tile Viewer card (next to ROM Debug) renders VRAM tiles for $8000–$97FF in three 16×8 sections (blocks at $8000, $8800, $9000), scaling tiles 2× with 1px grey gutters and a 4px separator between sections.
+- The VRAM Viewer card (next to ROM Debug) houses tabs for BG/Tiles/OAM/Palettes; the Tiles tab renders VRAM tiles for $8000–$97FF in three 16×8 sections (blocks at $8000, $8800, $9000), scaling tiles 2× with 1px grey gutters and a 4px separator between sections.
 - Loads worker and audio worklet via `new URL("@gbemu/runtime/src/...")` so Vite bundles the TypeScript modules.
 - Uses `DEFAULT_CANVAS_WIDTH/HEIGHT` from the runtime package to size the display.
 - Styling in `src/index.css`; entry point `src/main.tsx`.
 - Development loop: `pnpm --filter @gbemu/web dev`, then open the provided Vite URL.
+- Shadcn UI primitives live under `src/components/ui/`; Tabs now uses `@radix-ui/react-tabs` via `tabs.tsx` for BG/Tiles/OAM/Palette viewers.
+- VRAM viewer components live in `apps/web/src/components/vram-viewer/` (`index.tsx` card + tab components; the tiles renderer lives in `tiles-tab.tsx`).
 
 ## Runtime Data Flow
 
