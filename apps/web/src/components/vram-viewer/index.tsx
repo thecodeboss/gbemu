@@ -34,7 +34,7 @@ export function VramViewerCard({
           </TabsList>
 
           <TabsContent value="bg" className="text-sm text-muted-foreground">
-            <BgTab />
+            <BgTab memorySnapshot={memorySnapshot} />
           </TabsContent>
           <TabsContent value="tiles" className="space-y-4">
             <TilesTab memorySnapshot={memorySnapshot} />
