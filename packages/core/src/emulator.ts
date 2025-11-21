@@ -10,6 +10,10 @@ import {
   parseRomInfo,
 } from "./rom/index.js";
 import { Cpu, CpuFlags, CpuRegisters } from "./cpu.js";
+import {
+  JoypadInputState,
+  createEmptyJoypadState,
+} from "./input.js";
 
 export type { EmulatorRomInfo } from "./rom/index.js";
 
@@ -100,6 +104,7 @@ export class Emulator {
   #running = false;
   #breakpoints = new Set<number>();
   #lastBreakpointHit: number | null = null;
+  #inputState: JoypadInputState = createEmptyJoypadState();
 
   constructor(deps: EmulatorDependencies) {
     this.clock = deps.clock;
@@ -124,6 +129,7 @@ export class Emulator {
     const cartridgeType = this.#mbcFactory.detect(rom);
     this.#mbc = this.#mbcFactory.create(cartridgeType, rom, ramSize);
     this.bus.loadCartridge(rom, this.#mbc);
+    this.bus.setJoypadState(this.#inputState);
     this.cpu.reset();
     this.ppu.reset();
     this.apu.reset();
@@ -131,6 +137,7 @@ export class Emulator {
     this.cpu.state.registers.pc = 0x0100;
     this.#lastBreakpointHit = null;
     this.#frameCount = 0;
+    this.#inputState = createEmptyJoypadState();
     this.#callbacks?.onLog?.(
       `Loaded ROM ${this.#romInfo?.title ?? "(untitled)"}`,
     );
@@ -164,6 +171,8 @@ export class Emulator {
     this.clock.step();
     this.#frameCount = 0;
     this.#lastBreakpointHit = null;
+    this.#inputState = createEmptyJoypadState();
+    this.bus.setJoypadState(this.#inputState);
     if (hard) {
       this.#romData = null;
       this.#romInfo = null;
@@ -254,6 +263,11 @@ export class Emulator {
       }
     }
     this.#lastBreakpointHit = null;
+  }
+
+  setInputState(state: JoypadInputState): void {
+    this.#inputState = { ...state };
+    this.bus.setJoypadState(this.#inputState);
   }
 
   getStateSnapshot(): EmulatorStateSnapshot {

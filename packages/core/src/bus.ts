@@ -1,7 +1,9 @@
 import { InterruptType } from "./cpu.js";
+import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 import { Mbc } from "./mbc.js";
 
 const INTERRUPT_FLAG_ADDRESS = 0xff0f;
+const JOYPAD_REGISTER_ADDRESS = 0xff00;
 const DMA_REGISTER_ADDRESS = 0xff46;
 const OAM_START_ADDRESS = 0xfe00;
 const OAM_TRANSFER_SIZE = 0xa0;
@@ -99,10 +101,12 @@ export class SystemBus
   #memory = new Uint8Array(0x10000);
   #pendingInterrupts = new Set<InterruptType>();
   #mbc: Mbc | null = null;
+  #joypadState: JoypadInputState = createEmptyJoypadState();
 
   loadCartridge(rom: Uint8Array, mbc?: Mbc): void {
     this.#pendingInterrupts.clear();
     this.#memory.fill(0);
+    this.#joypadState = createEmptyJoypadState();
     this.#mbc = mbc ?? null;
     this.#mbc?.reset();
 
@@ -143,6 +147,11 @@ export class SystemBus
 
     if (this.#mbc?.write(mappedAddress, byteValue)) {
       this.#mirrorAfterMbcWrite(mappedAddress);
+      return;
+    }
+
+    if (mappedAddress === JOYPAD_REGISTER_ADDRESS) {
+      this.#updateJoypadRegister(byteValue & 0x30);
       return;
     }
 
@@ -199,6 +208,11 @@ export class SystemBus
 
   getPendingInterrupts(): InterruptType[] {
     return Array.from(this.#pendingInterrupts);
+  }
+
+  setJoypadState(state: JoypadInputState): void {
+    this.#joypadState = { ...state };
+    this.#updateJoypadRegister();
   }
 
   tick(_cycles: number): void {
@@ -278,6 +292,7 @@ export class SystemBus
     for (const [address, value] of DMG_HARDWARE_REGISTER_DEFAULTS) {
       this.#memory[address] = value & 0xff;
     }
+    this.#updateJoypadRegister(this.#memory[JOYPAD_REGISTER_ADDRESS] & 0x30, false);
   }
 
   #performOamDmaTransfer(source: number): void {
@@ -286,6 +301,47 @@ export class SystemBus
       const readAddress = (startAddress + offset) & 0xffff;
       const value = this.readByte(readAddress);
       this.#memory[OAM_START_ADDRESS + offset] = value & 0xff;
+    }
+  }
+
+  #composeJoypadValue(selectBits: number, state: JoypadInputState): number {
+    const selectButtons = (selectBits & 0x20) === 0;
+    const selectDpad = (selectBits & 0x10) === 0;
+
+    let lower = 0x0f;
+
+    if (selectButtons) {
+      if (state.a) lower &= ~0x01;
+      if (state.b) lower &= ~0x02;
+      if (state.select) lower &= ~0x04;
+      if (state.start) lower &= ~0x08;
+    }
+
+    if (selectDpad) {
+      if (state.right) lower &= ~0x01;
+      if (state.left) lower &= ~0x02;
+      if (state.up) lower &= ~0x04;
+      if (state.down) lower &= ~0x08;
+    }
+
+    return (0xc0 | selectBits | lower) & 0xff;
+  }
+
+  #updateJoypadRegister(selectBits?: number, triggerInterrupt = true): void {
+    const previous = this.#memory[JOYPAD_REGISTER_ADDRESS] ?? 0xff;
+    const nextSelect = selectBits ?? (previous & 0x30);
+    const next = this.#composeJoypadValue(nextSelect, this.#joypadState);
+    this.#memory[JOYPAD_REGISTER_ADDRESS] = next;
+
+    if (!triggerInterrupt) {
+      return;
+    }
+
+    const prevNibble = previous & 0x0f;
+    const nextNibble = next & 0x0f;
+    const highToLow = (prevNibble & ~nextNibble) & 0x0f;
+    if (highToLow !== 0) {
+      this.requestInterrupt("joypad");
     }
   }
 }

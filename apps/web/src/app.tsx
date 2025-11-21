@@ -5,6 +5,7 @@ import {
   RuntimeClient,
   createRuntimeClient,
 } from "@gbemu/runtime";
+import type { JoypadInputState } from "@gbemu/core";
 import { DisplayCard } from "@/components/display-card";
 import { ErrorCard } from "@/components/error-card";
 import { LoadingCard } from "@/components/loading-card";
@@ -12,6 +13,7 @@ import { MenuCard } from "@/components/menu-card";
 import { RomDebugCard } from "@/components/debug-card";
 import { VramViewerCard } from "@/components/vram-viewer";
 import type { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
+import { useGamepad } from "@/hooks/use-gamepad";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
@@ -399,6 +401,24 @@ function App() {
   const handleToggleDebug = useCallback(() => {
     setIsDebugVisible((prev) => !prev);
   }, []);
+
+  const handleInputStateChange = useCallback(
+    (state: JoypadInputState) => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        return;
+      }
+      void runtime.setInputState(state).catch((err: unknown) => {
+        console.error(err);
+      });
+    },
+    [],
+  );
+
+  useGamepad({
+    enabled: phase === "running",
+    onInputState: handleInputStateChange,
+  });
 
   return (
     <div className="box-border flex w-full gap-6 px-6 py-10 sm:px-8">

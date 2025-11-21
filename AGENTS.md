@@ -41,6 +41,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 
 - Exposes TypeScript interfaces for CPU, PPU, APU, system buses, clocks, cartridges (`mbc.ts`), and the overarching `Emulator` contract (`emulator.ts`).
 - `runtime.ts` defines the message protocol shared between workers and the host (`EmulatorWorkerRequestMap`, `EmulatorWorkerEventMap`).
+- `input.ts` houses joypad primitives (`JoypadInputState`, `JoypadButton`, helpers) and feeds `Emulator#setInputState`, which writes the active state into P1 ($FF00) via the system bus and raises the joypad interrupt on high→low transitions of P10–P13.
 - `emulator.ts` currently holds the stubbed `Emulator` class that:
   - Implements minimal CPU/PPU/APU/bus behavior sufficient to exercise the runtime pipeline.
   - Parses ROM metadata (`parseRomInfo`) but does not execute real instructions.
@@ -67,7 +68,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - `src/worker/emulator-worker.ts` is the actual worker entry. It currently instantiates the stubbed `Emulator` from `@gbemu/core/src/emulator.ts` but is the place to swap in the real implementation.
 - Main thread client:
   - `src/main/runtime-client.ts` provides `createRuntimeClient`, which instantiates the worker, sets up a `Canvas2DRenderer`, and initialises `createEmulatorAudioNode`. It also optionally persists saves via `SaveStorageAdapter`.
-  - `createRuntimeClient` exposes a `setBreakpoints(offsets: number[])` method on the returned client and accepts an `onBreakpointHit` option so UIs can be notified when the worker halted on a breakpoint.
+  - `createRuntimeClient` exposes a `setBreakpoints(offsets: number[])` method on the returned client and accepts an `onBreakpointHit` option so UIs can be notified when the worker halted on a breakpoint. It also forwards `setInputState(state: JoypadInputState)` calls to the worker, which push the state into P1 and trigger the joypad interrupt when lines drop low.
 - Rendering/audio/persistence helpers:
   - `src/video/canvas2d-renderer.ts` wraps a `<canvas>` and handles resizing, drawing frames, and clearing.
   - `src/audio/node.ts` sets up an `AudioWorkletNode` (`worklet-processor.ts` implements the processor) and exposes a queue-based audio API.
@@ -83,6 +84,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Shadcn UI components (Tailwind + Radix) provide most primitives; follow https://ui.shadcn.com/docs when touching `apps/web/src/components` so generated styles stay consistent.
 - React Compiler is enabled via `@vitejs/plugin-react` plus `babel-plugin-react-compiler` (see `apps/web/vite.config.ts`); the compiler is now stable, so keep components within its supported patterns (no side effects during render, stable props).
 - `src/app.tsx` manages ROM selection, runtime client lifecycle, and simple UI state machine (`menu` → `loading` → `running`/`error`).
+- Gamepad input lives in `src/hooks/use-gamepad.ts`, which polls the Gamepad API for a DualSense and maps buttons (0=A, 2=B, 8=Select, 9=Start, 12-15=D-pad) into `RuntimeClient#setInputState`; the emulator feeds P1 with the state and raises the joypad interrupt on new presses.
 - ROMs now start running immediately after selection; hit Break if you need to pause before inspecting state. Breakpoints still pause automatically when hit.
 - The disassembly view adds a leading BP column; clicking a cell toggles a red-circle breakpoint that propagates to the runtime and automatically pauses when the PC hits that offset.
 - The debug panel now polls `RuntimeClient.getCpuState()`/`getMemorySnapshot()` to render live CPU register + flag cards and a virtualized memory browser (type/offset/value columns with infinite scroll). Keep the polling cadence reasonable (currently ~750 ms) if runtime performance changes.

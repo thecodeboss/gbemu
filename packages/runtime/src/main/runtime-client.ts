@@ -2,6 +2,7 @@ import {
   EmulatorCpuDebugState,
   EmulatorRomInfo,
   SavePayload,
+  JoypadInputState,
 } from "@gbemu/core";
 import * as Comlink from "comlink";
 import { createEmulatorAudioNode } from "../audio/node.js";
@@ -46,6 +47,7 @@ export interface RuntimeClient {
   getCpuState(): Promise<EmulatorCpuDebugState>;
   getMemorySnapshot(): Promise<Uint8Array>;
   dispose(): Promise<void>;
+  setInputState(state: JoypadInputState): Promise<void>;
   readonly renderer: Canvas2DRenderer;
   readonly audio: EmulatorAudioNode;
   readonly worker: Worker;
@@ -170,6 +172,7 @@ export async function createRuntimeClient(
     stepInstruction: () => workerEndpoint.stepInstruction(),
     setBreakpoints: (breakpoints) =>
       workerEndpoint.setBreakpoints({ offsets: breakpoints }),
+    setInputState: (state) => workerEndpoint.setInputState({ state }),
     getRomInfo: () => workerEndpoint.getRomInfo(),
     async getSave() {
       const payload = await workerEndpoint.getSave();

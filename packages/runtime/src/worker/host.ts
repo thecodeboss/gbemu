@@ -6,6 +6,7 @@ import {
   EmulatorRomInfo,
   SavePayload,
   VideoFrame,
+  JoypadInputState,
 } from "@gbemu/core";
 import * as Comlink from "comlink";
 import { Remote } from "comlink";
@@ -43,6 +44,7 @@ export interface EmulatorWorkerApi {
   stepFrame(): Promise<void>;
   stepInstruction(): Promise<void>;
   setBreakpoints(message: { offsets: number[] }): Promise<void>;
+  setInputState(message: { state: JoypadInputState }): Promise<void>;
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
@@ -127,6 +129,11 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
     async setBreakpoints(message: { offsets: number[] }): Promise<void> {
       const system = await ensureEmulator();
       system.setBreakpoints(message.offsets ?? []);
+    },
+
+    async setInputState(message: { state: JoypadInputState }): Promise<void> {
+      const system = await ensureEmulator();
+      system.setInputState(message.state);
     },
 
     async dispose(): Promise<void> {

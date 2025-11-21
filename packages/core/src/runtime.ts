@@ -1,4 +1,5 @@
 import { AudioBufferChunk, SavePayload, VideoFrame } from "./emulator.js";
+import { JoypadInputState } from "./input.js";
 
 export interface EmulatorWorkerRequestMap {
   loadRom: { rom: Uint8Array };
@@ -9,6 +10,7 @@ export interface EmulatorWorkerRequestMap {
   stepFrame: undefined;
   stepInstruction: undefined;
   setBreakpoints: { offsets: number[] };
+  setInputState: { state: JoypadInputState };
   dispose: undefined;
   getRomInfo: undefined;
   getSave: undefined;
