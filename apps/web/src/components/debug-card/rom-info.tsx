@@ -1,4 +1,4 @@
-import type { RomInfo } from "@/types/runtime";
+import { RomInfo } from "@/types/runtime";
 import { formatByteSize, formatHexByte } from "@/components/debug-card/utils";
 
 interface RomInfoProps {
@@ -23,11 +23,15 @@ export function RomInfo({ romInfo }: RomInfoProps) {
           <dd>{formatHexByte(romInfo.cgbFlag)}</dd>
           <dt className="font-medium text-muted-foreground">SGB Flag</dt>
           <dd>{formatHexByte(romInfo.sgbFlag)}</dd>
-          <dt className="font-medium text-muted-foreground">Destination Code</dt>
+          <dt className="font-medium text-muted-foreground">
+            Destination Code
+          </dt>
           <dd>{formatHexByte(romInfo.destinationCode)}</dd>
         </dl>
       ) : (
-        <p className="text-sm text-muted-foreground">ROM metadata unavailable.</p>
+        <p className="text-sm text-muted-foreground">
+          ROM metadata unavailable.
+        </p>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { CpuDebugSnapshot } from "@/types/runtime";
+import { CpuDebugSnapshot } from "@/types/runtime";
 import { formatAddress, formatHexValue } from "@/components/debug-card/utils";
 
 interface RegisterEntry {
@@ -97,7 +97,9 @@ export function CpuState({ cpuState }: CpuStateProps) {
                   key={flag.label}
                   className={[
                     "rounded-full px-3 py-1 text-xs font-semibold",
-                    flag.active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                    flag.active
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted text-muted-foreground",
                   ].join(" ")}
                 >
                   {flag.label}

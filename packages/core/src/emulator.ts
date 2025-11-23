@@ -10,10 +10,7 @@ import {
   parseRomInfo,
 } from "./rom/index.js";
 import { Cpu, CpuFlags, CpuRegisters } from "./cpu.js";
-import {
-  JoypadInputState,
-  createEmptyJoypadState,
-} from "./input.js";
+import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 
 export type { EmulatorRomInfo } from "./rom/index.js";
 
@@ -364,8 +361,7 @@ export class Emulator {
       }
     }
 
-    const targetDelay =
-      (this.#nextFrameTimestamp ?? now) - this.#now();
+    const targetDelay = (this.#nextFrameTimestamp ?? now) - this.#now();
     const delay = Math.max(0, Math.min(frameDuration, targetDelay));
     this.#frameTimer = setTimeout(
       () => this.#scheduleNextFrame(),
@@ -450,10 +446,7 @@ export class Emulator {
       sampleCount = maxSamples;
     }
 
-    const samples = this.apu.flushSamples(
-      this.#audioSampleRate,
-      sampleCount,
-    );
+    const samples = this.apu.flushSamples(this.#audioSampleRate, sampleCount);
 
     if (samples.length === 0) {
       return;

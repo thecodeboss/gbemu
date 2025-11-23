@@ -168,7 +168,7 @@ export class Cpu {
   #serviceInterruptIfNeeded(bus: CpuBusPort): boolean {
     const interruptEnable = bus.readByte(INTERRUPT_ENABLE_ADDRESS) & 0xff;
     const interruptFlags = bus.readByte(INTERRUPT_FLAG_ADDRESS) & 0xff;
-    const pendingMask = (interruptEnable & interruptFlags) & 0x1f;
+    const pendingMask = interruptEnable & interruptFlags & 0x1f;
 
     if (pendingMask === 0) {
       return false;
@@ -481,10 +481,7 @@ export class Cpu {
       throw new Error("LD instruction missing operands");
     }
 
-    if (
-      destination.meta.name === "a16" &&
-      source.meta.name === "SP"
-    ) {
+    if (destination.meta.name === "a16" && source.meta.name === "SP") {
       const address = destination.rawValue;
       if (address === null) {
         throw new Error("LD [a16],SP missing target address");
@@ -1413,8 +1410,8 @@ export class Cpu {
     const signedOffset = (offset << 24) >> 24;
     const unsignedOffset = offset & 0xff;
     const result = (sp + signedOffset) & 0xffff;
-    const halfCarry = ((sp & 0x0f) + (unsignedOffset & 0x0f)) > 0x0f;
-    const carry = ((sp & 0xff) + unsignedOffset) > 0xff;
+    const halfCarry = (sp & 0x0f) + (unsignedOffset & 0x0f) > 0x0f;
+    const carry = (sp & 0xff) + unsignedOffset > 0xff;
     return { result, halfCarry, carry };
   }
 

@@ -197,7 +197,9 @@ export function Disassembly({
               ref={disassemblyScrollContainerRef}
               className="overflow-y-auto"
               style={{ height: `${DISASSEMBLY_VIEWPORT_HEIGHT}px` }}
-              onScroll={(event) => setDisassemblyScrollTop(event.currentTarget.scrollTop)}
+              onScroll={(event) =>
+                setDisassemblyScrollTop(event.currentTarget.scrollTop)
+              }
             >
               {disassemblyTableMetrics.hasEntries ? (
                 <div
@@ -222,13 +224,17 @@ export function Disassembly({
                         .join(" ");
                       const breakpointButtonClasses = [
                         "flex h-6 w-6 items-center justify-center text-lg leading-none transition-opacity",
-                        hasBreakpoint ? "opacity-100" : "opacity-40 hover:opacity-70",
+                        hasBreakpoint
+                          ? "opacity-100"
+                          : "opacity-40 hover:opacity-70",
                       ]
                         .filter(Boolean)
                         .join(" ");
                       const offsetClasses = [
                         "text-[11px]",
-                        row.isActive ? "font-semibold text-primary" : "text-muted-foreground",
+                        row.isActive
+                          ? "font-semibold text-primary"
+                          : "text-muted-foreground",
                       ]
                         .filter(Boolean)
                         .join(" ");
@@ -248,16 +254,28 @@ export function Disassembly({
                         >
                           <button
                             type="button"
-                            aria-label={hasBreakpoint ? "Remove breakpoint" : "Add breakpoint"}
-                            title={hasBreakpoint ? "Remove breakpoint" : "Add breakpoint"}
+                            aria-label={
+                              hasBreakpoint
+                                ? "Remove breakpoint"
+                                : "Add breakpoint"
+                            }
+                            title={
+                              hasBreakpoint
+                                ? "Remove breakpoint"
+                                : "Add breakpoint"
+                            }
                             aria-pressed={hasBreakpoint}
                             className={breakpointButtonClasses}
                             onClick={() => onToggleBreakpoint(row.offset)}
                           >
                             {hasBreakpoint ? "🔴" : "⚪"}
                           </button>
-                          <span className={offsetClasses}>{formatAddress(row.offset)}</span>
-                          <span className={instructionClasses}>{row.instruction}</span>
+                          <span className={offsetClasses}>
+                            {formatAddress(row.offset)}
+                          </span>
+                          <span className={instructionClasses}>
+                            {row.instruction}
+                          </span>
                         </div>
                       );
                     })}
@@ -282,7 +300,12 @@ export function Disassembly({
             <p className="mt-2 text-xs text-destructive">{disassemblyError}</p>
           ) : null}
           <div className="mt-3">
-            <Button type="button" variant="outline" onClick={onDisassemble} disabled={isDisassembling}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onDisassemble}
+              disabled={isDisassembling}
+            >
               {isDisassembling ? "Generating..." : "Generate disassembly"}
             </Button>
           </div>

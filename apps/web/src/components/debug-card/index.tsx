@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
+import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { CpuState } from "@/components/debug-card/cpu-state";
 import { Disassembly } from "@/components/debug-card/disassembly";
 import { MemoryBrowser } from "@/components/debug-card/memory-browser";

@@ -48,11 +48,7 @@ function renderTileSection(
       break;
     }
 
-    const imageData = decodeTileImage(
-      memorySnapshot,
-      tileOffset,
-      TILE_SCALE,
-    );
+    const imageData = decodeTileImage(memorySnapshot, tileOffset, TILE_SCALE);
     const column = tileIndex % SECTION_COLUMNS;
     const row = Math.floor(tileIndex / SECTION_COLUMNS);
     const destX = column * (TILE_DRAW_SIZE + TILE_GAP);

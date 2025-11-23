@@ -105,9 +105,14 @@ export function MemoryBrowser({ memorySnapshot }: MemoryBrowserProps) {
             <div
               className="overflow-y-auto"
               style={{ height: `${MEMORY_VIEWPORT_HEIGHT}px` }}
-              onScroll={(event) => setMemoryScrollTop(event.currentTarget.scrollTop)}
+              onScroll={(event) =>
+                setMemoryScrollTop(event.currentTarget.scrollTop)
+              }
             >
-              <div style={{ height: `${memoryTableMetrics.totalHeight}px` }} className="relative">
+              <div
+                style={{ height: `${memoryTableMetrics.totalHeight}px` }}
+                className="relative"
+              >
                 <div
                   className="absolute inset-x-0 top-0"
                   style={{
@@ -132,11 +137,14 @@ export function MemoryBrowser({ memorySnapshot }: MemoryBrowserProps) {
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Scroll to inspect memory regions. Rows are virtualized for smoother performance.
+            Scroll to inspect memory regions. Rows are virtualized for smoother
+            performance.
           </p>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Memory snapshot unavailable.</p>
+        <p className="text-sm text-muted-foreground">
+          Memory snapshot unavailable.
+        </p>
       )}
     </div>
   );

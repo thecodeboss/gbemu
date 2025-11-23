@@ -13,7 +13,9 @@ export function MenuCard({ hidden, onSelectRom }: MenuCardProps) {
         <CardTitle>Game Boy Emulator</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <p>Load a Game Boy or Game Boy Color ROM to boot the placeholder system.</p>
+        <p>
+          Load a Game Boy or Game Boy Color ROM to boot the placeholder system.
+        </p>
         <Button type="button" variant="default" onClick={onSelectRom}>
           Select ROM
         </Button>

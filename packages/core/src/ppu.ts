@@ -265,8 +265,7 @@ export class Ppu {
     const wy = bus.readByte(WY_ADDRESS);
     const rawWx = bus.readByte(WX_ADDRESS);
     const wx = rawWx - 7;
-    const windowVisible =
-      windowEnabled && wy <= ly && rawWx <= 166;
+    const windowVisible = windowEnabled && wy <= ly && rawWx <= 166;
     const windowLine = windowVisible ? this.#windowLineCounter & 0xff : 0;
 
     const bgPalette = this.#decodePalette(BGP_ADDRESS);
@@ -432,7 +431,8 @@ export class Ppu {
     }
     const tileColumn = (x >> 3) & (TILE_MAP_WIDTH - 1);
     const tileRow = (y >> 3) & (TILE_MAP_WIDTH - 1);
-    const tileIndexAddress = tileMapBase + tileRow * TILE_MAP_WIDTH + tileColumn;
+    const tileIndexAddress =
+      tileMapBase + tileRow * TILE_MAP_WIDTH + tileColumn;
     let tileNumber = bus.readByte(tileIndexAddress);
     let tileAddress: number;
     if (useTileData8000) {

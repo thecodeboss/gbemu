@@ -216,8 +216,7 @@ export class SystemBus
   }
 
   dumpMemory(): Uint8Array {
-    this.#memory[DIVIDER_REGISTER_ADDRESS] =
-      (this.#dividerCounter >> 8) & 0xff;
+    this.#memory[DIVIDER_REGISTER_ADDRESS] = (this.#dividerCounter >> 8) & 0xff;
     return this.#memory.slice();
   }
 
@@ -269,8 +268,7 @@ export class SystemBus
       remainingTicks -= 1;
     }
 
-    this.#memory[DIVIDER_REGISTER_ADDRESS] =
-      (this.#dividerCounter >> 8) & 0xff;
+    this.#memory[DIVIDER_REGISTER_ADDRESS] = (this.#dividerCounter >> 8) & 0xff;
   }
 
   #mirrorAfterMbcWrite(address: number): void {
@@ -346,7 +344,10 @@ export class SystemBus
     for (const [address, value] of DMG_HARDWARE_REGISTER_DEFAULTS) {
       this.#memory[address] = value & 0xff;
     }
-    this.#updateJoypadRegister(this.#memory[JOYPAD_REGISTER_ADDRESS] & 0x30, false);
+    this.#updateJoypadRegister(
+      this.#memory[JOYPAD_REGISTER_ADDRESS] & 0x30,
+      false,
+    );
     this.#memory[TAC_REGISTER_ADDRESS] = this.#normalizeTac(
       this.#memory[TAC_REGISTER_ADDRESS] ?? 0,
     );
@@ -386,7 +387,7 @@ export class SystemBus
 
   #updateJoypadRegister(selectBits?: number, triggerInterrupt = true): void {
     const previous = this.#memory[JOYPAD_REGISTER_ADDRESS] ?? 0xff;
-    const nextSelect = selectBits ?? (previous & 0x30);
+    const nextSelect = selectBits ?? previous & 0x30;
     const next = this.#composeJoypadValue(nextSelect, this.#joypadState);
     this.#memory[JOYPAD_REGISTER_ADDRESS] = next;
 
@@ -396,7 +397,7 @@ export class SystemBus
 
     const prevNibble = previous & 0x0f;
     const nextNibble = next & 0x0f;
-    const highToLow = (prevNibble & ~nextNibble) & 0x0f;
+    const highToLow = prevNibble & ~nextNibble & 0x0f;
     if (highToLow !== 0) {
       this.requestInterrupt("joypad");
     }
@@ -420,7 +421,10 @@ export class SystemBus
     }
   }
 
-  #computeTimerSignal(counter = this.#dividerCounter, tacValue?: number): boolean {
+  #computeTimerSignal(
+    counter = this.#dividerCounter,
+    tacValue?: number,
+  ): boolean {
     const tac = tacValue ?? this.#memory[TAC_REGISTER_ADDRESS] ?? 0;
     const timerEnabled = (tac & TAC_ENABLE_BIT) !== 0;
     if (!timerEnabled) {

@@ -80,7 +80,11 @@ export abstract class Mbc {
     return this.ram[base];
   }
 
-  protected writeRamByte(bankIndex: number, offset: number, value: number): void {
+  protected writeRamByte(
+    bankIndex: number,
+    offset: number,
+    value: number,
+  ): void {
     const base = bankIndex * RAM_BANK_SIZE + offset;
     if (base < 0 || base >= this.ram.length) {
       return;
@@ -135,10 +139,14 @@ class Mbc3Controller extends Mbc {
 
   constructor(rom: Uint8Array, ramSize: number) {
     super("mbc3", rom, ramSize);
-    this.#romBankCount = Math.max(1, Math.ceil(this.rom.length / ROM_BANK_SIZE));
-    this.#ramBankCount = this.ram.length > 0
-      ? Math.max(1, Math.ceil(this.ram.length / RAM_BANK_SIZE))
-      : 0;
+    this.#romBankCount = Math.max(
+      1,
+      Math.ceil(this.rom.length / ROM_BANK_SIZE),
+    );
+    this.#ramBankCount =
+      this.ram.length > 0
+        ? Math.max(1, Math.ceil(this.ram.length / RAM_BANK_SIZE))
+        : 0;
   }
 
   reset(): void {

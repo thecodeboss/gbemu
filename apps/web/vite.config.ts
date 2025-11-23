@@ -8,7 +8,9 @@ import tailwindcss from "@tailwindcss/vite";
 const runtimeRoot = fileURLToPath(
   new URL("../../packages/runtime/", import.meta.url),
 );
-const coreRoot = fileURLToPath(new URL("../../packages/core/", import.meta.url));
+const coreRoot = fileURLToPath(
+  new URL("../../packages/core/", import.meta.url),
+);
 
 export default defineConfig({
   plugins: [

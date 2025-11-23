@@ -65,7 +65,8 @@ class HighPassFilter {
 
   process(sample: AudioSample): AudioSample {
     const left =
-      this.#alpha * (this.#prevOutput.left + sample.left - this.#prevInput.left);
+      this.#alpha *
+      (this.#prevOutput.left + sample.left - this.#prevInput.left);
     const right =
       this.#alpha *
       (this.#prevOutput.right + sample.right - this.#prevInput.right);
@@ -165,7 +166,6 @@ export class Apu {
   #filter = new HighPassFilter(INTERNAL_SAMPLE_RATE, HIGH_PASS_CUTOFF_HZ);
   #nr50 = 0;
   #nr51 = 0;
-  #nr52 = 0;
   #prevRegisters = {
     nr10: 0,
     nr11: 0,
@@ -399,7 +399,6 @@ export class Apu {
     const masterOn = (nr52Value & 0x80) !== 0;
 
     if (masterOn === this.#masterEnabled) {
-      this.#nr52 = nr52Value;
       return;
     }
 
@@ -963,7 +962,10 @@ export class Apu {
   }
 
   #clockChannel1Envelope(): void {
-    if (this.#channel1.envelopePeriod === 0 || this.#channel1.envelopeTimer === 0) {
+    if (
+      this.#channel1.envelopePeriod === 0 ||
+      this.#channel1.envelopeTimer === 0
+    ) {
       return;
     }
     this.#channel1.envelopeTimer -= 1;
@@ -1098,8 +1100,7 @@ export class Apu {
         this.#channel1.frequencyTimer += this.#computeFrequencyTimer(
           this.#channel1.frequency,
         );
-        this.#channel1.dutyPosition =
-          (this.#channel1.dutyPosition + 1) & 0x07;
+        this.#channel1.dutyPosition = (this.#channel1.dutyPosition + 1) & 0x07;
       }
     }
   }
@@ -1117,8 +1118,7 @@ export class Apu {
         this.#channel2.frequencyTimer += this.#computeFrequencyTimer(
           this.#channel2.frequency,
         );
-        this.#channel2.dutyPosition =
-          (this.#channel2.dutyPosition + 1) & 0x07;
+        this.#channel2.dutyPosition = (this.#channel2.dutyPosition + 1) & 0x07;
       }
     }
   }
@@ -1282,7 +1282,7 @@ export class Apu {
     if (!this.#channel4.enabled || !this.#channel4.dacEnabled) {
       return 0;
     }
-    const bit = (~this.#channel4.lfsr) & 0x01;
+    const bit = ~this.#channel4.lfsr & 0x01;
     const wave = bit ? 1 : -1;
     return (wave * this.#channel4.envelopeVolume) / 15;
   }
@@ -1293,10 +1293,7 @@ export class Apu {
     }
     const index = sampleIndex & 0x1f;
     const byteIndex = index >> 1;
-    const address = Math.min(
-      WAVE_TABLE_END,
-      WAVE_TABLE_START + byteIndex,
-    );
+    const address = Math.min(WAVE_TABLE_END, WAVE_TABLE_START + byteIndex);
     const byte = this.#bus.readByte(address) & 0xff;
     if ((index & 0x01) === 0) {
       return (byte >> 4) & 0x0f;
@@ -1378,7 +1375,8 @@ export class Apu {
     if (this.#channel1.sweepShift === 0) {
       return this.#channel1.sweepShadowFrequency;
     }
-    const delta = this.#channel1.sweepShadowFrequency >> this.#channel1.sweepShift;
+    const delta =
+      this.#channel1.sweepShadowFrequency >> this.#channel1.sweepShift;
     if (this.#channel1.sweepNegate) {
       return this.#channel1.sweepShadowFrequency - delta;
     }
@@ -1435,10 +1433,7 @@ export class Apu {
     ]) {
       this.#bus.writeByte(address, 0);
     }
-    this.#bus.writeByte(
-      NR52_ADDRESS,
-      (nr52Value & 0x80) | NR52_CONSTANT_BITS,
-    );
+    this.#bus.writeByte(NR52_ADDRESS, (nr52Value & 0x80) | NR52_CONSTANT_BITS);
     this.#prevRegisters = {
       nr10: 0,
       nr11: 0,
@@ -1464,7 +1459,6 @@ export class Apu {
     };
     this.#nr50 = 0;
     this.#nr51 = 0;
-    this.#nr52 = nr52Value & 0x7f;
   }
 
   #updateStatusRegister(): void {
@@ -1479,6 +1473,5 @@ export class Apu {
     const base = this.#bus.readByte(NR52_ADDRESS) & 0x80;
     const next = base | NR52_CONSTANT_BITS | activeChannelBits;
     this.#bus.writeByte(NR52_ADDRESS, next);
-    this.#nr52 = next;
   }
 }
