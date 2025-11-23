@@ -52,6 +52,7 @@ export interface EmulatorOptions {
   mbcFactory: MbcFactory;
   bootRom?: Uint8Array;
   audioBufferSize?: number;
+  audioSampleRate?: number;
 }
 
 export interface EmulatorStateSnapshot {
@@ -82,8 +83,10 @@ interface EmulatorDependencies {
 }
 
 const DEFAULT_AUDIO_BUFFER_FRAMES = 1024;
-const AUDIO_SAMPLE_RATE = 44_100;
+const DEFAULT_OUTPUT_SAMPLE_RATE = 44_100;
+const MASTER_CLOCK_HZ = 4_194_304;
 const CPU_CYCLES_PER_FRAME = Clock.FRAME_CYCLES / 4;
+const FRAME_DURATION_MS = (Clock.FRAME_CYCLES / MASTER_CLOCK_HZ) * 1000;
 
 export class Emulator {
   readonly cpu: Cpu;
@@ -98,6 +101,7 @@ export class Emulator {
   #romData: Uint8Array | null = null;
   #saveData: SavePayload | null = null;
   #frameTimer: number | null = null;
+  #nextFrameTimestamp: number | null = null;
   #frameCount = 0;
   #mbcFactory: MbcFactory;
   #mbc: Mbc;
@@ -105,6 +109,9 @@ export class Emulator {
   #breakpoints = new Set<number>();
   #lastBreakpointHit: number | null = null;
   #inputState: JoypadInputState = createEmptyJoypadState();
+  #audioSampleRate = DEFAULT_OUTPUT_SAMPLE_RATE;
+  #audioRemainder = 0;
+  #lastAudioTimestamp: number | null = null;
 
   constructor(deps: EmulatorDependencies) {
     this.clock = deps.clock;
@@ -120,6 +127,11 @@ export class Emulator {
     this.#callbacks = options.callbacks;
     this.#audioBufferSize =
       options.audioBufferSize ?? DEFAULT_AUDIO_BUFFER_FRAMES;
+    this.#audioSampleRate =
+      options.audioSampleRate ?? DEFAULT_OUTPUT_SAMPLE_RATE;
+    this.#audioRemainder = 0;
+    this.#lastAudioTimestamp = null;
+    this.apu.setOutputSampleRate(this.#audioSampleRate);
   }
 
   loadRom(rom: Uint8Array): void {
@@ -133,6 +145,10 @@ export class Emulator {
     this.cpu.reset();
     this.ppu.reset();
     this.apu.reset();
+    this.apu.setOutputSampleRate(this.#audioSampleRate);
+    this.#audioRemainder = 0;
+    this.#lastAudioTimestamp = this.#now();
+    this.#nextFrameTimestamp = null;
     this.clock.setSpeed(1);
     this.cpu.state.registers.pc = 0x0100;
     this.#lastBreakpointHit = null;
@@ -168,6 +184,10 @@ export class Emulator {
     this.cpu.reset();
     this.ppu.reset();
     this.apu.reset();
+    this.apu.setOutputSampleRate(this.#audioSampleRate);
+    this.#audioRemainder = 0;
+    this.#lastAudioTimestamp = this.#now();
+    this.#nextFrameTimestamp = null;
     this.clock.step();
     this.#frameCount = 0;
     this.#lastBreakpointHit = null;
@@ -186,10 +206,11 @@ export class Emulator {
       return;
     }
     this.#running = true;
-    const frameMs = 1000 / 60;
-    this.#frameTimer = setInterval(() => {
-      this.#runFrame();
-    }, frameMs) as unknown as number;
+    this.#audioRemainder = 0;
+    this.#lastAudioTimestamp = this.#now();
+    const now = this.#now();
+    this.#nextFrameTimestamp = now;
+    this.#scheduleNextFrame();
     this.#callbacks?.onLog?.("Emulator started.");
   }
 
@@ -199,9 +220,10 @@ export class Emulator {
     }
     this.#running = false;
     if (this.#frameTimer !== null) {
-      clearInterval(this.#frameTimer);
+      clearTimeout(this.#frameTimer);
       this.#frameTimer = null;
     }
+    this.#nextFrameTimestamp = null;
     this.#callbacks?.onLog?.("Emulator paused.");
   }
 
@@ -319,6 +341,38 @@ export class Emulator {
     this.#emitAudioChunk();
   }
 
+  #scheduleNextFrame(): void {
+    if (!this.#running) {
+      return;
+    }
+
+    const now = this.#now();
+    const frameDuration = FRAME_DURATION_MS;
+
+    if (this.#nextFrameTimestamp === null) {
+      this.#nextFrameTimestamp = now;
+    }
+
+    while (
+      this.#nextFrameTimestamp !== null &&
+      now >= this.#nextFrameTimestamp
+    ) {
+      this.#runFrame();
+      this.#nextFrameTimestamp += frameDuration;
+      if (!this.#running) {
+        return;
+      }
+    }
+
+    const targetDelay =
+      (this.#nextFrameTimestamp ?? now) - this.#now();
+    const delay = Math.max(0, Math.min(frameDuration, targetDelay));
+    this.#frameTimer = setTimeout(
+      () => this.#scheduleNextFrame(),
+      delay,
+    ) as unknown as number;
+  }
+
   #shouldPauseForBreakpoint(): boolean {
     if (!this.#running || this.#breakpoints.size === 0) {
       return false;
@@ -374,18 +428,59 @@ export class Emulator {
     if (!this.#callbacks) {
       return;
     }
-    const samples = new Float32Array(this.#audioBufferSize * 2);
+    const now = this.#now();
+    if (this.#lastAudioTimestamp === null) {
+      this.#lastAudioTimestamp = now;
+    }
+
+    const elapsedMs = Math.max(0, now - this.#lastAudioTimestamp);
+    this.#lastAudioTimestamp = now;
+
+    const expectedSamples =
+      (elapsedMs * this.#audioSampleRate) / 1000 + this.#audioRemainder;
+    let sampleCount = Math.floor(expectedSamples);
+    this.#audioRemainder = expectedSamples - sampleCount;
+
+    if (sampleCount <= 0) {
+      sampleCount = Math.max(1, Math.floor(this.#audioBufferSize / 4));
+    }
+
+    const maxSamples = this.#audioBufferSize * 2;
+    if (sampleCount > maxSamples) {
+      sampleCount = maxSamples;
+    }
+
+    const samples = this.apu.flushSamples(
+      this.#audioSampleRate,
+      sampleCount,
+    );
+
+    if (samples.length === 0) {
+      return;
+    }
+
     const chunk: AudioBufferChunk = {
       samples,
-      sampleRate: AUDIO_SAMPLE_RATE,
+      sampleRate: this.#audioSampleRate,
     };
     this.#callbacks.onAudioSamples(chunk);
+  }
+
+  #now(): number {
+    if (
+      typeof performance !== "undefined" &&
+      typeof performance.now === "function"
+    ) {
+      return performance.now();
+    }
+    return Date.now();
   }
 }
 
 export interface EmulatorInitOptions {
   callbacks: EmulatorCallbacks;
   audioBufferSize?: number;
+  audioSampleRate?: number;
 }
 
 export function createEmulator(options: EmulatorInitOptions): Emulator {
@@ -417,6 +512,7 @@ export function createEmulator(options: EmulatorInitOptions): Emulator {
     bus,
     mbcFactory,
     audioBufferSize: options.audioBufferSize,
+    audioSampleRate: options.audioSampleRate,
   });
   return emulator;
 }

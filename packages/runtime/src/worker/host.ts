@@ -23,11 +23,13 @@ export interface WorkerCallbacks {
 export interface WorkerInitializeOptions {
   callbacksPort: MessagePort;
   audioBufferSize?: number;
+  audioSampleRate?: number;
 }
 
 export interface EmulatorFactoryContext {
   callbacks: EmulatorCallbacks;
   audioBufferSize?: number;
+  audioSampleRate?: number;
 }
 
 export type EmulatorFactory = (
@@ -59,6 +61,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
   let emulator: Emulator | null = null;
   let isDisposed = false;
   let audioBufferSize: number | undefined;
+  let audioSampleRate: number | undefined;
   let callbacksPort: MessagePort | null = null;
 
   async function ensureEmulator(): Promise<Emulator> {
@@ -77,6 +80,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
       emulator = await factory({
         callbacks: emulatorCallbacks,
         audioBufferSize,
+        audioSampleRate,
       });
     }
 
@@ -89,6 +93,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
       callbacks = Comlink.wrap<WorkerCallbacks>(callbacksPort);
       callbacksPort.start();
       audioBufferSize = options.audioBufferSize;
+      audioSampleRate = options.audioSampleRate;
     },
 
     async loadRom(message): Promise<void> {

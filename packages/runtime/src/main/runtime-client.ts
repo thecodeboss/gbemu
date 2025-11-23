@@ -106,6 +106,7 @@ export async function createRuntimeClient(
       {
         callbacksPort: callbackChannel.port2,
         audioBufferSize: options.audioBufferSize,
+        audioSampleRate: options.audioContext.sampleRate,
       },
       [callbackChannel.port2],
     ),
