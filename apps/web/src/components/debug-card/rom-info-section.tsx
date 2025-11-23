@@ -5,7 +5,7 @@ interface RomInfoProps {
   romInfo: RomInfo | null;
 }
 
-export function RomInfo({ romInfo }: RomInfoProps) {
+export function RomInfoSection({ romInfo }: RomInfoProps) {
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">ROM Metadata</h3>

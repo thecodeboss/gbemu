@@ -3,7 +3,7 @@ import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { CpuState } from "@/components/debug-card/cpu-state";
 import { Disassembly } from "@/components/debug-card/disassembly";
 import { MemoryBrowser } from "@/components/debug-card/memory-browser";
-import { RomInfo as RomInfoSection } from "@/components/debug-card/rom-info";
+import { RomInfoSection } from "@/components/debug-card/rom-info-section";
 
 interface RomDebugCardProps {
   hidden: boolean;
