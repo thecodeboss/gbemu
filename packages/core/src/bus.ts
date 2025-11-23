@@ -2,11 +2,18 @@ import { InterruptType } from "./cpu.js";
 import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 import { Mbc } from "./mbc.js";
 
-const INTERRUPT_FLAG_ADDRESS = 0xff0f;
 const JOYPAD_REGISTER_ADDRESS = 0xff00;
+const DIVIDER_REGISTER_ADDRESS = 0xff04;
+const TIMA_REGISTER_ADDRESS = 0xff05;
+const TMA_REGISTER_ADDRESS = 0xff06;
+const TAC_REGISTER_ADDRESS = 0xff07;
+const INTERRUPT_FLAG_ADDRESS = 0xff0f;
 const DMA_REGISTER_ADDRESS = 0xff46;
 const OAM_START_ADDRESS = 0xfe00;
 const OAM_TRANSFER_SIZE = 0xa0;
+const TAC_ENABLE_BIT = 0x04;
+const TAC_CLOCK_SELECT_MASK = 0x03;
+const TAC_UPPER_BITS = 0xf8;
 const INTERRUPT_BITS: Record<InterruptType, number> = {
   vblank: 0x01,
   lcdStat: 0x02,
@@ -102,6 +109,10 @@ export class SystemBus
   #pendingInterrupts = new Set<InterruptType>();
   #mbc: Mbc | null = null;
   #joypadState: JoypadInputState = createEmptyJoypadState();
+  #dividerCounter = 0;
+  #timerSignal = false;
+  #timaReloadPending = false;
+  #timaReloadDelay = 0;
 
   loadCartridge(rom: Uint8Array, mbc?: Mbc): void {
     this.#pendingInterrupts.clear();
@@ -120,6 +131,7 @@ export class SystemBus
     }
 
     this.#initializeHardwareRegisters();
+    this.#resetTimerState();
   }
 
   mapBank(_bank: MemoryBank): void {
@@ -138,6 +150,12 @@ export class SystemBus
         return value & 0xff;
       }
     }
+    if (mappedAddress === DIVIDER_REGISTER_ADDRESS) {
+      return this.#readDivider();
+    }
+    if (mappedAddress === TAC_REGISTER_ADDRESS) {
+      return this.#memory[TAC_REGISTER_ADDRESS] ?? 0xff;
+    }
     return this.#memory[mappedAddress] ?? 0xff;
   }
 
@@ -152,6 +170,26 @@ export class SystemBus
 
     if (mappedAddress === JOYPAD_REGISTER_ADDRESS) {
       this.#updateJoypadRegister(byteValue & 0x30);
+      return;
+    }
+
+    if (mappedAddress === DIVIDER_REGISTER_ADDRESS) {
+      this.#writeDivider();
+      return;
+    }
+
+    if (mappedAddress === TIMA_REGISTER_ADDRESS) {
+      this.#writeTima(byteValue);
+      return;
+    }
+
+    if (mappedAddress === TMA_REGISTER_ADDRESS) {
+      this.#writeTma(byteValue);
+      return;
+    }
+
+    if (mappedAddress === TAC_REGISTER_ADDRESS) {
+      this.#writeTac(byteValue);
       return;
     }
 
@@ -178,6 +216,8 @@ export class SystemBus
   }
 
   dumpMemory(): Uint8Array {
+    this.#memory[DIVIDER_REGISTER_ADDRESS] =
+      (this.#dividerCounter >> 8) & 0xff;
     return this.#memory.slice();
   }
 
@@ -215,8 +255,22 @@ export class SystemBus
     this.#updateJoypadRegister();
   }
 
-  tick(_cycles: number): void {
-    // No bus timing in stub.
+  tick(cycles: number): void {
+    if (cycles <= 0) {
+      return;
+    }
+
+    let remainingTicks = cycles * 4;
+    while (remainingTicks > 0) {
+      this.#stepTimaReload();
+      const nextCounter = (this.#dividerCounter + 1) & 0xffff;
+      this.#updateTimerSignalOnCounterChange(this.#dividerCounter, nextCounter);
+      this.#dividerCounter = nextCounter;
+      remainingTicks -= 1;
+    }
+
+    this.#memory[DIVIDER_REGISTER_ADDRESS] =
+      (this.#dividerCounter >> 8) & 0xff;
   }
 
   #mirrorAfterMbcWrite(address: number): void {
@@ -293,6 +347,9 @@ export class SystemBus
       this.#memory[address] = value & 0xff;
     }
     this.#updateJoypadRegister(this.#memory[JOYPAD_REGISTER_ADDRESS] & 0x30, false);
+    this.#memory[TAC_REGISTER_ADDRESS] = this.#normalizeTac(
+      this.#memory[TAC_REGISTER_ADDRESS] ?? 0,
+    );
   }
 
   #performOamDmaTransfer(source: number): void {
@@ -342,6 +399,131 @@ export class SystemBus
     const highToLow = (prevNibble & ~nextNibble) & 0x0f;
     if (highToLow !== 0) {
       this.requestInterrupt("joypad");
+    }
+  }
+
+  #normalizeTac(value: number): number {
+    return (value & 0x07) | TAC_UPPER_BITS;
+  }
+
+  #getTimerClockBitMask(tacValue: number): number {
+    switch (tacValue & TAC_CLOCK_SELECT_MASK) {
+      case 0x01:
+        return 1 << 3;
+      case 0x02:
+        return 1 << 5;
+      case 0x03:
+        return 1 << 7;
+      case 0x00:
+      default:
+        return 1 << 9;
+    }
+  }
+
+  #computeTimerSignal(counter = this.#dividerCounter, tacValue?: number): boolean {
+    const tac = tacValue ?? this.#memory[TAC_REGISTER_ADDRESS] ?? 0;
+    const timerEnabled = (tac & TAC_ENABLE_BIT) !== 0;
+    if (!timerEnabled) {
+      return false;
+    }
+    const mask = this.#getTimerClockBitMask(tac);
+    return (counter & mask) !== 0;
+  }
+
+  #updateTimerSignalOnCounterChange(
+    previousCounter: number,
+    nextCounter: number,
+    tacValue?: number,
+  ): void {
+    const tac = tacValue ?? this.#memory[TAC_REGISTER_ADDRESS] ?? 0;
+    const previousSignal =
+      this.#timerSignal ?? this.#computeTimerSignal(previousCounter, tac);
+    const nextSignal = this.#computeTimerSignal(nextCounter, tac);
+    if (previousSignal && !nextSignal) {
+      this.#onTimerTick();
+    }
+    this.#timerSignal = nextSignal;
+  }
+
+  #resetTimerState(): void {
+    this.#dividerCounter =
+      ((this.#memory[DIVIDER_REGISTER_ADDRESS] ?? 0) << 8) & 0xffff;
+    this.#timaReloadPending = false;
+    this.#timaReloadDelay = 0;
+    this.#timerSignal = this.#computeTimerSignal();
+  }
+
+  #readDivider(): number {
+    const value = (this.#dividerCounter >> 8) & 0xff;
+    this.#memory[DIVIDER_REGISTER_ADDRESS] = value;
+    return value;
+  }
+
+  #writeDivider(): void {
+    this.#updateTimerSignalOnCounterChange(this.#dividerCounter, 0);
+    this.#dividerCounter = 0;
+    this.#memory[DIVIDER_REGISTER_ADDRESS] = 0;
+  }
+
+  #writeTima(value: number): void {
+    if (this.#timaReloadPending && this.#timaReloadDelay > 0) {
+      this.#timaReloadPending = false;
+      this.#timaReloadDelay = 0;
+    }
+    this.#memory[TIMA_REGISTER_ADDRESS] = value & 0xff;
+  }
+
+  #writeTma(value: number): void {
+    const nextValue = value & 0xff;
+    this.#memory[TMA_REGISTER_ADDRESS] = nextValue;
+  }
+
+  #writeTac(value: number): void {
+    const normalized = this.#normalizeTac(value);
+    const previousTac = this.#memory[TAC_REGISTER_ADDRESS] ?? 0;
+    const previousSignal = this.#computeTimerSignal(
+      this.#dividerCounter,
+      previousTac,
+    );
+
+    this.#memory[TAC_REGISTER_ADDRESS] = normalized;
+
+    const nextSignal = this.#computeTimerSignal(
+      this.#dividerCounter,
+      normalized,
+    );
+    if (previousSignal && !nextSignal) {
+      this.#onTimerTick();
+    }
+
+    this.#timerSignal = nextSignal;
+  }
+
+  #stepTimaReload(): void {
+    if (!this.#timaReloadPending) {
+      return;
+    }
+
+    if (this.#timaReloadDelay > 0) {
+      this.#timaReloadDelay -= 1;
+    }
+
+    if (this.#timaReloadDelay === 0) {
+      this.#timaReloadPending = false;
+      const reloadValue = this.#memory[TMA_REGISTER_ADDRESS] ?? 0;
+      this.#memory[TIMA_REGISTER_ADDRESS] = reloadValue & 0xff;
+      this.requestInterrupt("timer");
+    }
+  }
+
+  #onTimerTick(): void {
+    const current = this.#memory[TIMA_REGISTER_ADDRESS] ?? 0;
+    const nextValue = (current + 1) & 0xff;
+    this.#memory[TIMA_REGISTER_ADDRESS] = nextValue;
+
+    if (nextValue === 0x00 && current === 0xff) {
+      this.#timaReloadPending = true;
+      this.#timaReloadDelay = 4;
     }
   }
 }
