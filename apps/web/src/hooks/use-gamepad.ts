@@ -31,10 +31,107 @@ const dualSenseProfile: GamepadProfile = {
   },
 };
 
-const profiles: GamepadProfile[] = [dualSenseProfile];
+const dualShockProfile: GamepadProfile = {
+  matches(gamepad: Gamepad) {
+    const id = gamepad.id.toLowerCase();
+    return id.includes("dualshock") || id.includes("ps4");
+  },
+  buttonMap: {
+    0: "a",
+    2: "b",
+    8: "select",
+    9: "start",
+    12: "up",
+    13: "down",
+    14: "left",
+    15: "right",
+  },
+};
+
+const xboxProfile: GamepadProfile = {
+  matches(gamepad: Gamepad) {
+    const id = gamepad.id.toLowerCase();
+    return id.includes("xbox") || id.includes("xinput");
+  },
+  buttonMap: {
+    0: "a",
+    1: "b",
+    8: "select",
+    9: "start",
+    12: "up",
+    13: "down",
+    14: "left",
+    15: "right",
+  },
+};
+
+const switchProProfile: GamepadProfile = {
+  matches(gamepad: Gamepad) {
+    const id = gamepad.id.toLowerCase();
+    return id.includes("pro controller") || id.includes("switch");
+  },
+  buttonMap: {
+    1: "a",
+    0: "b",
+    8: "select",
+    9: "start",
+    12: "up",
+    13: "down",
+    14: "left",
+    15: "right",
+  },
+};
+
+const genericXinputProfile: GamepadProfile = {
+  matches(gamepad: Gamepad) {
+    const id = gamepad.id.toLowerCase();
+    return id.includes("generic") || id.includes("gamepad");
+  },
+  buttonMap: {
+    0: "a",
+    1: "b",
+    8: "select",
+    9: "start",
+    12: "up",
+    13: "down",
+    14: "left",
+    15: "right",
+  },
+};
+
+const profiles: GamepadProfile[] = [
+  dualSenseProfile,
+  dualShockProfile,
+  xboxProfile,
+  switchProProfile,
+  genericXinputProfile,
+];
 
 function getProfile(gamepad: Gamepad): GamepadProfile | null {
   return profiles.find((profile) => profile.matches(gamepad)) ?? null;
+}
+
+function mapKeyboardKeyToButton(key: string): JoypadButton | null {
+  switch (key) {
+    case "a":
+      return "b";
+    case "s":
+      return "a";
+    case "backspace":
+      return "select";
+    case "enter":
+      return "start";
+    case "arrowup":
+      return "up";
+    case "arrowdown":
+      return "down";
+    case "arrowleft":
+      return "left";
+    case "arrowright":
+      return "right";
+    default:
+      return null;
+  }
 }
 
 function mergeInputState(
@@ -95,6 +192,7 @@ export function useGamepad(options: {
   const callbackRef = useRef<InputSink>(onInputState);
   const frameRef = useRef<number | null>(null);
   const lastStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
+  const keyboardStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
 
   useEffect(() => {
     callbackRef.current = onInputState;
@@ -112,7 +210,10 @@ export function useGamepad(options: {
     let cancelled = false;
 
     const tick = (): void => {
-      const snapshot = collectInputSnapshot();
+      const snapshot = mergeInputState(
+        collectInputSnapshot(),
+        keyboardStateRef.current,
+      );
       if (!areStatesEqual(lastStateRef.current, snapshot)) {
         lastStateRef.current = snapshot;
         void callbackRef.current(snapshot);
@@ -125,8 +226,40 @@ export function useGamepad(options: {
 
     frameRef.current = window.requestAnimationFrame(tick);
 
+    const handleKeyEvent = (event: KeyboardEvent, pressed: boolean): void => {
+      const key = event.key.toLowerCase();
+      const mapped = mapKeyboardKeyToButton(key);
+      if (!mapped) {
+        return;
+      }
+      if (keyboardStateRef.current[mapped] === pressed) {
+        return;
+      }
+      keyboardStateRef.current = {
+        ...keyboardStateRef.current,
+        [mapped]: pressed,
+      };
+    };
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.repeat) {
+        return;
+      }
+      handleKeyEvent(event, true);
+    };
+
+    const handleKeyUp = (event: KeyboardEvent): void => {
+      handleKeyEvent(event, false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      keyboardStateRef.current = createEmptyJoypadState();
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
