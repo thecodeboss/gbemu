@@ -43,6 +43,525 @@ export type InterruptType =
   | "serial"
   | "joypad";
 
+// Machine-cycle counts for each opcode (1 machine cycle = 4 clock cycles).
+const UNPREFIXED_OPCODE_CYCLES: number[] = [
+  1,
+  3,
+  2,
+  2,
+  1,
+  1,
+  2,
+  1,
+  5,
+  2,
+  2,
+  2,
+  1,
+  1,
+  2,
+  1, // 0x0
+  0,
+  3,
+  2,
+  2,
+  1,
+  1,
+  2,
+  1,
+  3,
+  2,
+  2,
+  2,
+  1,
+  1,
+  2,
+  1, // 0x1
+  2,
+  3,
+  2,
+  2,
+  1,
+  1,
+  2,
+  1,
+  2,
+  2,
+  2,
+  2,
+  1,
+  1,
+  2,
+  1, // 0x2
+  2,
+  3,
+  2,
+  2,
+  3,
+  3,
+  3,
+  1,
+  2,
+  2,
+  2,
+  2,
+  1,
+  1,
+  2,
+  1, // 0x3
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0x4
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0x5
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0x6
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  0,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0x7
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0x8
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0x9
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0xa
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  2,
+  1, // 0xb
+  2,
+  3,
+  3,
+  4,
+  3,
+  4,
+  2,
+  4,
+  2,
+  4,
+  3,
+  0,
+  3,
+  6,
+  2,
+  4, // 0xc
+  2,
+  3,
+  3,
+  0,
+  3,
+  4,
+  2,
+  4,
+  2,
+  4,
+  3,
+  0,
+  3,
+  0,
+  2,
+  4, // 0xd
+  3,
+  3,
+  2,
+  0,
+  0,
+  4,
+  2,
+  4,
+  4,
+  1,
+  4,
+  0,
+  0,
+  0,
+  2,
+  4, // 0xe
+  3,
+  3,
+  2,
+  1,
+  0,
+  4,
+  2,
+  4,
+  3,
+  2,
+  4,
+  1,
+  0,
+  0,
+  2,
+  4, // 0xf
+];
+
+const CB_PREFIXED_OPCODE_CYCLES: number[] = [
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0x0
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0x1
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0x2
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0x3
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2, // 0x4
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2, // 0x5
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2, // 0x6
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  2, // 0x7
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0x8
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0x9
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0xa
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0xb
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0xc
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0xd
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0xe
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  2,
+  4,
+  2, // 0xf
+];
+
 export interface CpuBusPort {
   readByte(address: number): number;
   writeByte(address: number, value: number): void;
@@ -112,6 +631,7 @@ export class Cpu {
   #doubleSpeed = false;
   #bus: CpuBusPort | null = null;
   #instructionView = new Uint8Array(MEMORY_SIZE);
+  #pendingExtraCycles = 0;
 
   reset(): void {
     this.state = createDefaultCpuState();
@@ -128,11 +648,11 @@ export class Cpu {
 
     const interruptServiced = this.#serviceInterruptIfNeeded(bus);
     if (interruptServiced) {
-      return this.#consumeCycles();
+      return this.#consumeCycles(UNPREFIXED_OPCODE_CYCLES[0]);
     }
 
     if (this.state.halted || this.state.stopped) {
-      return this.#consumeCycles();
+      return this.#consumeCycles(UNPREFIXED_OPCODE_CYCLES[0]);
     }
 
     const pc = this.state.registers.pc & 0xffff;
@@ -145,7 +665,8 @@ export class Cpu {
     }
 
     this.#executeInstruction(instruction, pc);
-    return this.#consumeCycles();
+    const cycles = this.#computeInstructionCycles(instruction);
+    return this.#consumeCycles(cycles);
   }
 
   requestInterrupt(_type: InterruptType): void {
@@ -211,6 +732,7 @@ export class Cpu {
   }
 
   #executeInstruction(instruction: OpcodeInstruction, currentPc: number): void {
+    this.#pendingExtraCycles = 0;
     const nextPc = (currentPc + instruction.length) & 0xffff;
 
     switch (instruction.mnemonic) {
@@ -361,9 +883,13 @@ export class Cpu {
       targetOperand = second;
     }
 
-    if (conditionName && !this.#evaluateCondition(conditionName)) {
-      this.#setProgramCounter(nextPc);
-      return;
+    if (conditionName) {
+      const conditionTaken = this.#evaluateCondition(conditionName);
+      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
+      if (!conditionTaken) {
+        this.#setProgramCounter(nextPc);
+        return;
+      }
     }
 
     const target = this.#readImmediateOperand(targetOperand, "call target");
@@ -386,9 +912,13 @@ export class Cpu {
       targetOperand = operands[1];
     }
 
-    if (conditionName && !this.#evaluateCondition(conditionName)) {
-      this.#setProgramCounter(nextPc);
-      return;
+    if (conditionName) {
+      const conditionTaken = this.#evaluateCondition(conditionName);
+      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
+      if (!conditionTaken) {
+        this.#setProgramCounter(nextPc);
+        return;
+      }
     }
 
     const target = this.#readImmediateOperand(targetOperand, "jump target");
@@ -408,9 +938,13 @@ export class Cpu {
       conditionName = operands[0]?.meta.name ?? null;
     }
 
-    if (conditionName && !this.#evaluateCondition(conditionName)) {
-      this.#setProgramCounter(nextPc);
-      return;
+    if (conditionName) {
+      const conditionTaken = this.#evaluateCondition(conditionName);
+      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
+      if (!conditionTaken) {
+        this.#setProgramCounter(nextPc);
+        return;
+      }
     }
 
     const target = offsetOperand.relativeTarget ?? null;
@@ -425,7 +959,9 @@ export class Cpu {
     const conditionOperand = instruction.operands[0];
     if (conditionOperand) {
       const conditionName = conditionOperand.meta.name;
-      if (!this.#evaluateCondition(conditionName)) {
+      const conditionTaken = this.#evaluateCondition(conditionName);
+      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
+      if (!conditionTaken) {
         this.#setProgramCounter(nextPc);
         return;
       }
@@ -1222,6 +1758,37 @@ export class Cpu {
     }
   }
 
+  #setConditionalExtraCycles(opcode: number, conditionTaken: boolean): void {
+    if (!conditionTaken) {
+      this.#pendingExtraCycles = 0;
+      return;
+    }
+    switch (opcode) {
+      case 0x20:
+      case 0x28:
+      case 0x30:
+      case 0x38:
+      case 0xc2:
+      case 0xca:
+      case 0xd2:
+      case 0xda:
+        this.#pendingExtraCycles = 1;
+        return;
+      case 0xc0:
+      case 0xc8:
+      case 0xd0:
+      case 0xd8:
+      case 0xc4:
+      case 0xcc:
+      case 0xd4:
+      case 0xdc:
+        this.#pendingExtraCycles = 3;
+        return;
+      default:
+        this.#pendingExtraCycles = 0;
+    }
+  }
+
   #readEightBitValue(
     operand: InstructionOperand | undefined,
     description: string,
@@ -1678,10 +2245,19 @@ export class Cpu {
     this.state.registers.pc = value & 0xffff;
   }
 
-  #consumeCycles(): number {
-    const cycles = this.#doubleSpeed ? 8 : 4;
-    this.state.cycles += cycles;
-    return cycles;
+  #computeInstructionCycles(instruction: OpcodeInstruction): number {
+    const opcode = instruction.opcode & 0xff;
+    const base = instruction.prefixed
+      ? (CB_PREFIXED_OPCODE_CYCLES[opcode] ?? 0)
+      : (UNPREFIXED_OPCODE_CYCLES[opcode] ?? 0);
+    const total = base + this.#pendingExtraCycles;
+    return Math.max(1, total);
+  }
+
+  #consumeCycles(cycles: number): number {
+    const adjusted = this.#doubleSpeed ? cycles * 2 : cycles;
+    this.state.cycles += adjusted;
+    return adjusted;
   }
 
   #requireBus(): CpuBusPort {

@@ -80,6 +80,8 @@ export class Ppu {
   #frameReady = false;
   #bgLineColorIndices = new Uint8Array(DEFAULT_SCREEN_WIDTH);
   #windowLineCounter = 0;
+  #xferX = 0;
+  #windowLineForScanline = 0;
 
   connectBus(bus: SystemBus): void {
     this.#bus = bus;
@@ -96,6 +98,8 @@ export class Ppu {
     this.#lcdActive = this.#isLcdEnabled();
     this.#frameReady = true;
     this.#windowLineCounter = 0;
+    this.#xferX = 0;
+    this.#windowLineForScanline = 0;
     this.#bgLineColorIndices.fill(0);
   }
 
@@ -120,6 +124,9 @@ export class Ppu {
     while (remainingDots > 0) {
       const dotsUntilTransition = this.#dotsUntilNextTransition();
       const step = Math.min(dotsUntilTransition, remainingDots);
+      if (this.#currentMode === "xfer") {
+        this.#renderXferDots(step);
+      }
       this.#lineDot += step;
       remainingDots -= step;
 
@@ -180,6 +187,8 @@ export class Ppu {
       this.#frameReady = true;
     }
     this.#windowLineCounter = 0;
+    this.#xferX = 0;
+    this.#windowLineForScanline = 0;
   }
 
   #onLcdEnabled(): void {
@@ -189,6 +198,8 @@ export class Ppu {
     this.#setMode("oam");
     this.#frameReady = false;
     this.#windowLineCounter = 0;
+    this.#xferX = 0;
+    this.#windowLineForScanline = 0;
   }
 
   #ensureLcdcEnabled(): void {
@@ -220,9 +231,10 @@ export class Ppu {
 
   #advanceModeWithinLine(): void {
     if (this.#currentMode === "oam") {
+      this.#startXferLine();
       this.#setMode("xfer");
     } else if (this.#currentMode === "xfer") {
-      this.#renderScanline();
+      this.#finalizeScanline();
       this.#setMode("hblank");
     }
   }
@@ -246,9 +258,15 @@ export class Ppu {
     }
   }
 
-  #renderScanline(): void {
+  #startXferLine(): void {
+    this.#xferX = 0;
+    this.#windowLineForScanline = this.#windowLineCounter & 0xff;
+    this.#bgLineColorIndices.fill(0);
+  }
+
+  #renderXferDots(dots: number): void {
     const bus = this.#bus;
-    if (!bus) {
+    if (!bus || dots <= 0) {
       return;
     }
     const ly = this.#ly;
@@ -261,72 +279,41 @@ export class Ppu {
     }
 
     const lcdc = bus.readByte(LCDC_ADDRESS);
+    const bgEnabled = (lcdc & LCDC_BG_ENABLE_FLAG) !== 0;
     const windowEnabled = (lcdc & LCDC_WINDOW_ENABLE_FLAG) !== 0;
-    const wy = bus.readByte(WY_ADDRESS);
-    const rawWx = bus.readByte(WX_ADDRESS);
-    const wx = rawWx - 7;
-    const windowVisible = windowEnabled && wy <= ly && rawWx <= 166;
-    const windowLine = windowVisible ? this.#windowLineCounter & 0xff : 0;
-
-    const bgPalette = this.#decodePalette(BGP_ADDRESS);
-    this.#bgLineColorIndices.fill(0);
-
-    if ((lcdc & LCDC_BG_ENABLE_FLAG) !== 0) {
-      this.#renderBackgroundAndWindow({
-        lcdc,
-        scx: bus.readByte(SCX_ADDRESS),
-        scy: bus.readByte(SCY_ADDRESS),
-        wx,
-        windowVisible,
-        windowLine,
-        bgPalette,
-      });
-    } else {
-      this.#fillBgLineWithShade(bgPalette[0]);
-    }
-
-    if (windowVisible) {
-      this.#windowLineCounter = Math.min(this.#windowLineCounter + 1, 0xff);
-    } else if (ly < wy || !windowEnabled || rawWx > 166) {
-      this.#windowLineCounter = 0;
-    }
-
-    if ((lcdc & LCDC_OBJ_ENABLE_FLAG) !== 0) {
-      this.#renderSprites({
-        lcdc,
-        objPalette0: this.#decodePalette(OBP0_ADDRESS),
-        objPalette1: this.#decodePalette(OBP1_ADDRESS),
-      });
-    }
-  }
-
-  #renderBackgroundAndWindow(params: {
-    lcdc: number;
-    scx: number;
-    scy: number;
-    wx: number;
-    windowVisible: boolean;
-    windowLine: number;
-    bgPalette: [number, number, number, number];
-  }): void {
-    const { lcdc, scx, scy, wx, windowVisible, windowLine, bgPalette } = params;
-    const bus = this.#bus;
-    if (!bus) {
-      return;
-    }
-    const ly = this.#ly;
-    const width = this.#framebuffer.width;
-    const baseOffset = ly * width * 4;
     const useTileData8000 = (lcdc & LCDC_TILE_DATA_FLAG) !== 0;
     const bgTileMapBase =
       (lcdc & LCDC_BG_TILE_MAP_FLAG) !== 0 ? 0x9c00 : 0x9800;
     const windowTileMapBase =
       (lcdc & LCDC_WINDOW_TILE_MAP_FLAG) !== 0 ? 0x9c00 : 0x9800;
+    const wy = bus.readByte(WY_ADDRESS);
+    const rawWx = bus.readByte(WX_ADDRESS);
+    const wx = rawWx - 7;
+    const windowVisible = windowEnabled && wy <= ly && rawWx <= 166;
+    const windowLine = windowVisible ? this.#windowLineForScanline & 0xff : 0;
+    const bgPalette = this.#decodePalette(BGP_ADDRESS);
 
-    for (let x = 0; x < width; x += 1) {
+    const width = this.#framebuffer.width;
+    const baseOffset = ly * width * 4;
+
+    for (let i = 0; i < dots; i += 1) {
+      const x = this.#xferX;
+      this.#xferX = (this.#xferX + 1) & 0xffff;
+      if (x >= width) {
+        continue;
+      }
+
+      if (!bgEnabled) {
+        this.#bgLineColorIndices[x] = 0;
+        this.#writePixel(baseOffset + x * 4, bgPalette[0]);
+        continue;
+      }
+
+      const scx = bus.readByte(SCX_ADDRESS);
+      const scy = bus.readByte(SCY_ADDRESS);
       const useWindow = windowVisible && x >= wx;
       const sourceX = useWindow ? (x - wx) & 0xff : (scx + x) & 0xff;
-      const sourceY = useWindow ? windowLine & 0xff : (scy + ly) & 0xff;
+      const sourceY = useWindow ? windowLine : (scy + ly) & 0xff;
       const tileMapBase = useWindow ? windowTileMapBase : bgTileMapBase;
       const colorBits = this.#sampleTilePixel(
         tileMapBase,
@@ -338,6 +325,43 @@ export class Ppu {
       const offset = baseOffset + x * 4;
       this.#bgLineColorIndices[x] = colorBits;
       this.#writePixel(offset, shade);
+    }
+  }
+
+  #finalizeScanline(): void {
+    const bus = this.#bus;
+    if (!bus) {
+      return;
+    }
+    const lcdc = bus.readByte(LCDC_ADDRESS);
+
+    if (
+      this.#ly >= 0 &&
+      this.#ly < DEFAULT_SCREEN_HEIGHT &&
+      (lcdc & LCDC_OBJ_ENABLE_FLAG) !== 0
+    ) {
+      this.#renderSprites({
+        lcdc,
+        objPalette0: this.#decodePalette(OBP0_ADDRESS),
+        objPalette1: this.#decodePalette(OBP1_ADDRESS),
+      });
+    }
+
+    this.#updateWindowLineCounter(lcdc);
+  }
+
+  #updateWindowLineCounter(lcdc: number): void {
+    if (!this.#bus) {
+      return;
+    }
+    const wy = this.#bus.readByte(WY_ADDRESS);
+    const rawWx = this.#bus.readByte(WX_ADDRESS);
+    const windowEnabled = (lcdc & LCDC_WINDOW_ENABLE_FLAG) !== 0;
+    const windowVisible = windowEnabled && wy <= this.#ly && rawWx <= 166;
+    if (windowVisible) {
+      this.#windowLineCounter = Math.min(this.#windowLineCounter + 1, 0xff);
+    } else if (this.#ly < wy || !windowEnabled || rawWx > 166) {
+      this.#windowLineCounter = 0;
     }
   }
 
@@ -460,15 +484,6 @@ export class Ppu {
       palette[i] = (value >> (i * 2)) & 0x03;
     }
     return palette;
-  }
-
-  #fillBgLineWithShade(shade: number): void {
-    const width = this.#framebuffer.width;
-    const baseOffset = this.#ly * width * 4;
-    for (let x = 0; x < width; x += 1) {
-      this.#bgLineColorIndices[x] = 0;
-      this.#writePixel(baseOffset + x * 4, shade);
-    }
   }
 
   #writePixel(offset: number, shade: number): void {
