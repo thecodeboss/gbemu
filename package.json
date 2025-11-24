@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "pnpm --filter @gbemu/* build",
+    "dev": "pnpm --filter @gbemu/web dev",
     "lint": "eslint . --fix && prettier --cache --write .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
