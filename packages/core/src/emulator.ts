@@ -203,6 +203,7 @@ export class Emulator {
       return;
     }
     this.#running = true;
+    this.apu.clearAudioBuffers();
     this.#audioRemainder = 0;
     this.#lastAudioTimestamp = this.#now();
     const now = this.#now();
@@ -216,6 +217,7 @@ export class Emulator {
       return;
     }
     this.#running = false;
+    this.apu.clearAudioBuffers();
     if (this.#frameTimer !== null) {
       clearTimeout(this.#frameTimer);
       this.#frameTimer = null;

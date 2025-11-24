@@ -36,6 +36,7 @@ const INTERNAL_SAMPLE_RATE = 44_100;
 const HIGH_PASS_CUTOFF_HZ = 90;
 const NR52_CONSTANT_BITS = 0x70;
 const NOISE_DIVISOR_TABLE = [8, 16, 32, 48, 64, 80, 96, 112];
+const MAX_RAW_BACKLOG_SAMPLES = 1_000; // Cap raw backlog to ~23 ms at 44.1 kHz.
 const DUTY_PATTERNS: number[][] = [
   [0, 0, 0, 0, 0, 0, 0, 1], // 12.5%
   [1, 0, 0, 0, 0, 0, 0, 1], // 25%
@@ -264,6 +265,13 @@ export class Apu {
     }
     this.#targetSampleRate = sampleRate;
     this.#filter.setSampleRate(sampleRate);
+  }
+
+  clearAudioBuffers(): void {
+    this.#clearRawBuffers();
+    this.#resampleCursor = 0;
+    this.#lastSample = { left: 0, right: 0 };
+    this.#filter.reset();
   }
 
   reset(): void {
@@ -1322,6 +1330,7 @@ export class Apu {
     this.#rawLeft.push(sample.left);
     this.#rawRight.push(sample.right);
     this.#lastSample = sample;
+    this.#trimRawBacklog();
   }
 
   #dequeueResampledSample(step: number): AudioSample {
@@ -1369,6 +1378,19 @@ export class Apu {
     this.#rawLeft.length = 0;
     this.#rawRight.length = 0;
     this.#rawOffset = 0;
+  }
+
+  #trimRawBacklog(): void {
+    const backlog = this.#rawLeft.length - this.#rawOffset;
+    if (backlog <= MAX_RAW_BACKLOG_SAMPLES) {
+      return;
+    }
+    const drop = backlog - MAX_RAW_BACKLOG_SAMPLES;
+    const start = this.#rawOffset + drop;
+    this.#rawLeft = this.#rawLeft.slice(start);
+    this.#rawRight = this.#rawRight.slice(start);
+    this.#rawOffset = 0;
+    this.#resampleCursor = 0;
   }
 
   #calculateSweepTarget(): number {
