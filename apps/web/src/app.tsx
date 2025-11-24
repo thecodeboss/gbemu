@@ -38,7 +38,7 @@ function App() {
   const [memorySnapshot, setMemorySnapshot] = useState<Uint8Array | null>(null);
   const [breakpoints, setBreakpoints] = useState<Set<number>>(() => new Set());
   const [shouldCenterDisassembly, setShouldCenterDisassembly] = useState(false);
-  const [isDebugVisible, setIsDebugVisible] = useState(true);
+  const [isDebugVisible, setIsDebugVisible] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const saveStorageRef = useRef<SaveStorageAdapter | null>(null);
