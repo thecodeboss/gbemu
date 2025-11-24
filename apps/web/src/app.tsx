@@ -43,13 +43,14 @@ function App() {
   const [shouldCenterDisassembly, setShouldCenterDisassembly] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
   const [isSaveManagerOpen, setIsSaveManagerOpen] = useState(false);
+  const [hasRequestedDisassembly, setHasRequestedDisassembly] =
+    useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const saveStorageRef = useRef<SaveStorageAdapter | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const romDataRef = useRef<Uint8Array | null>(null);
-  const hasDisassembly = disassembly !== null;
 
   useEffect(() => {
     return () => {
@@ -73,40 +74,6 @@ function App() {
       setMemorySnapshot(null);
     }
   }, [phase]);
-
-  useEffect(() => {
-    if (!hasDisassembly || !memorySnapshot) {
-      return;
-    }
-    const runtime = runtimeRef.current;
-    if (!runtime) {
-      return;
-    }
-    let cancelled = false;
-    void runtime
-      .disassembleRom()
-      .then((result: Record<number, string> | null) => {
-        if (cancelled) {
-          return;
-        }
-        if (result == null) {
-          setDisassembly(null);
-          setDisassemblyError("Disassembly is unavailable for this ROM.");
-          return;
-        }
-        setDisassemblyError(null);
-        setDisassembly(result);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        console.error(err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [hasDisassembly, memorySnapshot]);
 
   const ensureAudioContext = useCallback(async (): Promise<AudioContext> => {
     let audioContext = audioContextRef.current;
@@ -240,6 +207,7 @@ function App() {
       setDisassembly(null);
       setDisassemblyError(null);
       setIsDisassembling(false);
+      setHasRequestedDisassembly(false);
       setCurrentInstructionOffset(null);
       setIsBreakMode(false);
       setIsStepping(false);
@@ -317,6 +285,7 @@ function App() {
     setIsDisassembling(false);
     setIsStepping(false);
     setIsBreakMode(false);
+    setHasRequestedDisassembly(false);
     setCurrentInstructionOffset(null);
     setBreakpoints(new Set());
     setShouldCenterDisassembly(false);
@@ -329,6 +298,7 @@ function App() {
   }, []);
 
   const handleDisassemble = useCallback(() => {
+    setHasRequestedDisassembly(true);
     setDisassemblyError(null);
     setIsDisassembling(true);
     void (async () => {
@@ -354,6 +324,30 @@ function App() {
       }
     })();
   }, [currentInstructionOffset, ensureRuntimeClient]);
+
+  useEffect(() => {
+    if (!isDebugVisible) {
+      setHasRequestedDisassembly(false);
+      return;
+    }
+    if (
+      phase !== "running" ||
+      disassembly ||
+      isDisassembling ||
+      hasRequestedDisassembly
+    ) {
+      return;
+    }
+    setHasRequestedDisassembly(true);
+    handleDisassemble();
+  }, [
+    disassembly,
+    handleDisassemble,
+    hasRequestedDisassembly,
+    isDebugVisible,
+    isDisassembling,
+    phase,
+  ]);
 
   const handleBreak = useCallback(() => {
     if (isBreakMode) {
@@ -531,12 +525,7 @@ function App() {
         hidden={phase !== "running"}
         canvasRef={canvasRef}
         romName={romName}
-        isBreakMode={isBreakMode}
-        isStepping={isStepping}
         isDebugVisible={isDebugVisible}
-        onBreak={handleBreak}
-        onResume={handleResume}
-        onStep={handleStepInstruction}
         onChangeRom={openFilePicker}
         onToggleDebug={handleToggleDebug}
         onManageSaves={handleOpenSaveManager}
@@ -555,11 +544,14 @@ function App() {
         isDisassembling={isDisassembling}
         breakpoints={breakpoints}
         onToggleBreakpoint={handleToggleBreakpoint}
-        onDisassemble={handleDisassemble}
         currentInstructionOffset={currentInstructionOffset}
         shouldCenterDisassembly={shouldCenterDisassembly}
         onCenterDisassembly={() => setShouldCenterDisassembly(false)}
         isBreakMode={isBreakMode}
+        isStepping={isStepping}
+        onBreak={handleBreak}
+        onResume={handleResume}
+        onStep={handleStepInstruction}
         memorySnapshot={memorySnapshot}
         cpuState={cpuState}
       />

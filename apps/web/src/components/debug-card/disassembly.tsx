@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { formatAddress } from "@/components/debug-card/utils";
 
 const DISASSEMBLY_VIEWPORT_HEIGHT = 256;
@@ -14,7 +13,6 @@ interface DisassemblyProps {
   onToggleBreakpoint: (offset: number) => void;
   isDisassembling: boolean;
   disassemblyError: string | null;
-  onDisassemble: () => void;
   shouldCenterDisassembly: boolean;
   onCenterDisassembly: () => void;
   isBreakMode: boolean;
@@ -28,7 +26,6 @@ export function Disassembly({
   onToggleBreakpoint,
   isDisassembling,
   disassemblyError,
-  onDisassemble,
   shouldCenterDisassembly,
   onCenterDisassembly,
   isBreakMode,
@@ -294,21 +291,11 @@ export function Disassembly({
           <p className="text-xs text-muted-foreground">
             {isDisassembling
               ? "Generating disassembly..."
-              : "Click the button below to generate a disassembly."}
+              : "Opening the debug panel will automatically generate a disassembly for this ROM."}
           </p>
           {disassemblyError ? (
             <p className="mt-2 text-xs text-destructive">{disassemblyError}</p>
           ) : null}
-          <div className="mt-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onDisassemble}
-              disabled={isDisassembling}
-            >
-              {isDisassembling ? "Generating..." : "Generate disassembly"}
-            </Button>
-          </div>
         </div>
       )}
     </div>

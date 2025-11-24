@@ -13,13 +13,8 @@ import { Button } from "@/components/ui/button";
 interface DisplayCardProps {
   hidden: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
-  isBreakMode: boolean;
-  isStepping: boolean;
   romName: string | null;
   isDebugVisible: boolean;
-  onBreak: () => void;
-  onResume: () => void;
-  onStep: () => void;
   onChangeRom: () => void;
   onToggleDebug: () => void;
   onManageSaves: () => void;
@@ -30,13 +25,8 @@ interface DisplayCardProps {
 export function DisplayCard({
   hidden,
   canvasRef,
-  isBreakMode,
-  isStepping,
   romName,
   isDebugVisible,
-  onBreak,
-  onResume,
-  onStep,
   onChangeRom,
   onToggleDebug,
   onManageSaves,
@@ -57,39 +47,6 @@ export function DisplayCard({
         />
       </CardContent>
       <CardFooter className="gap-1">
-        <CardAction>
-          {isBreakMode ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onStep}
-              disabled={isStepping}
-            >
-              {isStepping ? "Stepping..." : "Step"}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onBreak}
-              disabled={isStepping}
-            >
-              Break
-            </Button>
-          )}
-        </CardAction>
-        {isBreakMode ? (
-          <CardAction>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onResume}
-              disabled={isStepping}
-            >
-              Resume
-            </Button>
-          </CardAction>
-        ) : null}
         <CardAction>
           <Button type="button" variant="outline" onClick={onChangeRom}>
             Change ROM

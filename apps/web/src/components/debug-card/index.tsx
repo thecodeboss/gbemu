@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { CpuState } from "@/components/debug-card/cpu-state";
@@ -13,11 +14,14 @@ interface RomDebugCardProps {
   isDisassembling: boolean;
   breakpoints: Set<number>;
   onToggleBreakpoint: (offset: number) => void;
-  onDisassemble: () => void;
   currentInstructionOffset: number | null;
   shouldCenterDisassembly: boolean;
   onCenterDisassembly: () => void;
   isBreakMode: boolean;
+  isStepping: boolean;
+  onBreak: () => void;
+  onResume: () => void;
+  onStep: () => void;
   memorySnapshot: Uint8Array | null;
   cpuState: CpuDebugSnapshot | null;
 }
@@ -30,11 +34,14 @@ export function RomDebugCard({
   isDisassembling,
   breakpoints,
   onToggleBreakpoint,
-  onDisassemble,
   currentInstructionOffset,
   shouldCenterDisassembly,
   onCenterDisassembly,
   isBreakMode,
+  isStepping,
+  onBreak,
+  onResume,
+  onStep,
   memorySnapshot,
   cpuState,
 }: RomDebugCardProps) {
@@ -46,6 +53,33 @@ export function RomDebugCard({
       <CardContent>
         <RomInfoSection romInfo={romInfo} />
 
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onBreak}
+            disabled={isBreakMode || isStepping}
+          >
+            Pause
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onResume}
+            disabled={!isBreakMode || isStepping}
+          >
+            Resume
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onStep}
+            disabled={!isBreakMode || isStepping}
+          >
+            {isStepping ? "Stepping..." : "Step"}
+          </Button>
+        </div>
+
         <Disassembly
           hidden={hidden}
           disassembly={disassembly}
@@ -53,7 +87,6 @@ export function RomDebugCard({
           isDisassembling={isDisassembling}
           breakpoints={breakpoints}
           onToggleBreakpoint={onToggleBreakpoint}
-          onDisassemble={onDisassemble}
           currentInstructionOffset={currentInstructionOffset}
           shouldCenterDisassembly={shouldCenterDisassembly}
           onCenterDisassembly={onCenterDisassembly}
