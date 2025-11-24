@@ -2,7 +2,9 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_CANVAS_HEIGHT,
   DEFAULT_CANVAS_WIDTH,
+  SaveStorageAdapter,
   RuntimeClient,
+  createIndexedDbSaveAdapter,
   createRuntimeClient,
 } from "@gbemu/runtime";
 import { JoypadInputState } from "@gbemu/core";
@@ -39,6 +41,7 @@ function App() {
   const [isDebugVisible, setIsDebugVisible] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
+  const saveStorageRef = useRef<SaveStorageAdapter | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasDisassembly = disassembly !== null;
@@ -112,6 +115,20 @@ function App() {
     return audioContext;
   }, []);
 
+  const ensureSaveStorage = useCallback((): SaveStorageAdapter | null => {
+    if (saveStorageRef.current) {
+      return saveStorageRef.current;
+    }
+    try {
+      const adapter = createIndexedDbSaveAdapter();
+      saveStorageRef.current = adapter;
+      return adapter;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  }, []);
+
   const refreshDebugInfo = useCallback(async (): Promise<void> => {
     const runtime = runtimeRef.current;
     if (!runtime) {
@@ -170,7 +187,8 @@ function App() {
         import.meta.url,
       ),
       canvas,
-      autoPersistSaves: false,
+      saveStorage: ensureSaveStorage() ?? undefined,
+      autoPersistSaves: true,
       onBreakpointHit: (offset: number) => {
         setIsBreakMode(true);
         setIsStepping(false);
@@ -182,7 +200,7 @@ function App() {
 
     runtimeRef.current = runtimeClient;
     return runtimeClient;
-  }, [ensureAudioContext, refreshDebugInfo]);
+  }, [ensureAudioContext, ensureSaveStorage, refreshDebugInfo]);
 
   useEffect(() => {
     if (phase !== "running" || !isDebugVisible) {

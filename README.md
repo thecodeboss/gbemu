@@ -32,4 +32,8 @@ pnpm install
 
 Open the Vite URL shown in the terminal, select a ROM file (`.gb`, `.gbc`, `.bin`), and the worker-backed runtime will boot the current emulator stub.
 
+### Saves
+
+- Battery-backed RAM auto-persists to IndexedDB using the ROM header title (not the upload filename) and the default save slot. Reloading the same ROM title will restore the last saved RAM snapshot automatically.
+
 > Tip: No automated tests exist yet; contributions should add targeted tests alongside new functionality.

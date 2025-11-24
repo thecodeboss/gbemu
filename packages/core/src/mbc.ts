@@ -10,6 +10,10 @@ export type MbcType =
 const ROM_BANK_SIZE = 0x4000;
 const RAM_BANK_SIZE = 0x2000;
 
+export interface MbcOptions {
+  onRamWrite?: () => void;
+}
+
 const CARTRIDGE_TYPE_TO_MBC: Record<number, MbcType> = {
   0x00: "romOnly",
   0x01: "mbc1",
@@ -34,11 +38,18 @@ export abstract class Mbc {
   readonly type: MbcType;
   protected readonly rom: Uint8Array;
   protected readonly ram: Uint8Array;
+  #onRamWrite: (() => void) | null;
 
-  constructor(type: MbcType, rom: Uint8Array, ramSize: number) {
+  constructor(
+    type: MbcType,
+    rom: Uint8Array,
+    ramSize: number,
+    options?: MbcOptions,
+  ) {
     this.type = type;
     this.rom = rom.slice();
     this.ram = ramSize > 0 ? new Uint8Array(ramSize) : new Uint8Array(0);
+    this.#onRamWrite = options?.onRamWrite ?? null;
   }
 
   abstract reset(): void;
@@ -58,6 +69,10 @@ export abstract class Mbc {
 
   getRamSnapshot(): Uint8Array {
     return this.ram.slice();
+  }
+
+  getRamSize(): number {
+    return this.ram.length;
   }
 
   loadRamSnapshot(payload: Uint8Array): void {
@@ -91,11 +106,15 @@ export abstract class Mbc {
     }
     this.ram[base] = value & 0xff;
   }
+
+  protected markRamDirty(): void {
+    this.#onRamWrite?.();
+  }
 }
 
 class RomOnlyMbc extends Mbc {
-  constructor(rom: Uint8Array, ramSize: number) {
-    super("romOnly", rom, ramSize);
+  constructor(rom: Uint8Array, ramSize: number, options?: MbcOptions) {
+    super("romOnly", rom, ramSize, options);
   }
 
   reset(): void {
@@ -121,10 +140,130 @@ class RomOnlyMbc extends Mbc {
       const offset = address - 0xa000;
       if (offset < this.ram.length) {
         this.ram[offset] = value & 0xff;
+        this.markRamDirty();
       }
       return true;
     }
     return false;
+  }
+}
+
+class Mbc1Controller extends Mbc {
+  #romBankCount: number;
+  #ramBankCount: number;
+  #romBankLow = 1;
+  #upperBankBits = 0;
+  #ramEnabled = false;
+  #ramBankingMode = false;
+
+  constructor(rom: Uint8Array, ramSize: number, options?: MbcOptions) {
+    super("mbc1", rom, ramSize, options);
+    this.#romBankCount = Math.max(
+      1,
+      Math.ceil(this.rom.length / ROM_BANK_SIZE),
+    );
+    this.#ramBankCount =
+      this.ram.length > 0
+        ? Math.max(1, Math.ceil(this.ram.length / RAM_BANK_SIZE))
+        : 0;
+  }
+
+  reset(): void {
+    this.#romBankLow = 1;
+    this.#upperBankBits = 0;
+    this.#ramEnabled = false;
+    this.#ramBankingMode = false;
+  }
+
+  read(address: number): number | null {
+    if (address < 0x4000) {
+      return this.readRomBank(this.#resolvedLowerRomBank(), address);
+    }
+    if (address >= 0x4000 && address < 0x8000) {
+      const offset = address - 0x4000;
+      return this.readRomBank(this.#resolvedSwitchableRomBank(), offset);
+    }
+    if (address >= 0xa000 && address < 0xc000) {
+      if (!this.#ramEnabled || this.ram.length === 0) {
+        return 0xff;
+      }
+      const offset = address - 0xa000;
+      return this.readRamByte(this.#resolvedRamBank(), offset);
+    }
+    return null;
+  }
+
+  write(address: number, value: number): boolean {
+    if (address < 0x2000) {
+      const nextEnabled = (value & 0x0f) === 0x0a;
+      const wasEnabled = this.#ramEnabled;
+      this.#ramEnabled = nextEnabled;
+      if (wasEnabled && !nextEnabled) {
+        this.markRamDirty();
+      }
+      return true;
+    }
+    if (address >= 0x2000 && address < 0x4000) {
+      const nextValue = value & 0x1f;
+      this.#romBankLow = nextValue === 0 ? 1 : nextValue;
+      return true;
+    }
+    if (address >= 0x4000 && address < 0x6000) {
+      const previousRamBank = this.#resolvedRamBank();
+      this.#upperBankBits = value & 0x03;
+      if (
+        this.#ramBankingMode &&
+        this.#ramBankCount > 0 &&
+        previousRamBank !== this.#resolvedRamBank()
+      ) {
+        this.markRamDirty();
+      }
+      return true;
+    }
+    if (address >= 0x6000 && address < 0x8000) {
+      const nextMode = (value & 0x01) === 0x01;
+      if (nextMode !== this.#ramBankingMode && nextMode) {
+        this.markRamDirty();
+      }
+      this.#ramBankingMode = nextMode;
+      return true;
+    }
+    if (address >= 0xa000 && address < 0xc000) {
+      if (!this.#ramEnabled || this.ram.length === 0) {
+        return true;
+      }
+      const offset = address - 0xa000;
+      this.writeRamByte(this.#resolvedRamBank(), offset, value);
+      this.markRamDirty();
+      return true;
+    }
+    return false;
+  }
+
+  #resolvedLowerRomBank(): number {
+    if (!this.#ramBankingMode) {
+      return 0;
+    }
+    if (this.#romBankCount <= 0x20) {
+      return 0;
+    }
+    return (this.#upperBankBits << 5) % this.#romBankCount;
+  }
+
+  #resolvedSwitchableRomBank(): number {
+    if (this.#romBankCount <= 1) {
+      return 0;
+    }
+    const bank = (this.#upperBankBits << 5) | (this.#romBankLow & 0x1f);
+    const clamped = bank % this.#romBankCount;
+    return clamped === 0 ? 1 : clamped;
+  }
+
+  #resolvedRamBank(): number {
+    if (!this.#ramBankingMode || this.#ramBankCount === 0) {
+      return 0;
+    }
+    return this.#upperBankBits % this.#ramBankCount;
   }
 }
 
@@ -137,8 +276,8 @@ class Mbc3Controller extends Mbc {
   #rtcRegisterSelect: number | null = null;
   #latchState = 0;
 
-  constructor(rom: Uint8Array, ramSize: number) {
-    super("mbc3", rom, ramSize);
+  constructor(rom: Uint8Array, ramSize: number, options?: MbcOptions) {
+    super("mbc3", rom, ramSize, options);
     this.#romBankCount = Math.max(
       1,
       Math.ceil(this.rom.length / ROM_BANK_SIZE),
@@ -181,6 +320,9 @@ class Mbc3Controller extends Mbc {
   write(address: number, value: number): boolean {
     if (address < 0x2000) {
       this.#ramEnabled = (value & 0x0f) === 0x0a;
+      if (!this.#ramEnabled) {
+        this.markRamDirty();
+      }
       return true;
     }
     if (address >= 0x2000 && address < 0x4000) {
@@ -205,6 +347,7 @@ class Mbc3Controller extends Mbc {
       }
       const offset = address - 0xa000;
       this.writeRamByte(this.#ramBank, offset, value);
+      this.markRamDirty();
       return true;
     }
     return false;
@@ -265,12 +408,19 @@ export class MbcFactory {
     return CARTRIDGE_TYPE_TO_MBC[typeByte] ?? "romOnly";
   }
 
-  create(type: MbcType, rom: Uint8Array, ramSize: number): Mbc {
+  create(
+    type: MbcType,
+    rom: Uint8Array,
+    ramSize: number,
+    options?: MbcOptions,
+  ): Mbc {
     switch (type) {
+      case "mbc1":
+        return new Mbc1Controller(rom, ramSize, options);
       case "mbc3":
-        return new Mbc3Controller(rom, ramSize);
+        return new Mbc3Controller(rom, ramSize, options);
       default:
-        return new RomOnlyMbc(rom, ramSize);
+        return new RomOnlyMbc(rom, ramSize, options);
     }
   }
 }

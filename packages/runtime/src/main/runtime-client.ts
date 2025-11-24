@@ -10,10 +10,12 @@ import { EmulatorAudioNode } from "../audio/node.js";
 import { Canvas2DRenderer } from "../video/canvas2d-renderer.js";
 import { Canvas2DRendererOptions } from "../video/canvas2d-renderer.js";
 import {
+  SaveStorageAdapter,
+  SaveStorageKey,
+  createSaveStorageKey,
   deserializeSavePayload,
   serializeSavePayload,
 } from "../save/storage.js";
-import { SaveStorageAdapter } from "../save/storage.js";
 import { EmulatorWorkerApi, WorkerCallbacks } from "../worker/index.js";
 
 export interface RuntimeClientOptions {
@@ -56,6 +58,10 @@ export interface RuntimeClient {
 export async function createRuntimeClient(
   options: RuntimeClientOptions,
 ): Promise<RuntimeClient> {
+  const autoPersistSaves = options.autoPersistSaves ?? true;
+  let currentSaveKey: SaveStorageKey | null = null;
+  let currentRomInfo: EmulatorRomInfo | null = null;
+
   const worker = options.createWorker();
   const workerEndpoint = Comlink.wrap<EmulatorWorkerApi>(worker);
   const audioNode = await createEmulatorAudioNode({
@@ -74,8 +80,11 @@ export async function createRuntimeClient(
       audioNode.enqueue(chunk);
     },
     async handleSaveData(payload) {
-      if (options.saveStorage && options.autoPersistSaves) {
-        await options.saveStorage.write(serializeSavePayload(payload));
+      if (options.saveStorage && autoPersistSaves && currentSaveKey !== null) {
+        await options.saveStorage.write(
+          currentSaveKey,
+          serializeSavePayload(payload),
+        );
       }
     },
     handleLog(message: string) {
@@ -117,7 +126,11 @@ export async function createRuntimeClient(
     await workerEndpoint.loadRom(
       Comlink.transfer({ rom: romCopy }, [romCopy.buffer]),
     );
-    if (options.autoPersistSaves) {
+    currentRomInfo = await workerEndpoint.getRomInfo();
+    currentSaveKey = currentRomInfo
+      ? createSaveStorageKey(currentRomInfo.title)
+      : null;
+    if (autoPersistSaves) {
       await loadPersistentSave();
     }
   }
@@ -126,7 +139,16 @@ export async function createRuntimeClient(
     if (!options.saveStorage) {
       return;
     }
-    const serialized = await options.saveStorage.read();
+    if (!currentSaveKey) {
+      currentRomInfo = await workerEndpoint.getRomInfo();
+      if (currentRomInfo) {
+        currentSaveKey = createSaveStorageKey(currentRomInfo.title);
+      }
+    }
+    if (!currentSaveKey) {
+      return;
+    }
+    const serialized = await options.saveStorage.read(currentSaveKey);
     if (!serialized) {
       return;
     }
@@ -168,17 +190,37 @@ export async function createRuntimeClient(
     loadSave,
     start: () => workerEndpoint.start(),
     pause: () => workerEndpoint.pause(),
-    reset: (opts) => workerEndpoint.reset(opts),
+    reset: async (opts) => {
+      await workerEndpoint.reset(opts);
+      if (opts?.hard) {
+        currentRomInfo = null;
+        currentSaveKey = null;
+      }
+    },
     stepFrame: () => workerEndpoint.stepFrame(),
     stepInstruction: () => workerEndpoint.stepInstruction(),
     setBreakpoints: (breakpoints) =>
       workerEndpoint.setBreakpoints({ offsets: breakpoints }),
     setInputState: (state) => workerEndpoint.setInputState({ state }),
-    getRomInfo: () => workerEndpoint.getRomInfo(),
+    async getRomInfo() {
+      currentRomInfo = await workerEndpoint.getRomInfo();
+      if (currentRomInfo && !currentSaveKey) {
+        currentSaveKey = createSaveStorageKey(currentRomInfo.title);
+      }
+      return currentRomInfo;
+    },
     async getSave() {
       const payload = await workerEndpoint.getSave();
-      if (payload && options.autoPersistSaves && options.saveStorage) {
-        await options.saveStorage.write(serializeSavePayload(payload));
+      if (
+        payload &&
+        autoPersistSaves &&
+        options.saveStorage &&
+        currentSaveKey
+      ) {
+        await options.saveStorage.write(
+          currentSaveKey,
+          serializeSavePayload(payload),
+        );
       }
       return payload;
     },

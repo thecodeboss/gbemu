@@ -84,6 +84,7 @@ const DEFAULT_OUTPUT_SAMPLE_RATE = 44_100;
 const MASTER_CLOCK_HZ = 4_194_304;
 const CPU_CYCLES_PER_FRAME = Clock.FRAME_CYCLES / 4;
 const FRAME_DURATION_MS = (Clock.FRAME_CYCLES / MASTER_CLOCK_HZ) * 1000;
+const SAVE_FLUSH_DELAY_MS = 200;
 
 export class Emulator {
   readonly cpu: Cpu;
@@ -109,6 +110,8 @@ export class Emulator {
   #audioSampleRate = DEFAULT_OUTPUT_SAMPLE_RATE;
   #audioRemainder = 0;
   #lastAudioTimestamp: number | null = null;
+  #ramDirty = false;
+  #saveFlushTimer: number | null = null;
 
   constructor(deps: EmulatorDependencies) {
     this.clock = deps.clock;
@@ -117,7 +120,9 @@ export class Emulator {
     this.apu = deps.apu;
     this.bus = deps.bus;
     this.#mbcFactory = deps.mbcFactory;
-    this.#mbc = this.#mbcFactory.create("romOnly", new Uint8Array(0), 0);
+    this.#mbc = this.#mbcFactory.create("romOnly", new Uint8Array(0), 0, {
+      onRamWrite: () => this.#scheduleSaveFlush(),
+    });
   }
 
   initialize(options: EmulatorOptions): void {
@@ -132,11 +137,16 @@ export class Emulator {
   }
 
   loadRom(rom: Uint8Array): void {
+    this.#flushPendingSave();
+    this.#resetSaveTracking();
+    this.#saveData = null;
     this.#romData = rom.slice();
     this.#romInfo = parseRomInfo(rom);
     const ramSize = this.#romInfo?.ramSize ?? 0;
     const cartridgeType = this.#mbcFactory.detect(rom);
-    this.#mbc = this.#mbcFactory.create(cartridgeType, rom, ramSize);
+    this.#mbc = this.#mbcFactory.create(cartridgeType, rom, ramSize, {
+      onRamWrite: () => this.#scheduleSaveFlush(),
+    });
     this.bus.loadCartridge(rom, this.#mbc);
     this.bus.setJoypadState(this.#inputState);
     this.cpu.reset();
@@ -159,24 +169,29 @@ export class Emulator {
   }
 
   loadSave(payload: SavePayload): void {
-    this.#saveData = {
+    const saveCopy = {
       battery: payload.battery.slice(),
       rtc: payload.rtc ? payload.rtc.slice() : undefined,
     };
+    this.#saveData = saveCopy;
+    this.#applySaveDataToMbc(saveCopy);
+    this.#resetSaveTracking();
     this.#callbacks?.onLog?.("Loaded save data.");
   }
 
   getSave(): SavePayload | null {
-    if (!this.#saveData) {
+    const payload = this.#saveData ?? this.#buildSavePayload();
+    if (!payload) {
       return null;
     }
     return {
-      battery: this.#saveData.battery.slice(),
-      rtc: this.#saveData.rtc ? this.#saveData.rtc.slice() : undefined,
+      battery: payload.battery.slice(),
+      rtc: payload.rtc ? payload.rtc.slice() : undefined,
     };
   }
 
   reset(hard?: boolean): void {
+    this.#flushPendingSave();
     this.pause();
     this.cpu.reset();
     this.ppu.reset();
@@ -191,6 +206,7 @@ export class Emulator {
     this.#inputState = createEmptyJoypadState();
     this.bus.setJoypadState(this.#inputState);
     if (hard) {
+      this.#resetSaveTracking();
       this.#romData = null;
       this.#romInfo = null;
       this.#saveData = null;
@@ -223,6 +239,7 @@ export class Emulator {
       this.#frameTimer = null;
     }
     this.#nextFrameTimestamp = null;
+    this.#flushPendingSave();
     this.#callbacks?.onLog?.("Emulator paused.");
   }
 
@@ -307,7 +324,9 @@ export class Emulator {
   }
 
   dispose(): void {
+    this.#flushPendingSave();
     this.pause();
+    this.#resetSaveTracking();
     this.#callbacks = null;
     this.#romData = null;
   }
@@ -459,6 +478,82 @@ export class Emulator {
       sampleRate: this.#audioSampleRate,
     };
     this.#callbacks.onAudioSamples(chunk);
+  }
+
+  #scheduleSaveFlush(): void {
+    if (this.#mbc.getRamSize() === 0) {
+      return;
+    }
+    this.#ramDirty = true;
+    if (this.#saveFlushTimer !== null) {
+      return;
+    }
+    this.#saveFlushTimer = setTimeout(() => {
+      this.#saveFlushTimer = null;
+      if (!this.#ramDirty) {
+        return;
+      }
+      this.#ramDirty = false;
+      this.#emitSaveData();
+    }, SAVE_FLUSH_DELAY_MS) as unknown as number;
+  }
+
+  #flushPendingSave(): void {
+    if (this.#saveFlushTimer !== null) {
+      clearTimeout(this.#saveFlushTimer);
+      this.#saveFlushTimer = null;
+    }
+    if (this.#ramDirty) {
+      this.#ramDirty = false;
+      this.#emitSaveData();
+    }
+  }
+
+  #resetSaveTracking(): void {
+    if (this.#saveFlushTimer !== null) {
+      clearTimeout(this.#saveFlushTimer);
+      this.#saveFlushTimer = null;
+    }
+    this.#ramDirty = false;
+  }
+
+  #applySaveDataToMbc(payload: SavePayload): void {
+    if (!this.#mbc) {
+      return;
+    }
+    this.#mbc.loadRamSnapshot(payload.battery);
+    this.bus.refreshExternalRamWindow();
+  }
+
+  #buildSavePayload(): SavePayload | null {
+    if (!this.#mbc) {
+      return null;
+    }
+    const ram = this.#mbc.getRamSnapshot();
+    if (ram.length === 0) {
+      return null;
+    }
+    const payload: SavePayload = {
+      battery: ram,
+      rtc: undefined,
+    };
+    this.#saveData = {
+      battery: ram.slice(),
+      rtc: undefined,
+    };
+    return payload;
+  }
+
+  #emitSaveData(): void {
+    const payload = this.#buildSavePayload();
+    if (!payload || !this.#callbacks) {
+      return;
+    }
+    const rtcCopy = payload.rtc ? payload.rtc.slice() : undefined;
+    this.#callbacks.onSaveData({
+      battery: payload.battery.slice(),
+      rtc: rtcCopy,
+    });
   }
 
   #now(): number {

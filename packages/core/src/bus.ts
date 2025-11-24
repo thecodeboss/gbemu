@@ -134,6 +134,10 @@ export class SystemBus
     this.#resetTimerState();
   }
 
+  refreshExternalRamWindow(): void {
+    this.#mirrorExternalRamWindow();
+  }
+
   mapBank(_bank: MemoryBank): void {
     // No dynamic mapping in stub.
   }

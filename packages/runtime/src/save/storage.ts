@@ -6,10 +6,45 @@ export interface SerializedSavePayload {
   timestamp: number;
 }
 
+export interface SaveStorageKey {
+  gameId: string;
+  slot?: string;
+}
+
 export interface SaveStorageAdapter {
-  read(): Promise<SerializedSavePayload | null>;
-  write(payload: SerializedSavePayload): Promise<void>;
-  clear(): Promise<void>;
+  read(key: SaveStorageKey): Promise<SerializedSavePayload | null>;
+  write(key: SaveStorageKey, payload: SerializedSavePayload): Promise<void>;
+  clear(key: SaveStorageKey): Promise<void>;
+  listSlots?(gameId: string): Promise<string[]>;
+}
+
+export const DEFAULT_SAVE_SLOT = "default";
+
+export function normalizeSaveGameId(title: string): string {
+  const collapsed = title.trim().toLowerCase();
+  const slug = collapsed
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug || "untitled";
+}
+
+export function resolveSaveSlot(slot?: string): string {
+  const trimmed = slot?.trim();
+  if (!trimmed) {
+    return DEFAULT_SAVE_SLOT;
+  }
+  return trimmed;
+}
+
+export function createSaveStorageKey(
+  title: string,
+  slot?: string,
+): SaveStorageKey {
+  return {
+    gameId: normalizeSaveGameId(title),
+    slot: resolveSaveSlot(slot),
+  };
 }
 
 export function serializeSavePayload(

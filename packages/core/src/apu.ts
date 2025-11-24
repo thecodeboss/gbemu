@@ -36,7 +36,7 @@ const INTERNAL_SAMPLE_RATE = 44_100;
 const HIGH_PASS_CUTOFF_HZ = 90;
 const NR52_CONSTANT_BITS = 0x70;
 const NOISE_DIVISOR_TABLE = [8, 16, 32, 48, 64, 80, 96, 112];
-const MAX_RAW_BACKLOG_SAMPLES = 1_000; // Cap raw backlog to ~23 ms at 44.1 kHz.
+const MAX_RAW_BACKLOG_SAMPLES = 2_000; // Cap raw backlog to ~45 ms at 44.1 kHz.
 const DUTY_PATTERNS: number[][] = [
   [0, 0, 0, 0, 0, 0, 0, 1], // 12.5%
   [1, 0, 0, 0, 0, 0, 0, 1], // 25%
