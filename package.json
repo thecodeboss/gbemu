@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "pnpm --filter @gbemu/* build",
     "lint": "eslint . --fix && prettier --cache --write .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
