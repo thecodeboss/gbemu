@@ -22,6 +22,8 @@ interface DisplayCardProps {
   onStep: () => void;
   onChangeRom: () => void;
   onToggleDebug: () => void;
+  onManageSaves: () => void;
+  disableSaveManager?: boolean;
   canvasDimensions: { width: number; height: number };
 }
 
@@ -37,6 +39,8 @@ export function DisplayCard({
   onStep,
   onChangeRom,
   onToggleDebug,
+  onManageSaves,
+  disableSaveManager,
   canvasDimensions,
 }: DisplayCardProps) {
   return (
@@ -96,6 +100,19 @@ export function DisplayCard({
             {isDebugVisible ? "Hide Debug Panel" : "Show Debug Panel"}
           </Button>
         </CardAction>
+      </CardFooter>
+      <CardFooter className="flex items-center justify-between border-t pt-4">
+        <div className="text-sm text-muted-foreground">
+          Manage browser saves for this ROM.
+        </div>
+        <Button
+          type="button"
+          variant="default"
+          onClick={onManageSaves}
+          disabled={disableSaveManager}
+        >
+          Manage Saves
+        </Button>
       </CardFooter>
     </Card>
   );

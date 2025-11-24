@@ -33,8 +33,11 @@ export interface RuntimeClientOptions {
 }
 
 export interface RuntimeClient {
-  loadRom(rom: Uint8Array): Promise<void>;
-  loadSave(payload: SavePayload): Promise<void>;
+  loadRom(
+    rom: Uint8Array,
+    options?: { skipPersistentLoad?: boolean },
+  ): Promise<void>;
+  loadSave(payload: SavePayload, options?: { slot?: string }): Promise<void>;
   start(): Promise<void>;
   pause(): Promise<void>;
   reset(options?: { hard?: boolean }): Promise<void>;
@@ -121,7 +124,10 @@ export async function createRuntimeClient(
     ),
   );
 
-  async function loadRom(rom: Uint8Array): Promise<void> {
+  async function loadRom(
+    rom: Uint8Array,
+    options?: { skipPersistentLoad?: boolean },
+  ): Promise<void> {
     const romCopy = rom.slice();
     await workerEndpoint.loadRom(
       Comlink.transfer({ rom: romCopy }, [romCopy.buffer]),
@@ -130,7 +136,7 @@ export async function createRuntimeClient(
     currentSaveKey = currentRomInfo
       ? createSaveStorageKey(currentRomInfo.title)
       : null;
-    if (autoPersistSaves) {
+    if (autoPersistSaves && !options?.skipPersistentLoad) {
       await loadPersistentSave();
     }
   }
@@ -156,12 +162,22 @@ export async function createRuntimeClient(
     await loadSave(payload);
   }
 
-  async function loadSave(payload: SavePayload): Promise<void> {
+  async function loadSave(
+    payload: SavePayload,
+    saveOptions?: { slot?: string },
+  ): Promise<void> {
     const batteryCopy = payload.battery.slice();
     const rtcCopy = payload.rtc ? payload.rtc.slice() : undefined;
     const transferables: Transferable[] = [batteryCopy.buffer];
     if (rtcCopy) {
       transferables.push(rtcCopy.buffer);
+    }
+
+    if (options.saveStorage && currentRomInfo && saveOptions?.slot) {
+      currentSaveKey = createSaveStorageKey(
+        currentRomInfo.title,
+        saveOptions.slot,
+      );
     }
 
     await workerEndpoint.loadSave(

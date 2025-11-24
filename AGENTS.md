@@ -67,6 +67,7 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - Worker layer:
   - `src/worker/index.ts` exposes `initializeEmulatorWorker`, wiring Comlink.
   - `src/worker/host.ts` implements `EmulatorWorkerApi`, managing emulator lifecycle, forwarding events to the UI via `WorkerCallbacks`, and ensuring transferable payloads (ROMs, saves, frames, audio samples) copy across thread boundaries.
+- `createRuntimeClient.loadRom` accepts an optional `{ skipPersistentLoad?: boolean }` flag to reload a ROM without auto-hydrating IndexedDB saves (used by the web “Start New Save” flow). `loadSave` also accepts an optional `{ slot?: string }` to update the active save slot used for auto-persistence.
 - The worker/client contract exposes `getCpuState` and `getMemorySnapshot`, mirroring the core helpers so front-ends can poll CPU registers/flags and the current memory image without stalling the worker.
 - `src/worker/emulator-worker.ts` is the actual worker entry. It currently instantiates the stubbed `Emulator` from `@gbemu/core/src/emulator.ts` but is the place to swap in the real implementation.
 - Main thread client:
@@ -87,11 +88,14 @@ No automated tests exist yet (root `test` script is a placeholder). Add package-
 - `apps/web/tsconfig.app.json` sets `baseUrl` + paths so imports like `@gbemu/core`/`@gbemu/runtime` resolve to source during dev without needing a build.
 - `apps/web` declares `@gbemu/core` as a workspace dependency; rebuild core (`pnpm --filter @gbemu/core build`) after changing its exports so editors pick up fresh types.
 - Shadcn UI components (Tailwind + Radix) provide most primitives; follow https://ui.shadcn.com/docs when touching `apps/web/src/components` so generated styles stay consistent.
+- Radix-powered modals live in `src/components/ui/dialog.tsx` + `alert-dialog.tsx`, with a simple `Input` primitive in `ui/input.tsx` for inline edits.
 - React Compiler is enabled via `@vitejs/plugin-react` plus `babel-plugin-react-compiler` (see `apps/web/vite.config.ts`); the compiler is now stable, so keep components within its supported patterns (no side effects during render, stable props).
 - `src/app.tsx` manages ROM selection, runtime client lifecycle, and simple UI state machine (`menu` → `loading` → `running`/`error`).
 - Gamepad input lives in `src/hooks/use-gamepad.ts`, which polls the Gamepad API for a DualSense and maps buttons (0=A, 2=B, 8=Select, 9=Start, 12-15=D-pad) into `RuntimeClient#setInputState`; the emulator feeds P1 with the state and raises the joypad interrupt on new presses.
 - ROMs now start running immediately after selection; hit Break if you need to pause before inspecting state. Breakpoints still pause automatically when hit.
 - Saves auto-persist to IndexedDB via the runtime `createIndexedDbSaveAdapter`, keyed by the ROM header title + default slot so reloads pull the matching battery RAM without depending on the upload filename.
+- The main emulator card now includes a **Manage Saves** button. The modal lists IndexedDB saves for the current ROM, lets users rename slots, export `.sav` files, import 32 KiB `.sav` payloads (auto-named “Untitled N”), delete saves, and load saves behind a destructive-warning prompt. It also offers a “+ Start New Save” footer action that creates a blank 32 KiB save, warns about losing current progress, and reloads the ROM with that slot while keeping breakpoints.
+- The main emulator card now includes a **Manage Saves** button. The modal lists IndexedDB saves for the current ROM, lets users rename slots, export `.sav` files, import 32 KiB `.sav` payloads (auto-named “Untitled N”), and load saves behind a destructive-warning prompt. It also offers a “Start Without Save” action that reloads the ROM without applying stored RAM.
 - The disassembly view adds a leading BP column; clicking a cell toggles a red-circle breakpoint that propagates to the runtime and automatically pauses when the PC hits that offset.
 - The debug panel now polls `RuntimeClient.getCpuState()`/`getMemorySnapshot()` to render live CPU register + flag cards and a virtualized memory browser (type/offset/value columns with infinite scroll). Keep the polling cadence reasonable (currently ~750 ms) if runtime performance changes.
 - The VRAM Viewer card (next to ROM Debug) houses tabs for BG/Tiles/OAM/Palettes; the Tiles tab renders VRAM tiles for $8000–$97FF in three 16×8 sections (blocks at $8000, $8800, $9000), scaling tiles 2× with 1px grey gutters and a 4px separator between sections.

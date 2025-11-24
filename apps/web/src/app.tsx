@@ -6,8 +6,10 @@ import {
   RuntimeClient,
   createIndexedDbSaveAdapter,
   createRuntimeClient,
+  createSaveStorageKey,
+  deserializeSavePayload,
 } from "@gbemu/runtime";
-import { JoypadInputState } from "@gbemu/core";
+import { JoypadInputState, SavePayload } from "@gbemu/core";
 import { DisplayCard } from "@/components/display-card";
 import { ErrorCard } from "@/components/error-card";
 import { LoadingCard } from "@/components/loading-card";
@@ -16,6 +18,7 @@ import { RomDebugCard } from "@/components/debug-card";
 import { VramViewerCard } from "@/components/vram-viewer";
 import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { useGamepad } from "@/hooks/use-gamepad";
+import { ManageSavesDialog } from "@/components/manage-saves-dialog";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
@@ -39,11 +42,13 @@ function App() {
   const [breakpoints, setBreakpoints] = useState<Set<number>>(() => new Set());
   const [shouldCenterDisassembly, setShouldCenterDisassembly] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
+  const [isSaveManagerOpen, setIsSaveManagerOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const saveStorageRef = useRef<SaveStorageAdapter | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const romDataRef = useRef<Uint8Array | null>(null);
   const hasDisassembly = disassembly !== null;
 
   useEffect(() => {
@@ -245,6 +250,7 @@ function App() {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const rom = new Uint8Array(arrayBuffer);
+        romDataRef.current = rom;
 
         const runtime = await ensureRuntimeClient();
         await runtime.pause();
@@ -314,10 +320,12 @@ function App() {
     setCurrentInstructionOffset(null);
     setBreakpoints(new Set());
     setShouldCenterDisassembly(false);
+    setIsSaveManagerOpen(false);
     setPhase("menu");
     setError(null);
     setRomName(null);
     setRomInfo(null);
+    romDataRef.current = null;
   }, []);
 
   const handleDisassemble = useCallback(() => {
@@ -420,6 +428,76 @@ function App() {
     setIsDebugVisible((prev) => !prev);
   }, []);
 
+  const handleOpenSaveManager = useCallback(() => {
+    const adapter = ensureSaveStorage();
+    if (!adapter) {
+      setError("Save storage is unavailable in this browser.");
+      return;
+    }
+    setIsSaveManagerOpen(true);
+  }, [ensureSaveStorage]);
+
+  const handleLoadSaveFromManager = useCallback(
+    async (payload: SavePayload, slot: string) => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        throw new Error("No runtime is active to load a save.");
+      }
+      await runtime.pause();
+      await runtime.reset();
+      await runtime.loadSave(payload, { slot });
+      syncRuntimeBreakpoints(breakpoints);
+      const programCounter = await runtime.getProgramCounter();
+      setCurrentInstructionOffset(programCounter ?? null);
+      setIsBreakMode(false);
+      setIsStepping(false);
+      await runtime.start();
+      setShouldCenterDisassembly(true);
+      void refreshDebugInfo();
+    },
+    [breakpoints, refreshDebugInfo, syncRuntimeBreakpoints],
+  );
+
+  const handleStartWithoutSave = useCallback(
+    async (slot: string) => {
+      const storage = ensureSaveStorage();
+      const runtime = runtimeRef.current;
+      const rom = romDataRef.current;
+      const title = romInfo?.title ?? null;
+      if (!runtime || !rom || !storage || !title) {
+        throw new Error("No ROM or save storage is available to start fresh.");
+      }
+      setError(null);
+      await runtime.pause();
+      await runtime.reset({ hard: true });
+      await runtime.loadRom(rom, { skipPersistentLoad: true });
+      const serialized = await storage.read(
+        createSaveStorageKey(title, slot || undefined),
+      );
+      if (serialized) {
+        const payload = deserializeSavePayload(serialized);
+        await runtime.loadSave(payload, { slot });
+      }
+      const info = await runtime.getRomInfo();
+      setRomInfo(info);
+      const programCounter = await runtime.getProgramCounter();
+      setCurrentInstructionOffset(programCounter ?? null);
+      setIsBreakMode(false);
+      setIsStepping(false);
+      setShouldCenterDisassembly(false);
+      syncRuntimeBreakpoints(breakpoints);
+      await runtime.start();
+      void refreshDebugInfo();
+    },
+    [
+      breakpoints,
+      ensureSaveStorage,
+      refreshDebugInfo,
+      romInfo,
+      syncRuntimeBreakpoints,
+    ],
+  );
+
   const handleInputStateChange = useCallback((state: JoypadInputState) => {
     const runtime = runtimeRef.current;
     if (!runtime) {
@@ -461,6 +539,8 @@ function App() {
         onStep={handleStepInstruction}
         onChangeRom={openFilePicker}
         onToggleDebug={handleToggleDebug}
+        onManageSaves={handleOpenSaveManager}
+        disableSaveManager={phase !== "running" || romInfo === null}
         canvasDimensions={{
           width: DEFAULT_CANVAS_WIDTH,
           height: DEFAULT_CANVAS_HEIGHT,
@@ -493,6 +573,15 @@ function App() {
         hidden={phase !== "error"}
         error={error}
         onReturnToMenu={handleReturnToMenu}
+      />
+
+      <ManageSavesDialog
+        open={isSaveManagerOpen}
+        romTitle={romInfo?.title ?? null}
+        saveStorage={saveStorageRef.current}
+        onClose={() => setIsSaveManagerOpen(false)}
+        onLoadSave={handleLoadSaveFromManager}
+        onStartFresh={handleStartWithoutSave}
       />
     </div>
   );
