@@ -1,0 +1,47 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface DeleteSaveDialogProps {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+export function DeleteSaveDialog({
+  open,
+  onCancel,
+  onConfirm,
+}: DeleteSaveDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => !next && onCancel()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-foreground">
+            Delete this save?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            This will remove the save from your browser. Export a copy first if
+            you might need it later.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/60"
+            onClick={() => onConfirm()}
+          >
+            Delete Save
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

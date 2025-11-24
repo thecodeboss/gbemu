@@ -18,7 +18,7 @@ import { RomDebugCard } from "@/components/debug-card";
 import { VramViewerCard } from "@/components/vram-viewer";
 import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { useGamepad } from "@/hooks/use-gamepad";
-import { ManageSavesDialog } from "@/components/manage-saves-dialog";
+import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
