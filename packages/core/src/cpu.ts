@@ -632,10 +632,12 @@ export class Cpu {
   #bus: CpuBusPort | null = null;
   #instructionView = new Uint8Array(MEMORY_SIZE);
   #pendingExtraCycles = 0;
+  #imeEnableDelay = 0;
 
   reset(): void {
     this.state = createDefaultCpuState();
     this.#doubleSpeed = false;
+    this.#imeEnableDelay = 0;
     if (this.#instructionView.length !== MEMORY_SIZE) {
       this.#instructionView = new Uint8Array(MEMORY_SIZE);
     } else {
@@ -648,7 +650,9 @@ export class Cpu {
 
     const interruptServiced = this.#serviceInterruptIfNeeded(bus);
     if (interruptServiced) {
-      return this.#consumeCycles(UNPREFIXED_OPCODE_CYCLES[0]);
+      const cycles = this.#consumeCycles(5);
+      this.#advanceImeEnableDelay();
+      return cycles;
     }
 
     if (this.state.halted || this.state.stopped) {
@@ -666,7 +670,9 @@ export class Cpu {
 
     this.#executeInstruction(instruction, pc);
     const cycles = this.#computeInstructionCycles(instruction);
-    return this.#consumeCycles(cycles);
+    const consumed = this.#consumeCycles(cycles);
+    this.#advanceImeEnableDelay();
+    return consumed;
   }
 
   requestInterrupt(_type: InterruptType): void {
@@ -1179,11 +1185,12 @@ export class Cpu {
 
   #executeDi(nextPc: number): void {
     this.state.ime = false;
+    this.#imeEnableDelay = 0;
     this.#setProgramCounter(nextPc);
   }
 
   #executeEi(nextPc: number): void {
-    this.state.ime = true;
+    this.#imeEnableDelay = 2;
     this.#setProgramCounter(nextPc);
   }
 
@@ -1800,7 +1807,8 @@ export class Cpu {
 
     if (this.#isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, description);
-      const value = this.#requireBus().readByte(reference.address) & 0xff;
+      const value =
+        this.#requireBus().readByte(reference.address, 4) & 0xff;
       reference.postAccess?.();
       return value;
     }
@@ -1823,7 +1831,7 @@ export class Cpu {
     const maskedValue = value & 0xff;
     if (this.#isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, "memory target");
-      this.#requireBus().writeByte(reference.address, maskedValue);
+      this.#requireBus().writeByte(reference.address, maskedValue, 4);
       reference.postAccess?.();
       return;
     }
@@ -2214,8 +2222,8 @@ export class Cpu {
   #writeWordToAddress(address: number, value: number): void {
     const bus = this.#requireBus();
     const targetAddress = address & 0xffff;
-    bus.writeByte(targetAddress, value & 0xff);
-    bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff);
+    bus.writeByte(targetAddress, value & 0xff, 4);
+    bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff, 8);
   }
 
   #pushWord(value: number, firstWriteTicksAhead = 0): void {
@@ -2266,5 +2274,15 @@ export class Cpu {
       throw new Error("CPU is not connected to a bus");
     }
     return this.#bus;
+  }
+
+  #advanceImeEnableDelay(): void {
+    if (this.#imeEnableDelay === 0) {
+      return;
+    }
+    this.#imeEnableDelay -= 1;
+    if (this.#imeEnableDelay === 0) {
+      this.state.ime = true;
+    }
   }
 }
