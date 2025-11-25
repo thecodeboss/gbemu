@@ -10,7 +10,9 @@ const TAC_REGISTER_ADDRESS = 0xff07;
 const INTERRUPT_FLAG_ADDRESS = 0xff0f;
 const DMA_REGISTER_ADDRESS = 0xff46;
 const OAM_START_ADDRESS = 0xfe00;
+const OAM_BLOCK_END_ADDRESS = 0xfeff;
 const OAM_TRANSFER_SIZE = 0xa0;
+const OAM_TRANSFER_TICKS = OAM_TRANSFER_SIZE * 4 + 4;
 const TAC_ENABLE_BIT = 0x04;
 const TAC_CLOCK_SELECT_MASK = 0x03;
 const TAC_UPPER_BITS = 0xf8;
@@ -88,7 +90,7 @@ export interface MemoryBank {
 export interface MemoryController {
   mapBank(bank: MemoryBank): void;
   unmapBank(range: AddressRange): void;
-  readByte(address: number): number;
+  readByte(address: number, ticksAhead?: number): number;
   writeByte(address: number, value: number): void;
 }
 
@@ -113,11 +115,19 @@ export class SystemBus
   #timerSignal = false;
   #timaReloadPending = false;
   #timaReloadDelay = 0;
+  #oamDmaRemainingTicks = 0;
+  #oamDmaSource = 0;
+  #oamDmaIndex = 0;
+  #suppressOamDmaStep = false;
 
   loadCartridge(rom: Uint8Array, mbc?: Mbc): void {
     this.#pendingInterrupts.clear();
     this.#memory.fill(0);
     this.#joypadState = createEmptyJoypadState();
+    this.#oamDmaRemainingTicks = 0;
+    this.#oamDmaSource = 0;
+    this.#oamDmaIndex = 0;
+    this.#suppressOamDmaStep = false;
     this.#mbc = mbc ?? null;
     this.#mbc?.reset();
 
@@ -146,8 +156,27 @@ export class SystemBus
     // No dynamic mapping in stub.
   }
 
-  readByte(address: number): number {
+  readByte(address: number, ticksAhead = 0): number {
+    return this.#readByteInternal(address, false, ticksAhead);
+  }
+
+  #readByteInternal(
+    address: number,
+    bypassDmaBlocking = false,
+    ticksAhead = 0,
+  ): number {
     const mappedAddress = address & 0xffff;
+
+    const dmaTicksRemaining = this.#oamDmaRemainingTicks - ticksAhead;
+
+    if (
+      !bypassDmaBlocking &&
+      dmaTicksRemaining > 0 &&
+      this.#isBlockedDuringOamDma(mappedAddress)
+    ) {
+      return 0xff;
+    }
+
     if (this.#mbc) {
       const value = this.#mbc.read(mappedAddress);
       if (value !== null && value !== undefined) {
@@ -166,6 +195,10 @@ export class SystemBus
   writeByte(address: number, value: number): void {
     const mappedAddress = address & 0xffff;
     const byteValue = value & 0xff;
+
+    if (this.#isOamDmaActive() && this.#isBlockedDuringOamDma(mappedAddress)) {
+      return;
+    }
 
     if (this.#mbc?.write(mappedAddress, byteValue)) {
       this.#mirrorAfterMbcWrite(mappedAddress);
@@ -231,7 +264,7 @@ export class SystemBus
 
   performTransfer(type: DmaTransferType, source: number): void {
     if (type === "oam") {
-      this.#performOamDmaTransfer(source);
+      this.#startOamDmaTransfer(source);
     }
   }
 
@@ -264,7 +297,15 @@ export class SystemBus
     }
 
     let remainingTicks = cycles * 4;
+    const skipOamDma = this.#suppressOamDmaStep;
+    if (skipOamDma) {
+      this.#suppressOamDmaStep = false;
+    }
+
     while (remainingTicks > 0) {
+      if (!skipOamDma) {
+        this.#stepOamDma();
+      }
       this.#stepTimaReload();
       const nextCounter = (this.#dividerCounter + 1) & 0xffff;
       this.#updateTimerSignalOnCounterChange(this.#dividerCounter, nextCounter);
@@ -357,13 +398,41 @@ export class SystemBus
     );
   }
 
-  #performOamDmaTransfer(source: number): void {
-    const startAddress = source & 0xff00;
-    for (let offset = 0; offset < OAM_TRANSFER_SIZE; offset += 1) {
-      const readAddress = (startAddress + offset) & 0xffff;
-      const value = this.readByte(readAddress);
-      this.#memory[OAM_START_ADDRESS + offset] = value & 0xff;
+  #startOamDmaTransfer(source: number): void {
+    this.#oamDmaSource = source & 0xff00;
+    this.#oamDmaIndex = 0;
+    this.#oamDmaRemainingTicks = OAM_TRANSFER_TICKS;
+    this.#suppressOamDmaStep = true;
+  }
+
+  #stepOamDma(): void {
+    if (!this.#isOamDmaActive()) {
+      return;
     }
+
+    const ticksElapsed = OAM_TRANSFER_TICKS - this.#oamDmaRemainingTicks;
+    const currentIndex = Math.floor(ticksElapsed / 4);
+
+    if (
+      ticksElapsed % 4 === 0 &&
+      currentIndex < OAM_TRANSFER_SIZE &&
+      this.#oamDmaIndex === currentIndex
+    ) {
+      const readAddress = (this.#oamDmaSource + currentIndex) & 0xffff;
+      const value = this.#readByteInternal(readAddress, true);
+      this.#memory[OAM_START_ADDRESS + currentIndex] = value & 0xff;
+      this.#oamDmaIndex += 1;
+    }
+
+    this.#oamDmaRemainingTicks -= 1;
+  }
+
+  #isOamDmaActive(): boolean {
+    return this.#oamDmaRemainingTicks > 0;
+  }
+
+  #isBlockedDuringOamDma(address: number): boolean {
+    return address >= OAM_START_ADDRESS && address <= OAM_BLOCK_END_ADDRESS;
   }
 
   #composeJoypadValue(selectBits: number, state: JoypadInputState): number {

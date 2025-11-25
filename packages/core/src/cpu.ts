@@ -563,7 +563,7 @@ const CB_PREFIXED_OPCODE_CYCLES: number[] = [
 ];
 
 export interface CpuBusPort {
-  readByte(address: number): number;
+  readByte(address: number, ticksAhead?: number): number;
   writeByte(address: number, value: number): void;
   readWord(address: number): number;
   writeWord(address: number, value: number): void;
@@ -727,7 +727,7 @@ export class Cpu {
       if (address >= MEMORY_SIZE) {
         break;
       }
-      this.#instructionView[address] = bus.readByte(address);
+      this.#instructionView[address] = bus.readByte(address, offset * 4);
     }
   }
 
