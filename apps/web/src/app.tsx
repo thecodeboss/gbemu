@@ -19,6 +19,12 @@ import { VramViewerCard } from "@/components/vram-viewer";
 import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { useGamepad } from "@/hooks/use-gamepad";
 import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
+import audioWorkletModuleUrl from "@gbemu/runtime/src/audio/worklet-processor.ts?worker&url";
+
+const AUDIO_WORKLET_MODULE_URL = new URL(
+  audioWorkletModuleUrl,
+  import.meta.url,
+);
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
@@ -153,10 +159,7 @@ function App() {
           { type: "module" },
         ),
       audioContext: await ensureAudioContext(),
-      audioWorkletModuleUrl: new URL(
-        "@gbemu/runtime/src/audio/worklet-processor.ts",
-        import.meta.url,
-      ),
+      audioWorkletModuleUrl: AUDIO_WORKLET_MODULE_URL,
       canvas,
       saveStorage: ensureSaveStorage() ?? undefined,
       autoPersistSaves: true,
