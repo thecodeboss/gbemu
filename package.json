@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "pnpm --filter @gbemu/* build",
+    "build": "pnpm --filter @gbemu/core build && pnpm --filter @gbemu/runtime build && pnpm --filter @gbemu/web build",
     "dev": "pnpm --filter @gbemu/web dev",
     "lint": "eslint . --fix && prettier --cache --write .",
     "test": "pnpm --filter @gbemu/core test"
