@@ -564,7 +564,7 @@ const CB_PREFIXED_OPCODE_CYCLES: number[] = [
 
 export interface CpuBusPort {
   readByte(address: number, ticksAhead?: number): number;
-  writeByte(address: number, value: number): void;
+  writeByte(address: number, value: number, ticksAhead?: number): void;
   readWord(address: number): number;
   writeWord(address: number, value: number): void;
   dmaTransfer(source: number): void;
@@ -714,7 +714,7 @@ export class Cpu {
     }
 
     this.state.ime = false;
-    this.#pushWord(this.state.registers.pc);
+    this.#pushWord(this.state.registers.pc, 8);
     const clearedFlags = interruptFlags & ~INTERRUPT_BITS[pendingType];
     bus.writeByte(INTERRUPT_FLAG_ADDRESS, clearedFlags);
     this.#setProgramCounter(INTERRUPT_VECTORS[pendingType]);
@@ -893,7 +893,7 @@ export class Cpu {
     }
 
     const target = this.#readImmediateOperand(targetOperand, "call target");
-    this.#pushWord(nextPc);
+    this.#pushWord(nextPc, 16);
     this.#setProgramCounter(target);
   }
 
@@ -967,12 +967,13 @@ export class Cpu {
       }
     }
 
-    const address = this.#popWord();
+    const firstReadTicksAhead = conditionOperand ? 8 : 4;
+    const address = this.#popWord(firstReadTicksAhead);
     this.#setProgramCounter(address);
   }
 
   #executeReti(): void {
-    const address = this.#popWord();
+    const address = this.#popWord(4);
     this.state.ime = true;
     this.#setProgramCounter(address);
   }
@@ -984,7 +985,7 @@ export class Cpu {
     }
 
     const target = this.#parseRstVector(vectorOperand.meta.name);
-    this.#pushWord(nextPc);
+    this.#pushWord(nextPc, 8);
     this.#setProgramCounter(target);
   }
 
@@ -1207,7 +1208,7 @@ export class Cpu {
     if (!STACK_REGISTER_NAMES.has(registerName)) {
       throw new Error(`POP instruction unsupported register ${registerName}`);
     }
-    const value = this.#popWord();
+    const value = this.#popWord(4);
     this.#writeRegisterPairByName(registerName, value);
     this.#setProgramCounter(nextPc);
   }
@@ -1222,7 +1223,7 @@ export class Cpu {
       throw new Error(`PUSH instruction unsupported register ${registerName}`);
     }
     const value = this.#readRegisterPairByName(registerName);
-    this.#pushWord(value);
+    this.#pushWord(value, 8);
     this.#setProgramCounter(nextPc);
   }
 
@@ -2217,21 +2218,21 @@ export class Cpu {
     bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff);
   }
 
-  #pushWord(value: number): void {
+  #pushWord(value: number, firstWriteTicksAhead = 0): void {
     const bus = this.#requireBus();
     const registers = this.state.registers;
     registers.sp = (registers.sp - 1) & 0xffff;
-    bus.writeByte(registers.sp, (value >> 8) & 0xff);
+    bus.writeByte(registers.sp, (value >> 8) & 0xff, firstWriteTicksAhead);
     registers.sp = (registers.sp - 1) & 0xffff;
-    bus.writeByte(registers.sp, value & 0xff);
+    bus.writeByte(registers.sp, value & 0xff, firstWriteTicksAhead + 4);
   }
 
-  #popWord(): number {
+  #popWord(firstReadTicksAhead = 0): number {
     const bus = this.#requireBus();
     const registers = this.state.registers;
-    const low = bus.readByte(registers.sp);
+    const low = bus.readByte(registers.sp, firstReadTicksAhead);
     registers.sp = (registers.sp + 1) & 0xffff;
-    const high = bus.readByte(registers.sp);
+    const high = bus.readByte(registers.sp, firstReadTicksAhead + 4);
     registers.sp = (registers.sp + 1) & 0xffff;
     return ((high << 8) | low) & 0xffff;
   }

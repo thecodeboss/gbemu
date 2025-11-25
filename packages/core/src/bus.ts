@@ -91,7 +91,7 @@ export interface MemoryController {
   mapBank(bank: MemoryBank): void;
   unmapBank(range: AddressRange): void;
   readByte(address: number, ticksAhead?: number): number;
-  writeByte(address: number, value: number): void;
+  writeByte(address: number, value: number, ticksAhead?: number): void;
 }
 
 export interface DirectMemoryAccess {
@@ -192,11 +192,15 @@ export class SystemBus
     return this.#memory[mappedAddress] ?? 0xff;
   }
 
-  writeByte(address: number, value: number): void {
+  writeByte(address: number, value: number, ticksAhead = 0): void {
     const mappedAddress = address & 0xffff;
     const byteValue = value & 0xff;
 
-    if (this.#isOamDmaActive() && this.#isBlockedDuringOamDma(mappedAddress)) {
+    const dmaTicksRemaining = this.#oamDmaRemainingTicks - ticksAhead;
+    if (
+      dmaTicksRemaining > 0 &&
+      this.#isBlockedDuringOamDma(mappedAddress)
+    ) {
       return;
     }
 
