@@ -33,7 +33,7 @@ pnpm lint   # runs `eslint . --fix` then `prettier --cache --write .` (expect sa
 - `apps/web` adds React-specific configs (`eslint-plugin-react`, `react-hooks`, and `react-refresh`) so hooks rules and Fast Refresh safety checks will fire in that subtree.
 - Running `pnpm lint` will modify files automatically because of the `--fix` flag and subsequent Prettier write step, so review those changes before committing.
 
-No automated tests exist yet (root `test` script is a placeholder). Add package-level tests alongside relevant implementations before enabling CI.
+`@gbemu/core` ships Vitest-based Mooneye acceptance ROM tests in `packages/core/tests` (DMG-only); run them with `pnpm --filter @gbemu/core test` (each ROM has a ~10s window to hit the LD B, B sentinel). The root `test` script is still a placeholder until more suites land.
 
 ## Package Reference
 

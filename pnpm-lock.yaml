@@ -128,6 +128,9 @@ importers:
 
   packages/core:
     devDependencies:
+      "@types/node":
+        specifier: 24.10.1
+        version: 24.10.1
       typescript:
         specifier: "catalog:"
         version: 5.9.3
