@@ -1,5 +1,6 @@
 import { Cpu } from "../cpu.js";
 import { InstructionOperand, OpcodeInstruction } from "../rom/types.js";
+import { readImmediateOperand } from "./utils.js";
 
 export function executeCall(
   cpu: Cpu,
@@ -24,7 +25,7 @@ export function executeCall(
     }
   }
 
-  const target = cpu.readImmediateOperand(targetOperand, "call target");
+  const target = readImmediateOperand(targetOperand, "call target");
   cpu.pushWord(nextPc, 16);
   cpu.setProgramCounter(target);
 }
@@ -57,7 +58,7 @@ export function executeJump(
     }
   }
 
-  const target = cpu.readImmediateOperand(targetOperand, "jump target");
+  const target = readImmediateOperand(targetOperand, "jump target");
   cpu.setProgramCounter(target);
 }
 
@@ -116,7 +117,11 @@ export function executeReturn(
   cpu.setProgramCounter(address);
 }
 
-export function executeReti(cpu: Cpu): void {
+export function executeReti(
+  cpu: Cpu,
+  _instruction: OpcodeInstruction,
+  _nextPc: number,
+): void {
   const address = cpu.popWord(4);
   cpu.state.ime = true;
   cpu.setProgramCounter(address);

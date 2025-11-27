@@ -1,54 +1,9 @@
 import { UNPREFIXED_OPCODE_TABLE } from "./opcode-tables.js";
 import { disassembleInstruction } from "./rom/disassemble.js";
-import {
-  executeAdd,
-  executeAdc,
-  executeCp,
-  executeDaa,
-  executeDec,
-  executeInc,
-  executeSbc,
-  executeSub,
-} from "./cpu-instructions/arithmetic.js";
-import {
-  executeAnd,
-  executeBit,
-  executeCcf,
-  executeCpl,
-  executeOr,
-  executeRes,
-  executeRl,
-  executeRla,
-  executeRlca,
-  executeRlc,
-  executeRr,
-  executeRra,
-  executeRrc,
-  executeRrca,
-  executeScf,
-  executeSet,
-  executeSla,
-  executeSra,
-  executeSrl,
-  executeSwap,
-  executeXor,
-} from "./cpu-instructions/bitwise.js";
-import {
-  executeDi,
-  executeEi,
-  executeHalt,
-  executeStop,
-} from "./cpu-instructions/control.js";
-import {
-  executeCall,
-  executeJump,
-  executeRelativeJump,
-  executeReturn,
-  executeReti,
-  executeRst,
-} from "./cpu-instructions/jumps.js";
-import { executeLd, executePop, executePush } from "./cpu-instructions/load.js";
 import { InstructionOperand, OpcodeInstruction } from "./rom/types.js";
+import { executeFns } from "./cpu-instructions/index.js";
+import * as constants from "./cpu-instructions/constants.js";
+import { isMemoryOperand } from "./cpu-instructions/utils.js";
 
 export type CpuFlag = "Z" | "N" | "H" | "C";
 
@@ -85,13 +40,6 @@ export interface CpuState {
   cycles: number;
 }
 
-export type InterruptType =
-  | "vblank"
-  | "lcdStat"
-  | "timer"
-  | "serial"
-  | "joypad";
-
 export interface CpuBusPort {
   readByte(address: number, ticksAhead?: number): number;
   writeByte(address: number, value: number, ticksAhead?: number): void;
@@ -127,39 +75,11 @@ function createDefaultCpuState(): CpuState {
   };
 }
 
-const MEMORY_SIZE = 0x10000;
-const MAX_PREFETCH_BYTES = 3;
-const EIGHT_BIT_REGISTERS = new Set(["A", "B", "C", "D", "E", "H", "L"]);
-const SIXTEEN_BIT_REGISTERS = new Set(["AF", "BC", "DE", "HL", "SP"]);
-const INTERRUPT_FLAG_ADDRESS = 0xff0f;
-const INTERRUPT_ENABLE_ADDRESS = 0xffff;
-const INTERRUPT_PRIORITY_ORDER: InterruptType[] = [
-  "vblank",
-  "lcdStat",
-  "timer",
-  "serial",
-  "joypad",
-];
-const INTERRUPT_VECTORS: Record<InterruptType, number> = {
-  vblank: 0x40,
-  lcdStat: 0x48,
-  timer: 0x50,
-  serial: 0x58,
-  joypad: 0x60,
-};
-const INTERRUPT_BITS: Record<InterruptType, number> = {
-  vblank: 0x01,
-  lcdStat: 0x02,
-  timer: 0x04,
-  serial: 0x08,
-  joypad: 0x10,
-};
-
 export class Cpu {
   state: CpuState = createDefaultCpuState();
   #doubleSpeed = false;
   #bus: CpuBusPort;
-  #instructionView = new Uint8Array(MEMORY_SIZE);
+  #instructionView = new Uint8Array(constants.MEMORY_SIZE);
   #pendingExtraCycles = 0;
   imeEnableDelay = 0;
 
@@ -171,8 +91,8 @@ export class Cpu {
     this.state = createDefaultCpuState();
     this.#doubleSpeed = false;
     this.imeEnableDelay = 0;
-    if (this.#instructionView.length !== MEMORY_SIZE) {
-      this.#instructionView = new Uint8Array(MEMORY_SIZE);
+    if (this.#instructionView.length !== constants.MEMORY_SIZE) {
+      this.#instructionView = new Uint8Array(constants.MEMORY_SIZE);
     } else {
       this.#instructionView.fill(0);
     }
@@ -211,8 +131,10 @@ export class Cpu {
   }
 
   #serviceInterruptIfNeeded(bus: CpuBusPort): boolean {
-    const interruptEnable = bus.readByte(INTERRUPT_ENABLE_ADDRESS) & 0xff;
-    const interruptFlags = bus.readByte(INTERRUPT_FLAG_ADDRESS) & 0xff;
+    const interruptEnable =
+      bus.readByte(constants.INTERRUPT_ENABLE_ADDRESS) & 0xff;
+    const interruptFlags =
+      bus.readByte(constants.INTERRUPT_FLAG_ADDRESS) & 0xff;
     const pendingMask = interruptEnable & interruptFlags & 0x1f;
 
     if (pendingMask === 0) {
@@ -229,8 +151,8 @@ export class Cpu {
 
     this.state.stopped = false;
 
-    const pendingType = INTERRUPT_PRIORITY_ORDER.find((type) => {
-      return (pendingMask & INTERRUPT_BITS[type]) !== 0;
+    const pendingType = constants.INTERRUPT_PRIORITY_ORDER.find((type) => {
+      return (pendingMask & constants.INTERRUPT_BITS[type]) !== 0;
     });
 
     if (!pendingType) {
@@ -239,16 +161,17 @@ export class Cpu {
 
     this.state.ime = false;
     this.pushWord(this.state.registers.pc, 8);
-    const clearedFlags = interruptFlags & ~INTERRUPT_BITS[pendingType];
-    bus.writeByte(INTERRUPT_FLAG_ADDRESS, clearedFlags);
-    this.setProgramCounter(INTERRUPT_VECTORS[pendingType]);
+    const clearedFlags =
+      interruptFlags & ~constants.INTERRUPT_BITS[pendingType];
+    bus.writeByte(constants.INTERRUPT_FLAG_ADDRESS, clearedFlags);
+    this.setProgramCounter(constants.INTERRUPT_VECTORS[pendingType]);
     return true;
   }
 
   #prefetchInstructionBytes(bus: CpuBusPort, pc: number): void {
-    for (let offset = 0; offset < MAX_PREFETCH_BYTES; offset += 1) {
+    for (let offset = 0; offset < constants.MAX_PREFETCH_BYTES; offset += 1) {
       const address = pc + offset;
-      if (address >= MEMORY_SIZE) {
+      if (address >= constants.MEMORY_SIZE) {
         break;
       }
       this.#instructionView[address] = bus.readByte(address, offset * 4);
@@ -258,173 +181,16 @@ export class Cpu {
   #executeInstruction(instruction: OpcodeInstruction, currentPc: number): void {
     this.#pendingExtraCycles = 0;
     const nextPc = (currentPc + instruction.length) & 0xffff;
-
-    switch (instruction.mnemonic) {
-      case "nop":
-        this.setProgramCounter(nextPc);
-        return;
-      case "daa":
-        executeDaa(this, instruction, nextPc);
-        return;
-      case "di":
-        executeDi(this, instruction, nextPc);
-        return;
-      case "ei":
-        executeEi(this, instruction, nextPc);
-        return;
-      case "halt":
-        executeHalt(this, instruction, nextPc);
-        return;
-      case "ld":
-      case "ldh":
-        executeLd(this, instruction, nextPc);
-        return;
-      case "and":
-        executeAnd(this, instruction, nextPc);
-        return;
-      case "add":
-        executeAdd(this, instruction, nextPc);
-        return;
-      case "adc":
-        executeAdc(this, instruction, nextPc);
-        return;
-      case "sub":
-        executeSub(this, instruction, nextPc);
-        return;
-      case "sbc":
-        executeSbc(this, instruction, nextPc);
-        return;
-      case "cp":
-        executeCp(this, instruction, nextPc);
-        return;
-      case "cpl":
-        executeCpl(this, instruction, nextPc);
-        return;
-      case "ccf":
-        executeCcf(this, instruction, nextPc);
-        return;
-      case "scf":
-        executeScf(this, instruction, nextPc);
-        return;
-      case "or":
-        executeOr(this, instruction, nextPc);
-        return;
-      case "xor":
-        executeXor(this, instruction, nextPc);
-        return;
-      case "inc":
-        executeInc(this, instruction, nextPc);
-        return;
-      case "dec":
-        executeDec(this, instruction, nextPc);
-        return;
-      case "bit":
-        executeBit(this, instruction, nextPc);
-        return;
-      case "res":
-        executeRes(this, instruction, nextPc);
-        return;
-      case "set":
-        executeSet(this, instruction, nextPc);
-        return;
-      case "rl":
-        executeRl(this, instruction, nextPc);
-        return;
-      case "rlc":
-        executeRlc(this, instruction, nextPc);
-        return;
-      case "rla":
-        executeRla(this, instruction, nextPc);
-        return;
-      case "rlca":
-        executeRlca(this, instruction, nextPc);
-        return;
-      case "rr":
-        executeRr(this, instruction, nextPc);
-        return;
-      case "rrc":
-        executeRrc(this, instruction, nextPc);
-        return;
-      case "rra":
-        executeRra(this, instruction, nextPc);
-        return;
-      case "rrca":
-        executeRrca(this, instruction, nextPc);
-        return;
-      case "sla":
-        executeSla(this, instruction, nextPc);
-        return;
-      case "sra":
-        executeSra(this, instruction, nextPc);
-        return;
-      case "srl":
-        executeSrl(this, instruction, nextPc);
-        return;
-      case "swap":
-        executeSwap(this, instruction, nextPc);
-        return;
-      case "call":
-        executeCall(this, instruction, nextPc);
-        return;
-      case "jp":
-        executeJump(this, instruction, nextPc);
-        return;
-      case "jr":
-        executeRelativeJump(this, instruction, nextPc);
-        return;
-      case "ret":
-        executeReturn(this, instruction, nextPc);
-        return;
-      case "reti":
-        executeReti(this);
-        return;
-      case "rst":
-        executeRst(this, instruction, nextPc);
-        return;
-      case "stop":
-        executeStop(this, instruction, nextPc);
-        return;
-      case "pop":
-        executePop(this, instruction, nextPc);
-        return;
-      case "push":
-        executePush(this, instruction, nextPc);
-        return;
-      default:
-        throw new Error(
-          `Instruction ${instruction.mnemonic} (0x${instruction.opcode.toString(16)}) not implemented`,
-        );
+    const executeFn = executeFns[instruction.mnemonic];
+    if (executeFn) {
+      executeFn(this, instruction, nextPc);
+    } else if (instruction.mnemonic === "nop") {
+      this.setProgramCounter(nextPc);
+    } else {
+      throw new Error(
+        `Instruction ${instruction.mnemonic} (0x${instruction.opcode.toString(16)}) not implemented`,
+      );
     }
-  }
-
-  isEightBitRegisterOperand(operand: InstructionOperand | undefined): boolean {
-    return Boolean(
-      operand && operand.meta.imm && EIGHT_BIT_REGISTERS.has(operand.meta.name),
-    );
-  }
-
-  is16BitRegisterOperand(operand: InstructionOperand | undefined): boolean {
-    return Boolean(
-      operand &&
-        operand.meta.imm &&
-        SIXTEEN_BIT_REGISTERS.has(operand.meta.name),
-    );
-  }
-
-  isMemoryOperand(operand: InstructionOperand | undefined): boolean {
-    if (!operand) {
-      return false;
-    }
-    const { meta } = operand;
-    if (meta.name === "HL" && !meta.imm) return true;
-    if (!meta.imm && SIXTEEN_BIT_REGISTERS.has(meta.name)) return true;
-    if (!meta.imm && meta.name === "C") return true;
-    if (meta.name === "a16" || meta.name === "a8") return true;
-    return false;
-  }
-
-  isImmediate16Operand(operand: InstructionOperand | undefined): boolean {
-    return Boolean(operand && operand.meta.name === "n16");
   }
 
   #resolveMemoryReference(
@@ -468,42 +234,12 @@ export class Cpu {
       };
     }
 
-    if (!meta.imm && SIXTEEN_BIT_REGISTERS.has(name)) {
+    if (!meta.imm && constants.SIXTEEN_BIT_REGISTERS.has(name)) {
       const address = this.readRegisterPairByName(name);
       return { address };
     }
 
     throw new Error(`Unsupported ${description}: ${name}`);
-  }
-
-  readImmediateOperand(
-    operand: InstructionOperand | undefined,
-    description: string,
-  ): number {
-    if (!operand || operand.rawValue === null) {
-      throw new Error(`Missing ${description}`);
-    }
-    return operand.rawValue & 0xffff;
-  }
-
-  readSignedImmediateOperand(
-    operand: InstructionOperand | undefined,
-    description: string,
-  ): number {
-    if (!operand) {
-      throw new Error(`Missing ${description}`);
-    }
-    if (operand.meta.name !== "e8") {
-      throw new Error(`Expected signed 8-bit operand for ${description}`);
-    }
-    if (operand.signedValue !== undefined && operand.signedValue !== null) {
-      return operand.signedValue;
-    }
-    if (operand.rawValue === null) {
-      throw new Error(`Missing ${description}`);
-    }
-    const raw = operand.rawValue & 0xff;
-    return raw >= 0x80 ? raw - 0x100 : raw;
   }
 
   setConditionalExtraCycles(opcode: number, conditionTaken: boolean): void {
@@ -545,7 +281,7 @@ export class Cpu {
       throw new Error(`Missing ${description}`);
     }
 
-    if (this.isMemoryOperand(operand)) {
+    if (isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, description);
       const value = this.#bus.readByte(reference.address, 4) & 0xff;
       reference.postAccess?.();
@@ -559,7 +295,7 @@ export class Cpu {
       return operand.rawValue & 0xff;
     }
 
-    if (EIGHT_BIT_REGISTERS.has(operand.meta.name)) {
+    if (constants.EIGHT_BIT_REGISTERS.has(operand.meta.name)) {
       return this.readRegister8(operand.meta.name);
     }
 
@@ -568,14 +304,14 @@ export class Cpu {
 
   writeEightBitValue(operand: InstructionOperand, value: number): void {
     const maskedValue = value & 0xff;
-    if (this.isMemoryOperand(operand)) {
+    if (isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, "memory target");
       this.#bus.writeByte(reference.address, maskedValue, 4);
       reference.postAccess?.();
       return;
     }
 
-    if (EIGHT_BIT_REGISTERS.has(operand.meta.name)) {
+    if (constants.EIGHT_BIT_REGISTERS.has(operand.meta.name)) {
       this.writeRegister8(operand.meta.name, maskedValue);
       return;
     }
@@ -584,7 +320,7 @@ export class Cpu {
   }
 
   readRegister8(name: string): number {
-    if (!EIGHT_BIT_REGISTERS.has(name))
+    if (!constants.EIGHT_BIT_REGISTERS.has(name))
       throw new Error(`Unsupported 8-bit register ${name}`);
     return (
       this.state.registers[name.toLowerCase() as keyof CpuRegisters] & 0xff
@@ -593,7 +329,7 @@ export class Cpu {
 
   writeRegister8(name: string, value: number): void {
     const masked = value & 0xff;
-    if (!EIGHT_BIT_REGISTERS.has(name))
+    if (!constants.EIGHT_BIT_REGISTERS.has(name))
       throw new Error(`Unsupported 8-bit register ${name}`);
     this.state.registers[name.toLowerCase() as keyof CpuRegisters] = masked;
   }

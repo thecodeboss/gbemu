@@ -1,6 +1,14 @@
 import { Cpu } from "../cpu.js";
 import { OpcodeInstruction } from "../rom/types.js";
 import { loadHlWithSpOffset } from "./sp-offset.js";
+import {
+  is16BitRegisterOperand,
+  isEightBitRegisterOperand,
+  isImmediate16Operand,
+  isMemoryOperand,
+  readImmediateOperand,
+  readSignedImmediateOperand,
+} from "./utils.js";
 
 const STACK_REGISTER_NAMES = new Set(["AF", "BC", "DE", "HL"]);
 
@@ -17,7 +25,7 @@ export function executeLd(
       firstSource?.meta.name === "SP" &&
       secondSource?.meta.name === "e8"
     ) {
-      const offset = cpu.readSignedImmediateOperand(
+      const offset = readSignedImmediateOperand(
         secondSource,
         "LD HL,SP+e8 offset",
       );
@@ -48,34 +56,28 @@ export function executeLd(
     return;
   }
 
-  if (cpu.isEightBitRegisterOperand(destination)) {
+  if (isEightBitRegisterOperand(destination)) {
     const value = cpu.readEightBitValue(source, "LD source");
     cpu.writeRegister8(destination.meta.name, value);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
-  if (cpu.isMemoryOperand(destination)) {
+  if (isMemoryOperand(destination)) {
     const value = cpu.readEightBitValue(source, "LD source");
     cpu.writeEightBitValue(destination, value);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
-  if (
-    cpu.is16BitRegisterOperand(destination) &&
-    cpu.isImmediate16Operand(source)
-  ) {
-    const value = cpu.readImmediateOperand(source, "LD immediate value");
+  if (is16BitRegisterOperand(destination) && isImmediate16Operand(source)) {
+    const value = readImmediateOperand(source, "LD immediate value");
     cpu.writeRegisterPairByName(destination.meta.name, value);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
-  if (
-    cpu.is16BitRegisterOperand(destination) &&
-    cpu.is16BitRegisterOperand(source)
-  ) {
+  if (is16BitRegisterOperand(destination) && is16BitRegisterOperand(source)) {
     const value = cpu.readRegisterPairByName(source.meta.name);
     cpu.writeRegisterPairByName(destination.meta.name, value);
     cpu.setProgramCounter(nextPc);

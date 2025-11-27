@@ -1,7 +1,13 @@
 import { Cpu } from "../cpu.js";
 import { InstructionOperand, OpcodeInstruction } from "../rom/types.js";
 import { addSignedImmediateToSp } from "./sp-offset.js";
-import { assertAccumulatorDestination } from "./utils.js";
+import {
+  assertAccumulatorDestination,
+  is16BitRegisterOperand,
+  isEightBitRegisterOperand,
+  isMemoryOperand,
+  readSignedImmediateOperand,
+} from "./utils.js";
 
 export function executeAdd(
   cpu: Cpu,
@@ -28,7 +34,7 @@ export function executeAdd(
   }
 
   if (destination.meta.name === "SP" && source.meta.name === "e8") {
-    const offset = cpu.readSignedImmediateOperand(source, "ADD SP,e8 offset");
+    const offset = readSignedImmediateOperand(source, "ADD SP,e8 offset");
     addSignedImmediateToSp(cpu, offset);
     cpu.setProgramCounter(nextPc);
     return;
@@ -95,13 +101,13 @@ export function executeInc(
     throw new Error("INC instruction missing operand");
   }
 
-  if (cpu.isMemoryOperand(operand) || cpu.isEightBitRegisterOperand(operand)) {
+  if (isMemoryOperand(operand) || isEightBitRegisterOperand(operand)) {
     increment8(cpu, operand);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
-  if (cpu.is16BitRegisterOperand(operand)) {
+  if (is16BitRegisterOperand(operand)) {
     increment16(cpu, operand.meta.name);
     cpu.setProgramCounter(nextPc);
     return;
@@ -120,13 +126,13 @@ export function executeDec(
     throw new Error("DEC instruction missing operand");
   }
 
-  if (cpu.isMemoryOperand(operand) || cpu.isEightBitRegisterOperand(operand)) {
+  if (isMemoryOperand(operand) || isEightBitRegisterOperand(operand)) {
     decrement8(cpu, operand);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
-  if (cpu.is16BitRegisterOperand(operand)) {
+  if (is16BitRegisterOperand(operand)) {
     decrement16(cpu, operand.meta.name);
     cpu.setProgramCounter(nextPc);
     return;
