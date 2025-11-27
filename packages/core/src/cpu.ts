@@ -464,16 +464,14 @@ export class Cpu {
 
   isEightBitRegisterOperand(operand: InstructionOperand | undefined): boolean {
     return Boolean(
-      operand &&
-        operand.meta.immediate &&
-        EIGHT_BIT_REGISTERS.has(operand.meta.name),
+      operand && operand.meta.imm && EIGHT_BIT_REGISTERS.has(operand.meta.name),
     );
   }
 
   is16BitRegisterOperand(operand: InstructionOperand | undefined): boolean {
     return Boolean(
       operand &&
-        operand.meta.immediate &&
+        operand.meta.imm &&
         SIXTEEN_BIT_REGISTERS.has(operand.meta.name),
     );
   }
@@ -483,18 +481,10 @@ export class Cpu {
       return false;
     }
     const { meta } = operand;
-    if (meta.name === "HL" && meta.immediate === false) {
-      return true;
-    }
-    if (!meta.immediate && SIXTEEN_BIT_REGISTERS.has(meta.name)) {
-      return true;
-    }
-    if (!meta.immediate && meta.name === "C") {
-      return true;
-    }
-    if (meta.name === "a16" || meta.name === "a8") {
-      return true;
-    }
+    if (meta.name === "HL" && !meta.imm) return true;
+    if (!meta.imm && SIXTEEN_BIT_REGISTERS.has(meta.name)) return true;
+    if (!meta.imm && meta.name === "C") return true;
+    if (meta.name === "a16" || meta.name === "a8") return true;
     return false;
   }
 
@@ -538,14 +528,14 @@ export class Cpu {
       return { address: (0xff00 + (rawValue & 0xff)) & 0xffff };
     }
 
-    if (name === "C" && meta.immediate === false) {
+    if (name === "C" && !meta.imm) {
       const address = (0xff00 + (this.state.registers.c & 0xff)) & 0xffff;
       return { address };
     }
 
-    if (name === "HL" && meta.immediate === false) {
+    if (name === "HL" && !meta.imm) {
       const address = this.readRegisterPairHL();
-      const delta = meta.increment ? 1 : meta.decrement ? -1 : 0;
+      const delta = meta.inc ? 1 : meta.dec ? -1 : 0;
       if (delta === 0) {
         return { address };
       }
@@ -558,7 +548,7 @@ export class Cpu {
       };
     }
 
-    if (!meta.immediate && SIXTEEN_BIT_REGISTERS.has(name)) {
+    if (!meta.imm && SIXTEEN_BIT_REGISTERS.has(name)) {
       const address = this.readRegisterPairByName(name);
       return { address };
     }

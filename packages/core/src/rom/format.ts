@@ -36,12 +36,12 @@ function formatOperands(
   meta: OpcodeMeta,
   operands: InstructionOperand[],
 ): string[] {
-  if (meta.mnemonic === "stop") {
+  if (meta.m === "stop") {
     return [];
   }
 
   if (
-    meta.mnemonic === "ld" &&
+    meta.m === "ld" &&
     operands.length === 3 &&
     operands[0]?.meta.name === "HL" &&
     operands[1]?.meta.name === "SP" &&
@@ -55,7 +55,7 @@ function formatOperands(
   }
 
   if (
-    meta.mnemonic === "add" &&
+    meta.m === "add" &&
     operands.length === 2 &&
     operands[0]?.meta.name === "SP" &&
     operands[1]?.meta.name === "e8" &&
@@ -68,7 +68,7 @@ function formatOperands(
   }
 
   const formatted = operands.map((operand) => formatOperand(meta, operand));
-  return simplifyOperands(meta.mnemonic, formatted);
+  return simplifyOperands(meta.m, formatted);
 }
 
 function formatOperand(meta: OpcodeMeta, operand: InstructionOperand): string {
@@ -81,14 +81,14 @@ function formatOperand(meta: OpcodeMeta, operand: InstructionOperand): string {
     case "n16":
       return formatWord(rawValue ?? 0);
     case "a16":
-      if (descriptor.immediate) {
+      if (descriptor.imm) {
         return formatWord(rawValue ?? 0);
       }
       return `[${formatWord(rawValue ?? 0)}]`;
     case "a8":
       return `[$FF${formatByte(rawValue ?? 0).slice(1)}]`;
     case "e8":
-      if (meta.mnemonic === "jr" && typeof relativeTarget === "number") {
+      if (meta.m === "jr" && typeof relativeTarget === "number") {
         return formatWord(relativeTarget);
       }
       if (typeof signedValue === "number") {
@@ -106,11 +106,11 @@ function formatOperand(meta: OpcodeMeta, operand: InstructionOperand): string {
 
   const text = name.toLowerCase();
 
-  if (!descriptor.immediate) {
-    if (descriptor.increment) {
+  if (!descriptor.imm) {
+    if (descriptor.inc) {
       return `(${text}+)`;
     }
-    if (descriptor.decrement) {
+    if (descriptor.dec) {
       return `(${text}-)`;
     }
     return `(${text})`;

@@ -90,7 +90,7 @@ export function disassembleInstruction(
     }
 
     const meta = CB_PREFIXED_OPCODE_TABLE[next] as OpcodeMeta | undefined;
-    if (!meta || pc + meta.length > rom.length) {
+    if (!meta || pc + meta.len > rom.length) {
       return createDataInstruction(opcode);
     }
 
@@ -98,12 +98,12 @@ export function disassembleInstruction(
     return createOpcodeInstruction(meta, operands, {
       opcode: next,
       prefixed: true,
-      bytes: rom.slice(pc, pc + meta.length),
+      bytes: rom.slice(pc, pc + meta.len),
     });
   }
 
   const meta = UNPREFIXED_OPCODE_TABLE[opcode] as OpcodeMeta | undefined;
-  if (!meta || pc + meta.length > rom.length) {
+  if (!meta || pc + meta.len > rom.length) {
     return createDataInstruction(opcode);
   }
 
@@ -111,7 +111,7 @@ export function disassembleInstruction(
   return createOpcodeInstruction(meta, operands, {
     opcode,
     prefixed: false,
-    bytes: rom.slice(pc, pc + meta.length),
+    bytes: rom.slice(pc, pc + meta.len),
   });
 }
 
@@ -123,7 +123,7 @@ function readOperandStates(
 ): InstructionOperand[] {
   let cursor = startOffset;
 
-  return meta.operands.map((operand) => {
+  return meta.ops.map((operand) => {
     let rawValue: number | null = null;
 
     if (operand.bytes === 1) {
@@ -138,7 +138,7 @@ function readOperandStates(
 
     if (operand.name === "e8" && rawValue !== null) {
       const signedValue = rawValue >= 0x80 ? rawValue - 0x100 : rawValue;
-      const relativeTarget = (pc + meta.length + signedValue) & 0xffff;
+      const relativeTarget = (pc + meta.len + signedValue) & 0xffff;
       return {
         meta: operand,
         rawValue,
@@ -211,10 +211,10 @@ function createOpcodeInstruction(
 ): OpcodeInstruction {
   return {
     type: "opcode",
-    length: meta.length,
+    length: meta.len,
     opcode: options.opcode,
     prefixed: options.prefixed,
-    mnemonic: meta.mnemonic,
+    mnemonic: meta.m,
     meta,
     operands,
     bytes: options.bytes,
