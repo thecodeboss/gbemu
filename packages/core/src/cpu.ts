@@ -48,28 +48,49 @@ export interface CpuBusPort {
   dmaTransfer(source: number): void;
   handleStop(): boolean;
   isDoubleSpeed(): boolean;
+  isCgbMode(): boolean;
+  isCgbHardware(): boolean;
 }
 
-function createDefaultCpuState(): CpuState {
+function flagsFromRegister(f: number): CpuFlags {
   return {
-    registers: {
-      a: 0x01,
-      f: 0xb0,
-      b: 0x00,
-      c: 0x13,
-      d: 0x00,
-      e: 0xd8,
-      h: 0x01,
-      l: 0x4d,
-      sp: 0xfffe,
-      pc: 0x0100,
-    },
-    flags: {
-      zero: true,
-      subtract: false,
-      halfCarry: true,
-      carry: true,
-    },
+    zero: (f & 0x80) !== 0,
+    subtract: (f & 0x40) !== 0,
+    halfCarry: (f & 0x20) !== 0,
+    carry: (f & 0x10) !== 0,
+  };
+}
+
+function createDefaultCpuState(isCgb: boolean): CpuState {
+  const registers: CpuRegisters = isCgb
+    ? {
+        a: 0x11,
+        f: 0x80,
+        b: 0x00,
+        c: 0x00,
+        d: 0xff,
+        e: 0x56,
+        h: 0x00,
+        l: 0x0d,
+        sp: 0xfffe,
+        pc: 0x0100,
+      }
+    : {
+        a: 0x01,
+        f: 0xb0,
+        b: 0x00,
+        c: 0x13,
+        d: 0x00,
+        e: 0xd8,
+        h: 0x01,
+        l: 0x4d,
+        sp: 0xfffe,
+        pc: 0x0100,
+      };
+
+  return {
+    registers,
+    flags: flagsFromRegister(registers.f),
     ime: false,
     halted: false,
     stopped: false,
@@ -78,19 +99,40 @@ function createDefaultCpuState(): CpuState {
 }
 
 export class Cpu {
-  state: CpuState = createDefaultCpuState();
+  state: CpuState = createDefaultCpuState(false);
   #doubleSpeed = false;
   #bus: CpuBusPort;
   #instructionView = new Uint8Array(constants.MEMORY_SIZE);
   #pendingExtraCycles = 0;
   imeEnableDelay = 0;
+  #powerOnRegisters: CpuRegisters = {
+    a: 0x01,
+    f: 0xb0,
+    b: 0x00,
+    c: 0x13,
+    d: 0x00,
+    e: 0xd8,
+    h: 0x01,
+    l: 0x4d,
+    sp: 0xfffe,
+    pc: 0x0100,
+  };
 
   constructor(bus: CpuBusPort) {
     this.#bus = bus;
   }
 
   reset(): void {
-    this.state = createDefaultCpuState();
+    const useRegisters = this.#powerOnRegisters ?? createDefaultCpuState(
+      this.#bus.isCgbHardware(),
+    ).registers;
+    this.state = createDefaultCpuState(false);
+    this.state.registers = { ...useRegisters };
+    this.state.flags = flagsFromRegister(useRegisters.f);
+    this.state.ime = false;
+    this.state.halted = false;
+    this.state.stopped = false;
+    this.state.cycles = 0;
     this.#doubleSpeed = false;
     this.imeEnableDelay = 0;
     if (this.#instructionView.length !== constants.MEMORY_SIZE) {
@@ -98,6 +140,16 @@ export class Cpu {
     } else {
       this.#instructionView.fill(0);
     }
+  }
+
+  setPowerOnState(registers: CpuRegisters): void {
+    this.#powerOnRegisters = { ...registers };
+    this.state.registers = { ...registers };
+    this.state.flags = flagsFromRegister(registers.f);
+    this.state.ime = false;
+    this.state.halted = false;
+    this.state.stopped = false;
+    this.state.cycles = 0;
   }
 
   handleStop(nextPc: number): void {

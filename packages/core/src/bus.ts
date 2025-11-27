@@ -11,6 +11,7 @@ const TMA_REGISTER_ADDRESS = 0xff06;
 const TAC_REGISTER_ADDRESS = 0xff07;
 const INTERRUPT_FLAG_ADDRESS = 0xff0f;
 const DMA_REGISTER_ADDRESS = 0xff46;
+const KEY0_REGISTER_ADDRESS = 0xff4c;
 const KEY1_REGISTER_ADDRESS = 0xff4d;
 const VBK_REGISTER_ADDRESS = 0xff4f;
 const HDMA1_REGISTER_ADDRESS = 0xff51;
@@ -31,6 +32,12 @@ const PCM34_REGISTER_ADDRESS = 0xff77;
 const COMPAT_BG_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
 const COMPAT_OBJ0_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
 const COMPAT_OBJ1_DEFAULT: readonly number[] = [0x7fff, 0x5ad6, 0x35ad, 0x10a5];
+const CGB_HARDWARE_REGISTER_OVERRIDES: ReadonlyArray<readonly [number, number]> =
+  [
+    [0xff02, 0x7f], // SC
+    [0xff46, 0x00], // DMA
+    [RP_REGISTER_ADDRESS, 0x3e],
+  ];
 const OAM_START_ADDRESS = 0xfe00;
 const OAM_BLOCK_END_ADDRESS = 0xfeff;
 const OAM_TRANSFER_SIZE = 0xa0;
@@ -58,6 +65,7 @@ const FORCED_ONE_BITMASKS: Readonly<Record<number, number>> = {
   [0xff23]: 0x3f, // NR44: lower bits unused.
   [0xff26]: 0x70, // NR52: bits 4-6 unused.
   [0xff41]: 0x80, // STAT: bit 7 unused.
+  [KEY0_REGISTER_ADDRESS]: 0x7e, // KEY0: unused bits read high.
   [KEY1_REGISTER_ADDRESS]: 0x7e, // KEY1: bits 1-6 read high.
   [VBK_REGISTER_ADDRESS]: 0xfe, // VBK: upper bits read high.
   [SVBK_REGISTER_ADDRESS]: 0xf8, // SVBK: upper bits read high.
@@ -112,6 +120,7 @@ const DMG_HARDWARE_REGISTER_DEFAULTS: ReadonlyArray<readonly [number, number]> =
   ];
 
 const CGB_ONLY_REGISTER_DEFAULTS: ReadonlyArray<readonly [number, number]> = [
+  [KEY0_REGISTER_ADDRESS, 0x00],
   [KEY1_REGISTER_ADDRESS, 0x7e],
   [VBK_REGISTER_ADDRESS, 0xfe],
   [HDMA1_REGISTER_ADDRESS, 0xff],
@@ -189,6 +198,10 @@ export class SystemBus {
 
   isCgbMode(): boolean {
     return this.#cgbMode;
+  }
+
+  isCgbHardware(): boolean {
+    return this.#hardwareMode === "cgb";
   }
 
   loadCartridge(rom: Uint8Array, mbc?: Mbc): void {
@@ -562,6 +575,12 @@ export class SystemBus {
     for (const [address, value] of defaults) {
       this.#memory[address] = value & 0xff;
     }
+
+    if (this.#hardwareMode === "cgb") {
+      for (const [address, value] of CGB_HARDWARE_REGISTER_OVERRIDES) {
+        this.#memory[address] = value & 0xff;
+      }
+    }
     this.#updateJoypadRegister(
       this.#memory[JOYPAD_REGISTER_ADDRESS] & 0x30,
       false,
@@ -724,6 +743,8 @@ export class SystemBus {
     }
 
     switch (address) {
+      case KEY0_REGISTER_ADDRESS:
+        return this.#memory[KEY0_REGISTER_ADDRESS] ?? 0xff;
       case KEY1_REGISTER_ADDRESS:
         return this.#composeKey1Value();
       case VBK_REGISTER_ADDRESS:
@@ -774,6 +795,10 @@ export class SystemBus {
     }
 
     switch (address) {
+      case KEY0_REGISTER_ADDRESS: {
+        this.#memory[KEY0_REGISTER_ADDRESS] = value & 0xff;
+        return true;
+      }
       case KEY1_REGISTER_ADDRESS: {
         this.#speedSwitchRequested = (value & 0x01) !== 0;
         this.#memory[KEY1_REGISTER_ADDRESS] = this.#composeKey1Value();

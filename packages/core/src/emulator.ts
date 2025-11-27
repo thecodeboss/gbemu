@@ -87,6 +87,54 @@ const MASTER_CLOCK_HZ = 4_194_304;
 const FRAME_DURATION_MS = (Clock.FRAME_CYCLES / MASTER_CLOCK_HZ) * 1000;
 const SAVE_FLUSH_DELAY_MS = 200;
 
+function computeCgbNativeRegisters(): CpuRegisters {
+  return {
+    a: 0x11,
+    f: 0x80,
+    b: 0x00,
+    c: 0x00,
+    d: 0xff,
+    e: 0x56,
+    h: 0x00,
+    l: 0x0d,
+    sp: 0xfffe,
+    pc: 0x0100,
+  };
+}
+
+function computeCgbCompatibilityRegisters(rom: Uint8Array): CpuRegisters {
+  const oldLicense = rom[0x14b] ?? 0;
+  const newLicense0 = rom[0x144] ?? 0;
+  const newLicense1 = rom[0x145] ?? 0;
+  const isNintendoLicense =
+    oldLicense === 0x01 ||
+    (oldLicense === 0x33 && newLicense0 === 0x30 && newLicense1 === 0x31);
+
+  let b = 0x00;
+  if (isNintendoLicense) {
+    let sum = 0;
+    for (let i = 0x134; i <= 0x143; i += 1) {
+      sum = (sum + (rom[i] ?? 0)) & 0xff;
+    }
+    b = sum & 0xff;
+  }
+
+  const hl = b === 0x43 || b === 0x58 ? 0x991a : 0x007c;
+
+  return {
+    a: 0x11,
+    f: 0x80,
+    b,
+    c: 0x00,
+    d: 0x00,
+    e: 0x08,
+    h: (hl >> 8) & 0xff,
+    l: hl & 0xff,
+    sp: 0xfffe,
+    pc: 0x0100,
+  };
+}
+
 export class Emulator {
   readonly cpu: Cpu;
   readonly ppu: Ppu;
@@ -168,6 +216,12 @@ export class Emulator {
     this.bus.loadCartridge(rom, this.#mbc);
     this.bus.setJoypadState(this.#inputState);
     this.cpu.reset();
+    if (this.bus.isCgbHardware()) {
+      const registers = cgbMode
+        ? computeCgbNativeRegisters()
+        : computeCgbCompatibilityRegisters(rom);
+      this.cpu.setPowerOnState(registers);
+    }
     this.ppu.reset();
     this.apu.reset();
     this.apu.setOutputSampleRate(this.#audioSampleRate);
