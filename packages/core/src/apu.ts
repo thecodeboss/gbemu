@@ -151,7 +151,7 @@ interface Channel4State {
 }
 
 export class Apu {
-  #bus: SystemBus | null = null;
+  #bus: SystemBus;
   #masterEnabled = true;
   #internalSampleRate = INTERNAL_SAMPLE_RATE;
   #targetSampleRate = INTERNAL_SAMPLE_RATE;
@@ -190,6 +190,11 @@ export class Apu {
     nr51: 0,
     nr52: 0,
   };
+  constructor(bus: SystemBus) {
+    this.#bus = bus;
+    this.#masterEnabled = (bus.readByte(NR52_ADDRESS) & 0x80) !== 0;
+    this.#syncRegisterCache(true);
+  }
   #channel1: Channel1State = {
     enabled: false,
     dacEnabled: true,
@@ -252,12 +257,6 @@ export class Apu {
     frequencyTimer: 0,
     lfsr: 0x7fff,
   };
-
-  connectBus(bus: SystemBus): void {
-    this.#bus = bus;
-    this.#masterEnabled = (bus.readByte(NR52_ADDRESS) & 0x80) !== 0;
-    this.#syncRegisterCache(true);
-  }
 
   setOutputSampleRate(sampleRate: number): void {
     if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
@@ -349,7 +348,7 @@ export class Apu {
   }
 
   tick(cycles: number): void {
-    if (!this.#bus || cycles <= 0) {
+    if (cycles <= 0) {
       return;
     }
 
@@ -400,9 +399,6 @@ export class Apu {
   }
 
   #syncPowerState(): void {
-    if (!this.#bus) {
-      return;
-    }
     const nr52Value = this.#bus.readByte(NR52_ADDRESS) & 0xff;
     const masterOn = (nr52Value & 0x80) !== 0;
 
@@ -497,7 +493,7 @@ export class Apu {
   }
 
   #syncRegisterCache(force = false): void {
-    if (!this.#bus || !this.#masterEnabled) {
+    if (!this.#masterEnabled) {
       return;
     }
 
@@ -1296,9 +1292,6 @@ export class Apu {
   }
 
   #readWaveSample(sampleIndex: number): number {
-    if (!this.#bus) {
-      return 0;
-    }
     const index = sampleIndex & 0x1f;
     const byteIndex = index >> 1;
     const address = Math.min(WAVE_TABLE_END, WAVE_TABLE_START + byteIndex);
@@ -1410,9 +1403,6 @@ export class Apu {
     this.#channel1.frequencyTimer = this.#computeFrequencyTimer(
       this.#channel1.frequency,
     );
-    if (!this.#bus) {
-      return;
-    }
     const nr14Base = this.#bus.readByte(NR14_ADDRESS) & 0x78;
     const nr14 = (nr14Base & 0x78) | ((nextFrequency >> 8) & 0x07);
     const nr13 = nextFrequency & 0xff;
@@ -1428,9 +1418,6 @@ export class Apu {
   }
 
   #writePowerOffRegisters(nr52Value: number): void {
-    if (!this.#bus) {
-      return;
-    }
     for (const address of [
       NR10_ADDRESS,
       NR11_ADDRESS,
@@ -1484,9 +1471,6 @@ export class Apu {
   }
 
   #updateStatusRegister(): void {
-    if (!this.#bus) {
-      return;
-    }
     const activeChannelBits =
       (this.#channel1.enabled && this.#channel1.dacEnabled ? 0x01 : 0) |
       (this.#channel2.enabled && this.#channel2.dacEnabled ? 0x02 : 0) |

@@ -198,15 +198,19 @@ const INTERRUPT_BITS: Record<InterruptType, number> = {
 export class Cpu {
   state: CpuState = createDefaultCpuState();
   #doubleSpeed = false;
-  #bus: CpuBusPort | null = null;
+  #bus: CpuBusPort;
   #instructionView = new Uint8Array(MEMORY_SIZE);
   #pendingExtraCycles = 0;
-  #imeEnableDelay = 0;
+  imeEnableDelay = 0;
+
+  constructor(bus: CpuBusPort) {
+    this.#bus = bus;
+  }
 
   reset(): void {
     this.state = createDefaultCpuState();
     this.#doubleSpeed = false;
-    this.#imeEnableDelay = 0;
+    this.imeEnableDelay = 0;
     if (this.#instructionView.length !== MEMORY_SIZE) {
       this.#instructionView = new Uint8Array(MEMORY_SIZE);
     } else {
@@ -215,9 +219,7 @@ export class Cpu {
   }
 
   step(): number {
-    const bus = this.#requireBus();
-
-    const interruptServiced = this.#serviceInterruptIfNeeded(bus);
+    const interruptServiced = this.#serviceInterruptIfNeeded(this.#bus);
     if (interruptServiced) {
       const cycles = this.#consumeCycles(5);
       this.#advanceImeEnableDelay();
@@ -229,7 +231,7 @@ export class Cpu {
     }
 
     const pc = this.state.registers.pc & 0xffff;
-    this.#prefetchInstructionBytes(bus, pc);
+    this.#prefetchInstructionBytes(this.#bus, pc);
     const instruction = disassembleInstruction(this.#instructionView, pc);
     if (instruction.type !== "opcode") {
       throw new Error(
@@ -244,21 +246,8 @@ export class Cpu {
     return consumed;
   }
 
-  requestInterrupt(_type: InterruptType): void {
-    // Intentionally left blank for stub implementation.
-  }
-
-  clearInterrupt(_type: InterruptType): void {
-    // Intentionally left blank for stub implementation.
-  }
-
   setDoubleSpeedMode(enabled: boolean): void {
     this.#doubleSpeed = enabled;
-  }
-
-  connectBus(bus: CpuBusPort): void {
-    this.#bus = bus;
-    this.#instructionView.fill(0);
   }
 
   #serviceInterruptIfNeeded(bus: CpuBusPort): boolean {
@@ -688,7 +677,7 @@ export class Cpu {
 
     if (this.isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, description);
-      const value = this.#requireBus().readByte(reference.address, 4) & 0xff;
+      const value = this.#bus.readByte(reference.address, 4) & 0xff;
       reference.postAccess?.();
       return value;
     }
@@ -711,7 +700,7 @@ export class Cpu {
     const maskedValue = value & 0xff;
     if (this.isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, "memory target");
-      this.#requireBus().writeByte(reference.address, maskedValue, 4);
+      this.#bus.writeByte(reference.address, maskedValue, 4);
       reference.postAccess?.();
       return;
     }
@@ -894,55 +883,18 @@ export class Cpu {
   }
 
   readRegister8(name: string): number {
-    const registers = this.state.registers;
-    switch (name) {
-      case "A":
-        return registers.a & 0xff;
-      case "B":
-        return registers.b & 0xff;
-      case "C":
-        return registers.c & 0xff;
-      case "D":
-        return registers.d & 0xff;
-      case "E":
-        return registers.e & 0xff;
-      case "H":
-        return registers.h & 0xff;
-      case "L":
-        return registers.l & 0xff;
-      default:
-        throw new Error(`Unsupported 8-bit register ${name}`);
-    }
+    if (!EIGHT_BIT_REGISTERS.has(name))
+      throw new Error(`Unsupported 8-bit register ${name}`);
+    return (
+      this.state.registers[name.toLowerCase() as keyof CpuRegisters] & 0xff
+    );
   }
 
   writeRegister8(name: string, value: number): void {
-    const registers = this.state.registers;
     const masked = value & 0xff;
-    switch (name) {
-      case "A":
-        registers.a = masked;
-        return;
-      case "B":
-        registers.b = masked;
-        return;
-      case "C":
-        registers.c = masked;
-        return;
-      case "D":
-        registers.d = masked;
-        return;
-      case "E":
-        registers.e = masked;
-        return;
-      case "H":
-        registers.h = masked;
-        return;
-      case "L":
-        registers.l = masked;
-        return;
-      default:
-        throw new Error(`Unsupported 8-bit register ${name}`);
-    }
+    if (!EIGHT_BIT_REGISTERS.has(name))
+      throw new Error(`Unsupported 8-bit register ${name}`);
+    this.state.registers[name.toLowerCase() as keyof CpuRegisters] = masked;
   }
 
   readRegisterPairByName(name: string): number {
@@ -1100,27 +1052,28 @@ export class Cpu {
   }
 
   writeWordToAddress(address: number, value: number): void {
-    const bus = this.#requireBus();
     const targetAddress = address & 0xffff;
-    bus.writeByte(targetAddress, value & 0xff, 4);
-    bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff, 8);
+    this.#bus.writeByte(targetAddress, value & 0xff, 4);
+    this.#bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff, 8);
   }
 
   pushWord(value: number, firstWriteTicksAhead = 0): void {
-    const bus = this.#requireBus();
     const registers = this.state.registers;
     registers.sp = (registers.sp - 1) & 0xffff;
-    bus.writeByte(registers.sp, (value >> 8) & 0xff, firstWriteTicksAhead);
+    this.#bus.writeByte(
+      registers.sp,
+      (value >> 8) & 0xff,
+      firstWriteTicksAhead,
+    );
     registers.sp = (registers.sp - 1) & 0xffff;
-    bus.writeByte(registers.sp, value & 0xff, firstWriteTicksAhead + 4);
+    this.#bus.writeByte(registers.sp, value & 0xff, firstWriteTicksAhead + 4);
   }
 
   popWord(firstReadTicksAhead = 0): number {
-    const bus = this.#requireBus();
     const registers = this.state.registers;
-    const low = bus.readByte(registers.sp, firstReadTicksAhead);
+    const low = this.#bus.readByte(registers.sp, firstReadTicksAhead);
     registers.sp = (registers.sp + 1) & 0xffff;
-    const high = bus.readByte(registers.sp, firstReadTicksAhead + 4);
+    const high = this.#bus.readByte(registers.sp, firstReadTicksAhead + 4);
     registers.sp = (registers.sp + 1) & 0xffff;
     return ((high << 8) | low) & 0xffff;
   }
@@ -1132,10 +1085,6 @@ export class Cpu {
 
   setProgramCounter(value: number): void {
     this.state.registers.pc = value & 0xffff;
-  }
-
-  setImeEnableDelay(value: number): void {
-    this.#imeEnableDelay = value;
   }
 
   #computeInstructionCycles(instruction: OpcodeInstruction): number {
@@ -1153,19 +1102,12 @@ export class Cpu {
     return adjusted;
   }
 
-  #requireBus(): CpuBusPort {
-    if (!this.#bus) {
-      throw new Error("CPU is not connected to a bus");
-    }
-    return this.#bus;
-  }
-
   #advanceImeEnableDelay(): void {
-    if (this.#imeEnableDelay === 0) {
+    if (this.imeEnableDelay === 0) {
       return;
     }
-    this.#imeEnableDelay -= 1;
-    if (this.#imeEnableDelay === 0) {
+    this.imeEnableDelay -= 1;
+    if (this.imeEnableDelay === 0) {
       this.state.ime = true;
     }
   }

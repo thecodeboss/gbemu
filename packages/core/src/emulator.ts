@@ -221,8 +221,8 @@ export class Emulator {
     this.#running = true;
     this.apu.clearAudioBuffers();
     this.#audioRemainder = 0;
-    this.#lastAudioTimestamp = this.#now();
     const now = this.#now();
+    this.#lastAudioTimestamp = now;
     this.#nextFrameTimestamp = now;
     this.#scheduleNextFrame();
     this.#callbacks?.onLog?.("Emulator started.");
@@ -575,10 +575,10 @@ export interface EmulatorInitOptions {
 
 export function createEmulator(options: EmulatorInitOptions): Emulator {
   const clock = new Clock();
-  const cpu = new Cpu();
-  const ppu = new Ppu();
-  const apu = new Apu();
   const bus = new SystemBus();
+  const cpu = new Cpu(bus);
+  const ppu = new Ppu(bus);
+  const apu = new Apu(bus);
   const mbcFactory = new MbcFactory();
   const emulator = new Emulator({
     clock,
@@ -589,22 +589,14 @@ export function createEmulator(options: EmulatorInitOptions): Emulator {
     mbcFactory,
   });
 
-  cpu.connectBus(bus);
-  ppu.connectBus(bus);
-  apu.connectBus(bus);
-
   emulator.initialize({
-    callbacks: options.callbacks,
+    ...options,
     clock,
     cpu,
     ppu,
     apu,
     bus,
     mbcFactory,
-    audioBufferSize: options.audioBufferSize,
-    audioSampleRate: options.audioSampleRate,
   });
   return emulator;
 }
-
-export const createStubEmulator = createEmulator;

@@ -40,6 +40,7 @@ pnpm lint   # runs `eslint . --fix` then `prettier --cache --write .` (expect sa
 ### `@gbemu/core` (`packages/core`)
 
 - Exposes TypeScript interfaces for CPU, PPU, APU, system buses, clocks, cartridges (`mbc.ts`), and the overarching `Emulator` contract (`emulator.ts`).
+- `Cpu`, `Ppu`, and `Apu` now require a `SystemBus` in their constructors; there is no separate connect step (wired up in `createEmulator`).
 - `runtime.ts` defines the message protocol shared between workers and the host (`EmulatorWorkerRequestMap`, `EmulatorWorkerEventMap`).
 - `input.ts` houses joypad primitives (`JoypadInputState`, `JoypadButton`, helpers) and feeds `Emulator#setInputState`, which writes the active state into P1 ($FF00) via the system bus and raises the joypad interrupt on high→low transitions of P10–P13.
 - `emulator.ts` currently holds the stubbed `Emulator` class that:

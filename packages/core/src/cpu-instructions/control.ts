@@ -7,7 +7,7 @@ export function executeDi(
   nextPc: number,
 ): void {
   cpu.state.ime = false;
-  cpu.setImeEnableDelay(0);
+  cpu.imeEnableDelay = 0;
   cpu.setProgramCounter(nextPc);
 }
 
@@ -16,7 +16,7 @@ export function executeEi(
   _instruction: OpcodeInstruction,
   nextPc: number,
 ): void {
-  cpu.setImeEnableDelay(2);
+  cpu.imeEnableDelay = 2;
   cpu.setProgramCounter(nextPc);
 }
 

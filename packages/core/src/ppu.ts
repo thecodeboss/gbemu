@@ -71,7 +71,7 @@ export class Ppu {
       DEFAULT_SCREEN_WIDTH * DEFAULT_SCREEN_HEIGHT * 4,
     ),
   };
-  #bus: SystemBus | null = null;
+  #bus: SystemBus;
   #currentMode: PpuMode = "vblank";
   #lineDot = 0;
   #ly = 0;
@@ -83,7 +83,7 @@ export class Ppu {
   #xferX = 0;
   #windowLineForScanline = 0;
 
-  connectBus(bus: SystemBus): void {
+  constructor(bus: SystemBus) {
     this.#bus = bus;
   }
 
@@ -104,7 +104,7 @@ export class Ppu {
   }
 
   tick(cycles: number): void {
-    if (!this.#bus || cycles <= 0) {
+    if (cycles <= 0) {
       return;
     }
 
@@ -162,15 +162,12 @@ export class Ppu {
     return {
       mode: this.#currentMode,
       ly: this.#ly,
-      lyc: this.#bus?.readByte(LYC_ADDRESS) ?? 0,
+      lyc: this.#bus.readByte(LYC_ADDRESS),
       lcdEnabled: this.#isLcdEnabled(),
     };
   }
 
   #isLcdEnabled(): boolean {
-    if (!this.#bus) {
-      return false;
-    }
     const lcdc = this.#bus.readByte(LCDC_ADDRESS);
     return (lcdc & LCDC_ENABLE_FLAG) !== 0;
   }
@@ -203,9 +200,6 @@ export class Ppu {
   }
 
   #ensureLcdcEnabled(): void {
-    if (!this.#bus) {
-      return;
-    }
     const lcdc = this.#bus.readByte(LCDC_ADDRESS);
     if ((lcdc & LCDC_ENABLE_FLAG) === 0) {
       this.#bus.writeByte(LCDC_ADDRESS, lcdc | LCDC_ENABLE_FLAG);
@@ -266,7 +260,7 @@ export class Ppu {
 
   #renderXferDots(dots: number): void {
     const bus = this.#bus;
-    if (!bus || dots <= 0) {
+    if (dots <= 0) {
       return;
     }
     const ly = this.#ly;
@@ -330,9 +324,6 @@ export class Ppu {
 
   #finalizeScanline(): void {
     const bus = this.#bus;
-    if (!bus) {
-      return;
-    }
     const lcdc = bus.readByte(LCDC_ADDRESS);
 
     if (
@@ -351,9 +342,6 @@ export class Ppu {
   }
 
   #updateWindowLineCounter(lcdc: number): void {
-    if (!this.#bus) {
-      return;
-    }
     const wy = this.#bus.readByte(WY_ADDRESS);
     const rawWx = this.#bus.readByte(WX_ADDRESS);
     const windowEnabled = (lcdc & LCDC_WINDOW_ENABLE_FLAG) !== 0;
@@ -372,9 +360,6 @@ export class Ppu {
   }): void {
     const { lcdc, objPalette0, objPalette1 } = params;
     const bus = this.#bus;
-    if (!bus) {
-      return;
-    }
     const ly = this.#ly;
     if (ly < 0 || ly >= DEFAULT_SCREEN_HEIGHT) {
       return;
@@ -450,9 +435,6 @@ export class Ppu {
     y: number,
   ): number {
     const bus = this.#bus;
-    if (!bus) {
-      return 0;
-    }
     const tileColumn = (x >> 3) & (TILE_MAP_WIDTH - 1);
     const tileRow = (y >> 3) & (TILE_MAP_WIDTH - 1);
     const tileIndexAddress =
@@ -475,9 +457,6 @@ export class Ppu {
 
   #decodePalette(address: number): [number, number, number, number] {
     const bus = this.#bus;
-    if (!bus) {
-      return [0, 1, 2, 3];
-    }
     const value = bus.readByte(address);
     const palette: [number, number, number, number] = [0, 0, 0, 0];
     for (let i = 0; i < 4; i += 1) {
@@ -496,9 +475,7 @@ export class Ppu {
 
   #writeLyRegister(value: number): void {
     this.#ly = value % TOTAL_SCANLINES;
-    if (this.#bus) {
-      this.#bus.writeByte(LY_ADDRESS, this.#ly);
-    }
+    this.#bus.writeByte(LY_ADDRESS, this.#ly);
     this.#updateLyCompareFlag();
   }
 
@@ -512,9 +489,6 @@ export class Ppu {
   }
 
   #writeStatModeBits(): void {
-    if (!this.#bus) {
-      return;
-    }
     const modeValue = this.#modeToBits(this.#currentMode);
     const stat = this.#bus.readByte(STAT_ADDRESS);
     const next = (stat & ~STAT_MODE_BITS_MASK) | modeValue;
@@ -537,9 +511,6 @@ export class Ppu {
   }
 
   #handleModeInterrupts(mode: PpuMode): void {
-    if (!this.#bus) {
-      return;
-    }
     const stat = this.#bus.readByte(STAT_ADDRESS);
     switch (mode) {
       case "hblank":
@@ -567,13 +538,10 @@ export class Ppu {
   }
 
   #requestInterrupt(type: InterruptType): void {
-    this.#bus?.requestInterrupt(type);
+    this.#bus.requestInterrupt(type);
   }
 
   #updateLyCompareFlag(): void {
-    if (!this.#bus) {
-      return;
-    }
     const lyc = this.#bus.readByte(LYC_ADDRESS);
     const match = this.#ly === lyc;
     const stat = this.#bus.readByte(STAT_ADDRESS);
