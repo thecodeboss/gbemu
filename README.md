@@ -4,6 +4,8 @@ Game Boy / Game Boy Color emulator project structured as a pnpm workspace. The r
 
 The web UI launches the emulator inside a dedicated Web Worker via Comlink, so the main thread stays focused on rendering and input while the worker handles emulation, audio, and save events.
 
+The core emulator accepts a `mode` option (`dmg` default, `cgb` for Color) so hosts can boot with CGB palette RAM/attribute maps, VRAM+WRAM banking, sprite palette/bank selection, and double-speed toggling via KEY1+STOP.
+
 ## Prerequisites
 
 - Node.js 20+

@@ -47,9 +47,9 @@ export interface EmulatorOptions {
   apu: Apu;
   bus: SystemBus;
   mbcFactory: MbcFactory;
-  bootRom?: Uint8Array;
   audioBufferSize?: number;
   audioSampleRate?: number;
+  mode?: EmulatorMode;
 }
 
 export interface EmulatorStateSnapshot {
@@ -60,6 +60,8 @@ export interface EmulatorStateSnapshot {
   clock: unknown;
   mbc: unknown;
 }
+
+export type EmulatorMode = "dmg" | "cgb";
 
 export interface EmulatorCpuDebugState {
   registers: CpuRegisters;
@@ -82,7 +84,6 @@ interface EmulatorDependencies {
 const DEFAULT_AUDIO_BUFFER_FRAMES = 1024;
 const DEFAULT_OUTPUT_SAMPLE_RATE = 44_100;
 const MASTER_CLOCK_HZ = 4_194_304;
-const CPU_CYCLES_PER_FRAME = Clock.FRAME_CYCLES / 4;
 const FRAME_DURATION_MS = (Clock.FRAME_CYCLES / MASTER_CLOCK_HZ) * 1000;
 const SAVE_FLUSH_DELAY_MS = 200;
 
@@ -95,6 +96,7 @@ export class Emulator {
 
   #callbacks: EmulatorCallbacks | null = null;
   #audioBufferSize = DEFAULT_AUDIO_BUFFER_FRAMES;
+  #mode: EmulatorMode = "dmg";
   #romInfo: EmulatorRomInfo | null = null;
   #romData: Uint8Array | null = null;
   #saveData: SavePayload | null = null;
@@ -131,6 +133,7 @@ export class Emulator {
       options.audioBufferSize ?? DEFAULT_AUDIO_BUFFER_FRAMES;
     this.#audioSampleRate =
       options.audioSampleRate ?? DEFAULT_OUTPUT_SAMPLE_RATE;
+    this.#mode = options.mode ?? "dmg";
     this.#audioRemainder = 0;
     this.#lastAudioTimestamp = null;
     this.apu.setOutputSampleRate(this.#audioSampleRate);
@@ -142,11 +145,28 @@ export class Emulator {
     this.#saveData = null;
     this.#romData = rom.slice();
     this.#romInfo = parseRomInfo(rom);
+    const cgbFlag = this.#romInfo?.cgbFlag ?? 0;
+    const supportsCgb = (cgbFlag & 0x80) !== 0;
+    const cgbOnly = (cgbFlag & 0xc0) === 0xc0;
+    const cgbMode = this.#mode === "cgb" && supportsCgb;
+    if (this.#mode === "cgb" && !supportsCgb) {
+      this.#callbacks?.onLog?.("ROM not marked CGB; running in DMG mode.");
+    }
+    if (this.#mode === "dmg" && cgbOnly) {
+      this.#callbacks?.onLog?.("CGB-only ROM loaded on DMG mode; behavior may be incorrect.");
+    }
+
     const ramSize = this.#romInfo?.ramSize ?? 0;
     const cartridgeType = this.#mbcFactory.detect(rom);
     this.#mbc = this.#mbcFactory.create(cartridgeType, rom, ramSize, {
       onRamWrite: () => this.#scheduleSaveFlush(),
     });
+    this.bus.setSystemMode(this.#mode, cgbMode);
+    this.ppu.setSystemMode(
+      this.#mode,
+      cgbMode,
+      this.bus.getTicksPerCpuCycle(),
+    );
     this.bus.loadCartridge(rom, this.#mbc);
     this.bus.setJoypadState(this.#inputState);
     this.cpu.reset();
@@ -333,7 +353,8 @@ export class Emulator {
 
   #runFrame(): void {
     const targetFrame = this.#frameCount + 1;
-    const maxCycles = CPU_CYCLES_PER_FRAME * 2;
+    const cyclesPerFrame = this.#cpuCyclesPerFrame();
+    const maxCycles = cyclesPerFrame * 2;
     let accumulatedCycles = 0;
 
     while (this.#frameCount < targetFrame) {
@@ -405,6 +426,14 @@ export class Emulator {
     this.pause();
     this.#callbacks?.onBreakpointHit?.(pc);
     return true;
+  }
+
+  #cpuCyclesPerFrame(): number {
+    const ticksPerCpu = this.bus.getTicksPerCpuCycle();
+    if (ticksPerCpu <= 0) {
+      return Clock.FRAME_CYCLES / 4;
+    }
+    return Clock.FRAME_CYCLES / ticksPerCpu;
   }
 
   #refreshBreakpointLatch(): void {
@@ -571,6 +600,7 @@ export interface EmulatorInitOptions {
   callbacks: EmulatorCallbacks;
   audioBufferSize?: number;
   audioSampleRate?: number;
+  mode?: EmulatorMode;
 }
 
 export function createEmulator(options: EmulatorInitOptions): Emulator {

@@ -39,7 +39,5 @@ export function executeStop(
   _instruction: OpcodeInstruction,
   nextPc: number,
 ): void {
-  cpu.state.stopped = true;
-  cpu.state.halted = true;
-  cpu.setProgramCounter(nextPc);
+  cpu.handleStop(nextPc);
 }

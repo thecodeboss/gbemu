@@ -46,6 +46,8 @@ export interface CpuBusPort {
   readWord(address: number): number;
   writeWord(address: number, value: number): void;
   dmaTransfer(source: number): void;
+  handleStop(): boolean;
+  isDoubleSpeed(): boolean;
 }
 
 function createDefaultCpuState(): CpuState {
@@ -96,6 +98,20 @@ export class Cpu {
     } else {
       this.#instructionView.fill(0);
     }
+  }
+
+  handleStop(nextPc: number): void {
+    const switched = this.#bus.handleStop();
+    if (switched) {
+      this.setDoubleSpeedMode(this.#bus.isDoubleSpeed());
+      this.state.stopped = false;
+      this.state.halted = false;
+      this.setProgramCounter(nextPc);
+      return;
+    }
+    this.state.stopped = true;
+    this.state.halted = true;
+    this.setProgramCounter(nextPc);
   }
 
   step(): number {

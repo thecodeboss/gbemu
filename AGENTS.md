@@ -42,6 +42,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 - `Cpu`, `Ppu`, and `Apu` require a `SystemBus` in their constructors; there is no separate connect step.
 - `runtime.ts` defines the message protocol shared between workers and the host (`EmulatorWorkerRequestMap`, `EmulatorWorkerEventMap`).
 - `input.ts` houses joypad primitives (`JoypadInputState`, `JoypadButton`, helpers); `Emulator#setInputState` writes the active state into P1 ($FF00) via the system bus and raises the joypad interrupt on high→low transitions of P10–P13.
+- `EmulatorOptions`/`createEmulator` accept a `mode` (`"dmg"` default or `"cgb"`); CGB mode turns on VRAM/WRAM banking (VBK/SVBK), CGB palette RAM (BCPS/BCPD/OCPS/OCPD) and attr-map rendering, sprite palette/bank selection, HDMA register handling (general/HBlank transfers currently execute immediately), and double-speed toggling via KEY1+STOP.
 - Emulator highlights:
   - CPU executes the decoded opcode tables (prefetches instruction bytes, handles HALT/STOP/IME/interrupt servicing, honours conditional jump/call/ret timings, and consumes the per-opcode cycle counts).
   - `SystemBus` seeds DMG power-on register defaults (`$FF00`–`$FFFF`), mirrors ROM/RAM windows via the active MBC, drives DIV/TIMA/TMA/TAC each T-cycle (falling-edge timer increments + delayed TIMA reload/interrupt), handles joypad state + interrupts, and schedules OAM DMA over 640 + 4 T-cycles while blocking OAM accesses.

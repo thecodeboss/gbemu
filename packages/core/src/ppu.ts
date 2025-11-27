@@ -2,6 +2,8 @@ import { InterruptType } from "./cpu-instructions/constants.js";
 import { SystemBus } from "./bus.js";
 import { DMG_PALETTE } from "./palette.js";
 
+type HardwareMode = "dmg" | "cgb";
+
 export const DEFAULT_SCREEN_WIDTH = 160;
 export const DEFAULT_SCREEN_HEIGHT = 144;
 
@@ -84,9 +86,23 @@ export class Ppu {
   #windowLineForScanline = 0;
   #mode3DurationDots = MODE3_XFER_DOTS;
   #modeEndDot = MODE2_OAM_DOTS;
+  #hardwareMode: HardwareMode = "dmg";
+  #cgbMode = false;
+  #dotsPerCpuCycle = DOTS_PER_CPU_CYCLE;
+  #bgPriorityFlags = new Uint8Array(DEFAULT_SCREEN_WIDTH);
 
   constructor(bus: SystemBus) {
     this.#bus = bus;
+  }
+
+  setSystemMode(
+    hardwareMode: HardwareMode,
+    cgbMode: boolean,
+    dotsPerCpuCycle?: number,
+  ): void {
+    this.#hardwareMode = hardwareMode;
+    this.#cgbMode = cgbMode;
+    this.#dotsPerCpuCycle = dotsPerCpuCycle ?? DOTS_PER_CPU_CYCLE;
   }
 
   reset(): void {
@@ -103,6 +119,7 @@ export class Ppu {
     this.#xferX = 0;
     this.#windowLineForScanline = 0;
     this.#bgLineColorIndices.fill(0);
+    this.#bgPriorityFlags.fill(0);
   }
 
   tick(cycles: number): void {
@@ -110,6 +127,7 @@ export class Ppu {
       return;
     }
 
+    this.#dotsPerCpuCycle = this.#bus.getTicksPerCpuCycle();
     this.#updateLyCompareFlag();
 
     if (!this.#isLcdEnabled()) {
@@ -121,7 +139,7 @@ export class Ppu {
       this.#onLcdEnabled();
     }
 
-    let remainingDots = cycles * DOTS_PER_CPU_CYCLE;
+    let remainingDots = cycles * this.#dotsPerCpuCycle;
 
     while (remainingDots > 0) {
       const dotsUntilTransition = this.#dotsUntilNextTransition();
@@ -190,6 +208,7 @@ export class Ppu {
     this.#windowLineForScanline = 0;
     this.#mode3DurationDots = MODE3_XFER_DOTS;
     this.#modeEndDot = MODE2_OAM_DOTS;
+    this.#bgPriorityFlags.fill(0);
   }
 
   #onLcdEnabled(): void {
@@ -203,6 +222,7 @@ export class Ppu {
     this.#windowLineForScanline = 0;
     this.#mode3DurationDots = MODE3_XFER_DOTS;
     this.#modeEndDot = MODE2_OAM_DOTS;
+    this.#bgPriorityFlags.fill(0);
   }
 
   #ensureLcdcEnabled(): void {
@@ -257,6 +277,7 @@ export class Ppu {
     this.#xferX = 0;
     this.#windowLineForScanline = this.#windowLineCounter & 0xff;
     this.#bgLineColorIndices.fill(0);
+    this.#bgPriorityFlags.fill(0);
   }
 
   #renderXferDots(dots: number): void {
@@ -275,6 +296,7 @@ export class Ppu {
 
     const lcdc = bus.readByte(LCDC_ADDRESS);
     const bgEnabled = (lcdc & LCDC_BG_ENABLE_FLAG) !== 0;
+    const bgMasterEnabled = this.#cgbMode ? true : bgEnabled;
     const windowEnabled = (lcdc & LCDC_WINDOW_ENABLE_FLAG) !== 0;
     const useTileData8000 = (lcdc & LCDC_TILE_DATA_FLAG) !== 0;
     const bgTileMapBase =
@@ -298,9 +320,10 @@ export class Ppu {
         continue;
       }
 
-      if (!bgEnabled) {
+      if (!bgMasterEnabled) {
         this.#bgLineColorIndices[x] = 0;
-        this.#writePixel(baseOffset + x * 4, bgPalette[0]);
+        this.#bgPriorityFlags[x] = 0;
+        this.#writePixel(baseOffset + x * 4, DMG_PALETTE[bgPalette[0]]);
         continue;
       }
 
@@ -310,16 +333,40 @@ export class Ppu {
       const sourceX = useWindow ? (x - wx) & 0xff : (scx + x) & 0xff;
       const sourceY = useWindow ? windowLine : (scy + ly) & 0xff;
       const tileMapBase = useWindow ? windowTileMapBase : bgTileMapBase;
+      const tileColumn = (sourceX >> 3) & (TILE_MAP_WIDTH - 1);
+      const tileRow = (sourceY >> 3) & (TILE_MAP_WIDTH - 1);
+      const tileIndexAddress =
+        tileMapBase + tileRow * TILE_MAP_WIDTH + tileColumn;
+      const tileNumber = this.#cgbMode
+        ? bus.readVram(tileIndexAddress, 0)
+        : bus.readByte(tileIndexAddress);
+      const attrs = this.#cgbMode
+        ? bus.readVram(tileIndexAddress, 1)
+        : 0;
+      const paletteIndex = this.#cgbMode ? attrs & 0x07 : 0;
+      const tileBank = this.#cgbMode ? (attrs & 0x08) >> 3 : 0;
+      const xFlip = this.#cgbMode && (attrs & 0x20) !== 0;
+      const yFlip = this.#cgbMode && (attrs & 0x40) !== 0;
+      const bgPriority = this.#cgbMode && (attrs & 0x80) !== 0;
+      const tileX = xFlip ? 7 - (sourceX & 0x07) : sourceX & 0x07;
+      const tileY = yFlip ? 7 - (sourceY & 0x07) : sourceY & 0x07;
       const colorBits = this.#sampleTilePixel(
-        tileMapBase,
+        tileNumber,
         useTileData8000,
-        sourceX,
-        sourceY,
+        tileX,
+        tileY,
+        tileBank,
       );
-      const shade = bgPalette[colorBits];
       const offset = baseOffset + x * 4;
       this.#bgLineColorIndices[x] = colorBits;
-      this.#writePixel(offset, shade);
+      this.#bgPriorityFlags[x] = bgPriority ? 1 : 0;
+      if (this.#cgbMode) {
+        const color = this.#bus.getBgPaletteColor(paletteIndex, colorBits);
+        this.#writePixel(offset, color);
+      } else {
+        const shade = bgPalette[colorBits];
+        this.#writePixel(offset, DMG_PALETTE[shade]);
+      }
     }
   }
 
@@ -334,8 +381,12 @@ export class Ppu {
     ) {
       this.#renderSprites({
         lcdc,
-        objPalette0: this.#decodePalette(OBP0_ADDRESS),
-        objPalette1: this.#decodePalette(OBP1_ADDRESS),
+        objPalette0: this.#cgbMode
+          ? undefined
+          : this.#decodePalette(OBP0_ADDRESS),
+        objPalette1: this.#cgbMode
+          ? undefined
+          : this.#decodePalette(OBP1_ADDRESS),
       });
     }
 
@@ -391,8 +442,8 @@ export class Ppu {
 
   #renderSprites(params: {
     lcdc: number;
-    objPalette0: [number, number, number, number];
-    objPalette1: [number, number, number, number];
+    objPalette0?: [number, number, number, number];
+    objPalette1?: [number, number, number, number];
   }): void {
     const { lcdc, objPalette0, objPalette1 } = params;
     const bus = this.#bus;
@@ -400,31 +451,69 @@ export class Ppu {
     if (ly < 0 || ly >= DEFAULT_SCREEN_HEIGHT) {
       return;
     }
+
     const spriteHeight = (lcdc & LCDC_OBJ_SIZE_FLAG) !== 0 ? 16 : 8;
     const width = this.#framebuffer.width;
     const baseOffset = ly * width * 4;
-    let spritesRendered = 0;
+    const sprites: Array<{
+      oamIndex: number;
+      x: number;
+      y: number;
+      tileIndex: number;
+      attributes: number;
+    }> = [];
 
     for (let index = 0; index < 40; index += 1) {
       const oamAddress = 0xfe00 + index * 4;
       const spriteY = bus.readByte(oamAddress) - 16;
       const spriteX = bus.readByte(oamAddress + 1) - 8;
-      let tileIndex = bus.readByte(oamAddress + 2);
+      const tileIndex = bus.readByte(oamAddress + 2);
       const attributes = bus.readByte(oamAddress + 3);
+
+      if (spriteX >= 168) {
+        continue;
+      }
 
       if (ly < spriteY || ly >= spriteY + spriteHeight) {
         continue;
       }
 
-      if (spritesRendered >= MAX_SPRITES_PER_LINE) {
+      sprites.push({
+        oamIndex: index,
+        x: spriteX,
+        y: spriteY,
+        tileIndex,
+        attributes,
+      });
+
+      if (sprites.length >= MAX_SPRITES_PER_LINE) {
         break;
       }
-      spritesRendered += 1;
+    }
 
-      let line = ly - spriteY;
+    const renderOrder = this.#cgbMode
+      ? sprites
+      : sprites.sort((a, b) => {
+          if (a.x === b.x) {
+            return a.oamIndex - b.oamIndex;
+          }
+          return a.x - b.x;
+        });
+
+    for (const sprite of renderOrder) {
+      let { tileIndex } = sprite;
+      const { attributes } = sprite;
+      let line = ly - sprite.y;
       const yFlip = (attributes & 0x40) !== 0;
       const xFlip = (attributes & 0x20) !== 0;
       const bgPriority = (attributes & 0x80) !== 0;
+      const tileBank = this.#cgbMode ? (attributes & 0x08) >> 3 : 0;
+      const paletteIndex = this.#cgbMode
+        ? attributes & 0x07
+        : (attributes & 0x10) !== 0
+          ? 1
+          : 0;
+
       if (yFlip) {
         line = spriteHeight - 1 - line;
       }
@@ -435,58 +524,83 @@ export class Ppu {
 
       const tileOffset = Math.floor(line / TILE_HEIGHT);
       const tileLine = line % TILE_HEIGHT;
-      const tileBase = 0x8000 + (tileIndex + tileOffset) * TILE_STRIDE;
-      const rowAddress = tileBase + tileLine * 2;
-      const low = bus.readByte(rowAddress);
-      const high = bus.readByte(rowAddress + 1);
-      const palette = (attributes & 0x10) !== 0 ? objPalette1 : objPalette0;
+      const activeTile = tileIndex + tileOffset;
 
       for (let pixel = 0; pixel < 8; pixel += 1) {
-        const targetX = spriteX + pixel;
+        const targetX = sprite.x + pixel;
         if (targetX < 0 || targetX >= width) {
           continue;
         }
 
-        const bitIndex = xFlip ? pixel : 7 - pixel;
-        const colorBits =
-          (((high >> bitIndex) & 0x01) << 1) | ((low >> bitIndex) & 0x01);
+        const tileX = xFlip ? 7 - pixel : pixel;
+        const colorBits = this.#sampleTilePixel(
+          activeTile,
+          true,
+          tileX,
+          tileLine,
+          tileBank,
+        );
         if (colorBits === 0) {
           continue;
         }
-        if (bgPriority && this.#bgLineColorIndices[targetX] !== 0) {
-          continue;
+
+        const bgColor = this.#bgLineColorIndices[targetX] ?? 0;
+        const bgPriorityFlag = this.#bgPriorityFlags[targetX] !== 0;
+        const masterBgPriority = (lcdc & LCDC_BG_ENABLE_FLAG) !== 0;
+
+        if (!this.#cgbMode) {
+          if (bgPriority && bgColor !== 0) {
+            continue;
+          }
+        } else {
+          if (
+            bgColor !== 0 &&
+            masterBgPriority &&
+            (bgPriorityFlag || bgPriority)
+          ) {
+            continue;
+          }
         }
 
-        const shade = palette[colorBits];
         const offset = baseOffset + targetX * 4;
-        this.#writePixel(offset, shade);
+        if (this.#cgbMode) {
+          const color = this.#bus.getObjPaletteColor(
+            paletteIndex,
+            colorBits,
+          );
+          this.#writePixel(offset, color);
+        } else {
+          const palette = paletteIndex === 1 ? objPalette1 : objPalette0;
+          const shade = palette?.[colorBits] ?? 0;
+          this.#writePixel(offset, DMG_PALETTE[shade]);
+        }
       }
     }
   }
 
   #sampleTilePixel(
-    tileMapBase: number,
+    tileNumber: number,
     useTileData8000: boolean,
     x: number,
     y: number,
+    vramBank: number,
   ): number {
     const bus = this.#bus;
-    const tileColumn = (x >> 3) & (TILE_MAP_WIDTH - 1);
-    const tileRow = (y >> 3) & (TILE_MAP_WIDTH - 1);
-    const tileIndexAddress =
-      tileMapBase + tileRow * TILE_MAP_WIDTH + tileColumn;
-    let tileNumber = bus.readByte(tileIndexAddress);
     let tileAddress: number;
     if (useTileData8000) {
       tileAddress = 0x8000 + tileNumber * TILE_STRIDE;
     } else {
-      tileNumber = (tileNumber << 24) >> 24;
-      tileAddress = 0x9000 + tileNumber * TILE_STRIDE;
+      const signedTileNumber = (tileNumber << 24) >> 24;
+      tileAddress = 0x9000 + signedTileNumber * TILE_STRIDE;
     }
     const line = y & 0x07;
     const base = tileAddress + line * 2;
-    const low = bus.readByte(base);
-    const high = bus.readByte(base + 1);
+    const low = this.#cgbMode
+      ? bus.readVram(base, vramBank)
+      : bus.readByte(base);
+    const high = this.#cgbMode
+      ? bus.readVram(base + 1, vramBank)
+      : bus.readByte(base + 1);
     const bitIndex = 7 - (x & 0x07);
     return (((high >> bitIndex) & 0x01) << 1) | ((low >> bitIndex) & 0x01);
   }
@@ -501,8 +615,7 @@ export class Ppu {
     return palette;
   }
 
-  #writePixel(offset: number, shade: number): void {
-    const color = DMG_PALETTE[shade & 0x03];
+  #writePixel(offset: number, color: [number, number, number, number]): void {
     this.#framebuffer.data[offset] = color[0];
     this.#framebuffer.data[offset + 1] = color[1];
     this.#framebuffer.data[offset + 2] = color[2];
@@ -522,6 +635,9 @@ export class Ppu {
     this.#currentMode = nextMode;
     this.#writeStatModeBits();
     this.#handleModeInterrupts(nextMode);
+    if (nextMode === "hblank") {
+      this.#bus.handleHblankHdma();
+    }
   }
 
   #writeStatModeBits(): void {
