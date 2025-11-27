@@ -7,6 +7,7 @@ import {
   SavePayload,
   VideoFrame,
   JoypadInputState,
+  EmulatorMode,
 } from "@gbemu/core";
 import * as Comlink from "comlink";
 import { Remote } from "comlink";
@@ -24,12 +25,14 @@ export interface WorkerInitializeOptions {
   callbacksPort: MessagePort;
   audioBufferSize?: number;
   audioSampleRate?: number;
+  mode?: EmulatorMode;
 }
 
 export interface EmulatorFactoryContext {
   callbacks: EmulatorCallbacks;
   audioBufferSize?: number;
   audioSampleRate?: number;
+  mode: EmulatorMode;
 }
 
 export type EmulatorFactory = (
@@ -47,6 +50,7 @@ export interface EmulatorWorkerApi {
   stepInstruction(): Promise<void>;
   setBreakpoints(message: { offsets: number[] }): Promise<void>;
   setInputState(message: { state: JoypadInputState }): Promise<void>;
+  setMode(message: { mode: EmulatorMode }): Promise<void>;
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
@@ -63,6 +67,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
   let audioBufferSize: number | undefined;
   let audioSampleRate: number | undefined;
   let callbacksPort: MessagePort | null = null;
+  let currentMode: EmulatorMode = "dmg";
 
   async function ensureEmulator(): Promise<Emulator> {
     if (isDisposed) {
@@ -81,6 +86,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
         callbacks: emulatorCallbacks,
         audioBufferSize,
         audioSampleRate,
+        mode: currentMode,
       });
     }
 
@@ -94,6 +100,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
       callbacksPort.start();
       audioBufferSize = options.audioBufferSize;
       audioSampleRate = options.audioSampleRate;
+      currentMode = options.mode ?? "dmg";
     },
 
     async loadRom(message): Promise<void> {
@@ -139,6 +146,13 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
     async setInputState(message: { state: JoypadInputState }): Promise<void> {
       const system = await ensureEmulator();
       system.setInputState(message.state);
+    },
+
+    async setMode(message: { mode: EmulatorMode }): Promise<void> {
+      currentMode = message.mode;
+      if (emulator) {
+        emulator.setMode(currentMode);
+      }
     },
 
     async dispose(): Promise<void> {

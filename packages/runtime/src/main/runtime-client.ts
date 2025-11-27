@@ -3,6 +3,7 @@ import {
   EmulatorRomInfo,
   SavePayload,
   JoypadInputState,
+  EmulatorMode,
 } from "@gbemu/core";
 import * as Comlink from "comlink";
 import { createEmulatorAudioNode } from "../audio/node.js";
@@ -27,6 +28,7 @@ export interface RuntimeClientOptions {
   saveStorage?: SaveStorageAdapter;
   audioBufferSize?: number;
   autoPersistSaves?: boolean;
+  mode?: EmulatorMode;
   onLog?(message: string): void;
   onError?(error: unknown): void;
   onBreakpointHit?(offset: number): void;
@@ -53,6 +55,7 @@ export interface RuntimeClient {
   getMemorySnapshot(): Promise<Uint8Array>;
   dispose(): Promise<void>;
   setInputState(state: JoypadInputState): Promise<void>;
+  setMode(mode: EmulatorMode): Promise<void>;
   readonly renderer: Canvas2DRenderer;
   readonly audio: EmulatorAudioNode;
   readonly worker: Worker;
@@ -64,6 +67,7 @@ export async function createRuntimeClient(
   const autoPersistSaves = options.autoPersistSaves ?? true;
   let currentSaveKey: SaveStorageKey | null = null;
   let currentRomInfo: EmulatorRomInfo | null = null;
+  let currentMode: EmulatorMode = options.mode ?? "dmg";
 
   const worker = options.createWorker();
   const workerEndpoint = Comlink.wrap<EmulatorWorkerApi>(worker);
@@ -119,6 +123,7 @@ export async function createRuntimeClient(
         callbacksPort: callbackChannel.port2,
         audioBufferSize: options.audioBufferSize,
         audioSampleRate: options.audioContext.sampleRate,
+        mode: currentMode,
       },
       [callbackChannel.port2],
     ),
@@ -129,6 +134,7 @@ export async function createRuntimeClient(
     options?: { skipPersistentLoad?: boolean },
   ): Promise<void> {
     const romCopy = rom.slice();
+    await workerEndpoint.setMode({ mode: currentMode });
     await workerEndpoint.loadRom(
       Comlink.transfer({ rom: romCopy }, [romCopy.buffer]),
     );
@@ -218,6 +224,10 @@ export async function createRuntimeClient(
     setBreakpoints: (breakpoints) =>
       workerEndpoint.setBreakpoints({ offsets: breakpoints }),
     setInputState: (state) => workerEndpoint.setInputState({ state }),
+    async setMode(mode) {
+      currentMode = mode;
+      await workerEndpoint.setMode({ mode });
+    },
     async getRomInfo() {
       currentRomInfo = await workerEndpoint.getRomInfo();
       if (currentRomInfo && !currentSaveKey) {

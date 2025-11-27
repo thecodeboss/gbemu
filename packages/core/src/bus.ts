@@ -27,6 +27,10 @@ const OPRI_REGISTER_ADDRESS = 0xff6c;
 const SVBK_REGISTER_ADDRESS = 0xff70;
 const PCM12_REGISTER_ADDRESS = 0xff76;
 const PCM34_REGISTER_ADDRESS = 0xff77;
+
+const COMPAT_BG_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
+const COMPAT_OBJ0_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
+const COMPAT_OBJ1_DEFAULT: readonly number[] = [0x7fff, 0x5ad6, 0x35ad, 0x10a5];
 const OAM_START_ADDRESS = 0xfe00;
 const OAM_BLOCK_END_ADDRESS = 0xfeff;
 const OAM_TRANSFER_SIZE = 0xa0;
@@ -222,6 +226,9 @@ export class SystemBus {
     }
 
     this.#initializeHardwareRegisters();
+    if (this.#hardwareMode === "cgb" && !this.#cgbMode) {
+      this.#loadCompatibilityPalettes();
+    }
     this.#resetTimerState();
   }
 
@@ -409,12 +416,11 @@ export class SystemBus {
 
   dumpMemory(): Uint8Array {
     const snapshot = this.#memory.slice();
-    snapshot[DIVIDER_REGISTER_ADDRESS] =
-      (this.#dividerCounter >> 8) & 0xff;
+    snapshot[DIVIDER_REGISTER_ADDRESS] = (this.#dividerCounter >> 8) & 0xff;
     snapshot.set(this.#vramBanks[this.#activeVramBank], 0x8000);
     snapshot.set(this.#wramBank0, 0xc000);
-    const activeWram = this.#wramBanks[this.#activeWramBank - 1] ??
-      this.#wramBanks[0];
+    const activeWram =
+      this.#wramBanks[this.#activeWramBank - 1] ?? this.#wramBanks[0];
     snapshot.set(activeWram, 0xd000);
     snapshot.set(snapshot.subarray(0xc000, 0xe000), 0xe000);
     return snapshot;
@@ -691,7 +697,11 @@ export class SystemBus {
     return this.#vramBanks[activeBank][normalized] ?? 0xff;
   }
 
-  #writeVramBanked(address: number, value: number, bank = this.#activeVramBank): void {
+  #writeVramBanked(
+    address: number,
+    value: number,
+    bank = this.#activeVramBank,
+  ): void {
     const normalized = (address - 0x8000) & 0x1fff;
     const activeBank = this.#cgbMode ? bank & 0x01 : 0;
     this.#vramBanks[activeBank][normalized] = value & 0xff;
@@ -721,13 +731,17 @@ export class SystemBus {
       case SVBK_REGISTER_ADDRESS:
         return 0xf8 | (this.#activeWramBank & 0x07);
       case BCPS_REGISTER_ADDRESS:
-        return (this.#bgPaletteIndex & 0x3f) |
-          (this.#bgPaletteAutoIncrement ? 0x80 : 0);
+        return (
+          (this.#bgPaletteIndex & 0x3f) |
+          (this.#bgPaletteAutoIncrement ? 0x80 : 0)
+        );
       case BCPD_REGISTER_ADDRESS:
         return this.#bgPaletteData[this.#bgPaletteIndex & 0x3f] ?? 0xff;
       case OCPS_REGISTER_ADDRESS:
-        return (this.#objPaletteIndex & 0x3f) |
-          (this.#objPaletteAutoIncrement ? 0x80 : 0);
+        return (
+          (this.#objPaletteIndex & 0x3f) |
+          (this.#objPaletteAutoIncrement ? 0x80 : 0)
+        );
       case OCPD_REGISTER_ADDRESS:
         return this.#objPaletteData[this.#objPaletteIndex & 0x3f] ?? 0xff;
       case HDMA1_REGISTER_ADDRESS:
@@ -819,7 +833,11 @@ export class SystemBus {
         return true;
       case HDMA5_REGISTER_ADDRESS: {
         const request = value & 0xff;
-        if (this.#hdmaActive && this.#hdmaHblankMode && (request & 0x80) === 0) {
+        if (
+          this.#hdmaActive &&
+          this.#hdmaHblankMode &&
+          (request & 0x80) === 0
+        ) {
           // Cancel active HBlank transfer.
           this.#hdmaActive = false;
           this.#hdmaBlocksRemaining = 0;
@@ -923,6 +941,25 @@ export class SystemBus {
     this.#hdmaSource = (this.#hdmaSource + totalBytes) & 0xffff;
     const destLow = (this.#hdmaDestination - 0x8000 + totalBytes) & 0x1ff0;
     this.#hdmaDestination = 0x8000 | destLow;
+  }
+
+  #loadCompatibilityPalettes(): void {
+    this.#writeCompatPaletteSet(this.#bgPaletteData, 0, COMPAT_BG_DEFAULT);
+    this.#writeCompatPaletteSet(this.#objPaletteData, 0, COMPAT_OBJ0_DEFAULT);
+    this.#writeCompatPaletteSet(this.#objPaletteData, 1, COMPAT_OBJ1_DEFAULT);
+  }
+
+  #writeCompatPaletteSet(
+    target: Uint8Array,
+    paletteIndex: number,
+    colors: readonly number[],
+  ): void {
+    const base = (paletteIndex & 0x07) * 8;
+    for (let i = 0; i < 4; i += 1) {
+      const color = colors[i] ?? 0;
+      target[base + i * 2] = color & 0xff;
+      target[base + i * 2 + 1] = (color >> 8) & 0xff;
+    }
   }
 
   #getTimerClockBitMask(tacValue: number): number {
@@ -1073,7 +1110,11 @@ export class SystemBus {
     if (address >= 0xff4c && address <= 0xff7f) {
       return this.#hardwareMode !== "cgb";
     }
-    if (address >= 0xff76 && address <= 0xff77 && this.#hardwareMode !== "cgb") {
+    if (
+      address >= 0xff76 &&
+      address <= 0xff77 &&
+      this.#hardwareMode !== "cgb"
+    ) {
       return true;
     }
     return false;

@@ -296,7 +296,8 @@ export class Ppu {
 
     const lcdc = bus.readByte(LCDC_ADDRESS);
     const bgEnabled = (lcdc & LCDC_BG_ENABLE_FLAG) !== 0;
-    const bgMasterEnabled = this.#cgbMode ? true : bgEnabled;
+    const compatCgb = this.#hardwareMode === "cgb" && !this.#cgbMode;
+    const bgMasterEnabled = this.#cgbMode || compatCgb ? true : bgEnabled;
     const windowEnabled = (lcdc & LCDC_WINDOW_ENABLE_FLAG) !== 0;
     const useTileData8000 = (lcdc & LCDC_TILE_DATA_FLAG) !== 0;
     const bgTileMapBase =
@@ -340,9 +341,7 @@ export class Ppu {
       const tileNumber = this.#cgbMode
         ? bus.readVram(tileIndexAddress, 0)
         : bus.readByte(tileIndexAddress);
-      const attrs = this.#cgbMode
-        ? bus.readVram(tileIndexAddress, 1)
-        : 0;
+      const attrs = this.#cgbMode ? bus.readVram(tileIndexAddress, 1) : 0;
       const paletteIndex = this.#cgbMode ? attrs & 0x07 : 0;
       const tileBank = this.#cgbMode ? (attrs & 0x08) >> 3 : 0;
       const xFlip = this.#cgbMode && (attrs & 0x20) !== 0;
@@ -362,6 +361,10 @@ export class Ppu {
       this.#bgPriorityFlags[x] = bgPriority ? 1 : 0;
       if (this.#cgbMode) {
         const color = this.#bus.getBgPaletteColor(paletteIndex, colorBits);
+        this.#writePixel(offset, color);
+      } else if (compatCgb) {
+        const shade = bgPalette[colorBits];
+        const color = this.#bus.getBgPaletteColor(0, shade);
         this.#writePixel(offset, color);
       } else {
         const shade = bgPalette[colorBits];
@@ -452,6 +455,7 @@ export class Ppu {
       return;
     }
 
+    const compatCgb = this.#hardwareMode === "cgb" && !this.#cgbMode;
     const spriteHeight = (lcdc & LCDC_OBJ_SIZE_FLAG) !== 0 ? 16 : 8;
     const width = this.#framebuffer.width;
     const baseOffset = ly * width * 4;
@@ -564,10 +568,12 @@ export class Ppu {
 
         const offset = baseOffset + targetX * 4;
         if (this.#cgbMode) {
-          const color = this.#bus.getObjPaletteColor(
-            paletteIndex,
-            colorBits,
-          );
+          const color = this.#bus.getObjPaletteColor(paletteIndex, colorBits);
+          this.#writePixel(offset, color);
+        } else if (compatCgb) {
+          const shadePalette = paletteIndex === 1 ? objPalette1 : objPalette0;
+          const shade = shadePalette?.[colorBits] ?? 0;
+          const color = this.#bus.getObjPaletteColor(paletteIndex, shade);
           this.#writePixel(offset, color);
         } else {
           const palette = paletteIndex === 1 ? objPalette1 : objPalette0;

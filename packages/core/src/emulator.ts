@@ -153,7 +153,9 @@ export class Emulator {
       this.#callbacks?.onLog?.("ROM not marked CGB; running in DMG mode.");
     }
     if (this.#mode === "dmg" && cgbOnly) {
-      this.#callbacks?.onLog?.("CGB-only ROM loaded on DMG mode; behavior may be incorrect.");
+      this.#callbacks?.onLog?.(
+        "CGB-only ROM loaded on DMG mode; behavior may be incorrect.",
+      );
     }
 
     const ramSize = this.#romInfo?.ramSize ?? 0;
@@ -162,11 +164,7 @@ export class Emulator {
       onRamWrite: () => this.#scheduleSaveFlush(),
     });
     this.bus.setSystemMode(this.#mode, cgbMode);
-    this.ppu.setSystemMode(
-      this.#mode,
-      cgbMode,
-      this.bus.getTicksPerCpuCycle(),
-    );
+    this.ppu.setSystemMode(this.#mode, cgbMode, this.bus.getTicksPerCpuCycle());
     this.bus.loadCartridge(rom, this.#mbc);
     this.bus.setJoypadState(this.#inputState);
     this.cpu.reset();
@@ -326,6 +324,10 @@ export class Emulator {
   setInputState(state: JoypadInputState): void {
     this.#inputState = { ...state };
     this.bus.setJoypadState(this.#inputState);
+  }
+
+  setMode(mode: EmulatorMode): void {
+    this.#mode = mode;
   }
 
   getStateSnapshot(): EmulatorStateSnapshot {
