@@ -151,20 +151,42 @@ export class Cpu {
 
     this.state.stopped = false;
 
-    const pendingType = constants.INTERRUPT_PRIORITY_ORDER.find((type) => {
-      return (pendingMask & constants.INTERRUPT_BITS[type]) !== 0;
-    });
+    this.state.ime = false;
+    const registers = this.state.registers;
+    const pc = registers.pc & 0xffff;
 
-    if (!pendingType) {
+    // Push the PC manually so we can react if the first write hits IE (SP=0)
+    // and changes the pending interrupt mask mid-dispatch.
+    registers.sp = (registers.sp - 1) & 0xffff;
+    bus.writeByte(registers.sp, (pc >> 8) & 0xff, 8);
+
+    const postHighInterruptEnable =
+      bus.readByte(constants.INTERRUPT_ENABLE_ADDRESS, 8) & 0xff;
+    const postHighInterruptFlags =
+      bus.readByte(constants.INTERRUPT_FLAG_ADDRESS, 8) & 0xff;
+    const postHighPendingMask =
+      postHighInterruptEnable & postHighInterruptFlags & 0x1f;
+
+    registers.sp = (registers.sp - 1) & 0xffff;
+    bus.writeByte(registers.sp, pc & 0xff, 12);
+
+    if (postHighPendingMask === 0) {
+      this.setProgramCounter(0x0000);
+      return true;
+    }
+
+    const postHighPendingType = constants.INTERRUPT_PRIORITY_ORDER.find(
+      (type) => (postHighPendingMask & constants.INTERRUPT_BITS[type]) !== 0,
+    );
+
+    if (!postHighPendingType) {
       return false;
     }
 
-    this.state.ime = false;
-    this.pushWord(this.state.registers.pc, 8);
     const clearedFlags =
-      interruptFlags & ~constants.INTERRUPT_BITS[pendingType];
+      postHighInterruptFlags & ~constants.INTERRUPT_BITS[postHighPendingType];
     bus.writeByte(constants.INTERRUPT_FLAG_ADDRESS, clearedFlags);
-    this.setProgramCounter(constants.INTERRUPT_VECTORS[pendingType]);
+    this.setProgramCounter(constants.INTERRUPT_VECTORS[postHighPendingType]);
     return true;
   }
 

@@ -16,7 +16,11 @@ export function executeEi(
   _instruction: OpcodeInstruction,
   nextPc: number,
 ): void {
-  cpu.imeEnableDelay = 2;
+  // Only schedule IME enable if one isn't already pending; repeated EI
+  // instructions should not keep pushing the enable window forward.
+  if (cpu.imeEnableDelay === 0) {
+    cpu.imeEnableDelay = 2;
+  }
   cpu.setProgramCounter(nextPc);
 }
 

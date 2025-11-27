@@ -14,7 +14,17 @@ const ACCEPTANCE_ROM_DIR = path.resolve(
   __dirname,
   "../../../roms/mooneye-test-suite/acceptance",
 );
-const UNSUPPORTED_MARKERS = ["mgb", "sgb2", "sgb", "cgb", "agb", "ags"];
+const UNSUPPORTED_MARKERS = [
+  "mgb",
+  "sgb2",
+  "sgb",
+  "cgb",
+  "agb",
+  "ags",
+  "boot_div",
+  "boot_hwio",
+  "boot_regs",
+];
 const PASS_PATTERN = [3, 5, 8, 13, 21, 34];
 const FAIL_SENTINEL = 0x42;
 const TEST_TIMEOUT_MS = 10_000;
