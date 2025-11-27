@@ -61,7 +61,7 @@ export function SaveList({
   }
 
   return (
-    <div className="divide-y divide-border rounded-lg border">
+    <div className="divide-y-[3px] divide-border border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)]">
       {saves.map((entry) => {
         const draftValue = draftNames[entry.slot] ?? entry.slot;
         const isEditing = editingSlot === entry.slot;
@@ -69,7 +69,7 @@ export function SaveList({
           entry.slot === DEFAULT_SAVE_SLOT ? "Autosave" : draftValue;
         const preview = formatUpdatedAt(entry.payload.timestamp);
         return (
-          <div key={entry.slot} className="flex flex-col gap-1.5 p-2.5">
+          <div key={entry.slot} className="flex flex-col gap-1.5 px-3 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div className="flex items-center gap-1.5">
                 {isEditing ? (
@@ -96,7 +96,9 @@ export function SaveList({
                     disabled={isImporting}
                   />
                 ) : (
-                  <p className="text-base font-medium">{viewLabel}</p>
+                  <p className="text-sm font-semibold uppercase tracking-wide">
+                    {viewLabel}
+                  </p>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">

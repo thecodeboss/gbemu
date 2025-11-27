@@ -17,8 +17,8 @@ const VIEWPORT_WIDTH = 160;
 const VIEWPORT_HEIGHT = 144;
 const BORDER_THICKNESS = 2;
 
-const GRID_COLOR = "#888888";
-const BORDER_COLOR = "#000000";
+const GRID_COLOR = "#1f2338";
+const BORDER_COLOR = "#ffdd55";
 
 const LCDC_ADDRESS = 0xff40;
 const SCY_ADDRESS = 0xff42;
@@ -210,7 +210,7 @@ export function BgTab({ memorySnapshot }: BgTabProps) {
   return memorySnapshot ? (
     <canvas
       ref={canvasRef}
-      className="size-[289px] border border-border/60 bg-slate-200 [image-rendering:pixelated]"
+      className="size-[289px] border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)] [image-rendering:pixelated]"
     />
   ) : (
     <p className="text-sm text-muted-foreground">

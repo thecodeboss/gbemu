@@ -35,7 +35,7 @@ export function DeleteSaveDialog({
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/60"
+            className="border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60"
             onClick={() => onConfirm()}
           >
             Delete Save

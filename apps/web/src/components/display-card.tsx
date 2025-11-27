@@ -41,7 +41,7 @@ export function DisplayCard({
       <CardContent>
         <canvas
           ref={canvasRef}
-          className="mx-auto block aspect-160/144 min-w-[480px] rounded-2xl border-2 border-white/10 bg-black shadow-[inset_0_0_0_1px_rgba(0,0,0,0.6)] [image-rendering:pixelated]"
+          className="mx-auto block aspect-160/144 min-w-[480px] border-[4px] border-foreground bg-black shadow-[8px_8px_0_var(--color-accent)] [image-rendering:pixelated]"
           width={canvasDimensions.width}
           height={canvasDimensions.height}
         />
@@ -58,8 +58,8 @@ export function DisplayCard({
           </Button>
         </CardAction>
       </CardFooter>
-      <CardFooter className="flex items-center justify-between border-t pt-4">
-        <div className="text-sm text-muted-foreground">
+      <CardFooter className="flex items-center justify-between border-t-[3px] border-border pt-4">
+        <div className="text-xs text-muted-foreground">
           Manage browser saves for this ROM.
         </div>
         <Button

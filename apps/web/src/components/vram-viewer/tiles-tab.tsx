@@ -12,7 +12,7 @@ const TILE_GAP = 1;
 const SECTION_COLUMNS = 16;
 const SECTION_ROWS = 8;
 const SECTION_TILE_COUNT = SECTION_COLUMNS * SECTION_ROWS;
-const GAP_COLOR = "#888888";
+const GAP_COLOR = "#1f2338";
 
 const SECTION_DEFINITIONS = [
   { start: 0x8000, label: "$8000-$87FF" },
@@ -87,10 +87,10 @@ export function TilesTab({ memorySnapshot }: TilesTabProps) {
             ref={(node) => {
               canvasRefs.current[index] = node;
             }}
-            className="border border-border/60 bg-slate-200 [image-rendering:pixelated]"
+            className="border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)] [image-rendering:pixelated]"
           />
           {index < SECTION_DEFINITIONS.length - 1 ? (
-            <div aria-hidden className="h-1 w-full bg-slate-300" />
+            <div aria-hidden className="h-2 w-full bg-muted" />
           ) : null}
         </div>
       ))}

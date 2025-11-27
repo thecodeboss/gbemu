@@ -93,11 +93,13 @@ export function MemoryBrowser({ memorySnapshot }: MemoryBrowserProps) {
 
   return (
     <div className="mt-6">
-      <h3 className="mb-2 text-sm font-medium">Memory Browser</h3>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide">
+        Memory Browser
+      </h3>
       {memorySnapshot && memorySnapshot.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <div className="overflow-hidden rounded-md border border-input">
-            <div className="grid grid-cols-[minmax(72px,1fr)_minmax(96px,1fr)_minmax(96px,1fr)] gap-x-2 bg-muted/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          <div className="overflow-hidden border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)]">
+            <div className="grid grid-cols-[minmax(72px,1fr)_minmax(96px,1fr)_minmax(96px,1fr)] gap-x-2 border-b-[3px] border-border bg-muted px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               <span>Type</span>
               <span>Offset</span>
               <span>Value</span>
@@ -122,7 +124,7 @@ export function MemoryBrowser({ memorySnapshot }: MemoryBrowserProps) {
                   {memoryTableMetrics.rows.map((row) => (
                     <div
                       key={row.offset}
-                      className="grid grid-cols-[minmax(72px,1fr)_minmax(96px,1fr)_minmax(96px,1fr)] items-center gap-x-2 border-b border-border/50 px-3 text-xs font-mono last:border-b-0"
+                      className="grid grid-cols-[minmax(72px,1fr)_minmax(96px,1fr)_minmax(96px,1fr)] items-center gap-x-2 border-b border-border/50 bg-secondary px-3 text-xs font-mono last:border-b-0"
                       style={{ height: `${MEMORY_ROW_HEIGHT}px` }}
                     >
                       <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">

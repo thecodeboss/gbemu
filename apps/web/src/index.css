@@ -1,13 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -42,80 +43,57 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --radius: 0;
+  --background: #0b0b1a;
+  --foreground: #9db0b5;
+  --card: #111428;
+  --card-foreground: #e7f5c5;
+  --popover: #0f1224;
+  --popover-foreground: #e7f5c5;
+  --primary: #1a1e34;
+  --primary-foreground: #d4e7a1;
+  --secondary: #1a1e34;
+  --secondary-foreground: #d4e7a1;
+  --muted: #15192d;
+  --muted-foreground: #9db0b5;
+  --accent: #000;
+  --accent-foreground: #0b0b1a;
+  --destructive: #ff6b6b;
+  --border: #303556;
+  --input: #1a1e34;
+  --ring: #ffdd55;
+  --chart-1: #7cf46b;
+  --chart-2: #ffdd55;
+  --chart-3: #ff6b6b;
+  --chart-4: #6dd3ff;
+  --chart-5: #c3a6ff;
+  --sidebar: #111428;
+  --sidebar-foreground: #e7f5c5;
+  --sidebar-primary: #7cf46b;
+  --sidebar-primary-foreground: #0b0b1a;
+  --sidebar-accent: #ffdd55;
+  --sidebar-accent-foreground: #0b0b1a;
+  --sidebar-border: #303556;
+  --sidebar-ring: #ffdd55;
 }
 
 @layer base {
   * {
+    border-radius: 0;
     @apply border-border outline-ring/50;
   }
   body {
+    font-family: "Press Start 2P", "VT323", monospace;
+    letter-spacing: 0.02em;
     @apply bg-background text-foreground;
+    background-image:
+      linear-gradient(0deg, rgba(255, 221, 85, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124, 244, 107, 0.05) 1px, transparent 1px),
+      radial-gradient(circle at 10% 20%, rgba(124, 244, 107, 0.08), transparent 40%),
+      radial-gradient(circle at 80% 0%, rgba(255, 221, 85, 0.04), transparent 35%),
+      linear-gradient(180deg, #0b0b1a, #0c1023);
+    background-size: 8px 8px, 8px 8px, 100% 100%, 100% 100%, 100% 100%;
+    image-rendering: pixelated;
   }
   button,
   [role="button"],

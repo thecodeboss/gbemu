@@ -15,7 +15,7 @@ const AlertDialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in",
+      "fixed inset-0 z-50 bg-black/70 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in",
       className,
     )}
     ref={ref}
@@ -33,7 +33,7 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-[90vw] max-w-xl -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-popover p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
+        "fixed left-1/2 top-1/2 z-50 grid w-[90vw] max-w-xl -translate-x-1/2 -translate-y-1/2 gap-5 border-[3px] border-border bg-popover p-6 shadow-[10px_10px_0_var(--color-accent)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
         className,
       )}
       {...props}
@@ -47,7 +47,7 @@ const AlertDialogHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("flex flex-col space-y-2 text-left", className)}
+    className={cn("flex flex-col gap-2 text-left", className)}
     {...props}
   />
 );
@@ -73,7 +73,7 @@ const AlertDialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold", className)}
+    className={cn("text-lg font-semibold uppercase tracking-wide", className)}
     {...props}
   />
 ));
@@ -85,7 +85,7 @@ const AlertDialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-muted-foreground leading-relaxed", className)}
+    className={cn("text-xs text-muted-foreground leading-relaxed", className)}
     {...props}
   />
 ));
@@ -99,7 +99,7 @@ const AlertDialogAction = React.forwardRef<
   <AlertDialogPrimitive.Action
     ref={ref}
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex min-h-10 items-center justify-center border-[3px] border-foreground bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
     {...props}
@@ -114,7 +114,7 @@ const AlertDialogCancel = React.forwardRef<
   <AlertDialogPrimitive.Cancel
     ref={ref}
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-md border border-input bg-secondary px-4 text-sm font-semibold text-secondary-foreground shadow-xs transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex min-h-10 items-center justify-center border-[3px] border-border bg-secondary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
     {...props}

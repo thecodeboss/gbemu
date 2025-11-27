@@ -35,7 +35,9 @@ export function CpuState({ cpuState }: CpuStateProps) {
 
   return (
     <div className="mt-6">
-      <h3 className="mb-2 text-sm font-medium">CPU State</h3>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide">
+        CPU State
+      </h3>
       {cpuState ? (
         <div className="flex flex-col gap-4">
           <div>
@@ -46,7 +48,7 @@ export function CpuState({ cpuState }: CpuStateProps) {
               {cpuRegisterEntries.map((entry) => (
                 <div
                   key={entry.name}
-                  className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-2 py-1"
+                  className="flex items-center justify-between border-[3px] border-border bg-secondary px-2 py-1 shadow-[3px_3px_0_var(--color-accent)]"
                 >
                   <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     {entry.name}
@@ -96,9 +98,9 @@ export function CpuState({ cpuState }: CpuStateProps) {
                 <span
                   key={flag.label}
                   className={[
-                    "rounded-full px-3 py-1 text-xs font-semibold",
+                    "border-[3px] px-3 py-1 text-xs font-semibold shadow-[3px_3px_0_var(--color-accent)]",
                     flag.active
-                      ? "bg-primary/15 text-primary"
+                      ? "bg-primary/20 text-primary"
                       : "bg-muted text-muted-foreground",
                   ].join(" ")}
                 >

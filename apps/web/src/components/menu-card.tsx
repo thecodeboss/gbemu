@@ -24,15 +24,17 @@ export function MenuCard({
         <p>
           Load a Game Boy or Game Boy Color ROM to boot the placeholder system.
         </p>
-        <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-sm">
-          <div className="flex flex-col">
-            <span className="font-medium">Mode</span>
+        <div className="flex items-center justify-between border-[3px] border-border bg-secondary px-3 py-3 text-xs shadow-[4px_4px_0_var(--color-accent)]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide">
+              Mode
+            </span>
             <span className="text-muted-foreground">
               Toggle between DMG and CGB before loading a ROM.
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               DMG
             </span>
             <Switch
@@ -42,7 +44,7 @@ export function MenuCard({
               }
               aria-label="Toggle between DMG and CGB modes"
             />
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               CGB
             </span>
           </div>

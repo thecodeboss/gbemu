@@ -98,6 +98,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 - Loads worker and audio worklet via `new URL("@gbemu/runtime/src/...")` so Vite bundles the TypeScript modules.
 - Uses `DEFAULT_CANVAS_WIDTH/HEIGHT` from the runtime package to size the display.
 - Styling in `src/index.css`; entry point `src/main.tsx`.
+- UI uses a retro, pixelated theme (Press Start 2P/VT323 fonts, square corners, 3–4px borders/shadows, limited neon-green/yellow palette) defined in `apps/web/src/index.css` and the `ui/*` primitives.
 - Development loop: `pnpm --filter @gbemu/web dev`, then open the provided Vite URL.
 - Shadcn UI primitives live under `src/components/ui/`; Tabs now uses `@radix-ui/react-tabs` via `tabs.tsx` for BG/Tiles/OAM/Palette viewers.
 - VRAM viewer components live in `apps/web/src/components/vram-viewer/` (`index.tsx` card + tab components; the tiles renderer lives in `tiles-tab.tsx`).

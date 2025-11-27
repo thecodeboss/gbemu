@@ -65,7 +65,7 @@ export function OamTab({ memorySnapshot }: OamTabProps) {
   }
 
   return (
-    <div className="grid w-full grid-cols-8 gap-px bg-slate-200 p-px">
+    <div className="grid w-full grid-cols-8 gap-2 border-[3px] border-border bg-secondary p-2 shadow-[6px_6px_0_var(--color-accent)]">
       {Array.from({ length: OAM_ENTRY_COUNT }, (_, index) => {
         const oamOffset = OAM_START + index * OAM_ENTRY_SIZE;
         const byte0 = memorySnapshot[oamOffset] ?? 0;
@@ -76,13 +76,13 @@ export function OamTab({ memorySnapshot }: OamTabProps) {
         return (
           <div
             key={index}
-            className="flex flex-col items-center bg-background p-2"
+            className="flex flex-col items-center border-[3px] border-border bg-background/70 p-2 shadow-[3px_3px_0_var(--color-accent)]"
           >
             <canvas
               ref={(node) => {
                 canvasRefs.current[index] = node;
               }}
-              className="h-8 w-8 border border-border/60 bg-slate-200 [image-rendering:pixelated]"
+              className="h-8 w-8 border-[3px] border-border bg-secondary [image-rendering:pixelated]"
             />
             <div className="mt-1 grid grid-cols-2 gap-x-1 text-[10px] leading-3.5 text-muted-foreground">
               <span className="font-mono">{formatHex(byte0)}</span>

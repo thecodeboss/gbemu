@@ -181,11 +181,13 @@ export function Disassembly({
 
   return (
     <div className="mt-6 flex flex-col gap-2">
-      <h3 className="text-sm font-medium">Disassembly</h3>
+      <h3 className="text-sm font-semibold uppercase tracking-wide">
+        Disassembly
+      </h3>
       {disassembly !== null ? (
         <>
-          <div className="overflow-hidden rounded-md border border-input">
-            <div className="grid grid-cols-[28px_max-content_1fr] items-center gap-x-4 bg-muted/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          <div className="overflow-hidden border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)]">
+            <div className="grid grid-cols-[28px_max-content_1fr] items-center gap-x-4 border-b-[3px] border-border bg-muted px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               <span className="text-center">BP</span>
               <span>Offset</span>
               <span>Instruction</span>
@@ -214,8 +216,8 @@ export function Disassembly({
                     {disassemblyTableMetrics.rows.map((row) => {
                       const hasBreakpoint = breakpoints.has(row.offset);
                       const rowClasses = [
-                        "grid grid-cols-[28px_max-content_1fr] items-center gap-x-4 px-3 text-xs font-mono",
-                        row.isActive ? "bg-primary/10" : "",
+                        "grid grid-cols-[28px_max-content_1fr] items-center gap-x-4 border-b border-border/50 px-3 text-xs font-mono last:border-b-0",
+                        row.isActive ? "bg-primary/10" : "bg-secondary",
                       ]
                         .filter(Boolean)
                         .join(" ");
@@ -287,7 +289,7 @@ export function Disassembly({
           </div>
         </>
       ) : (
-        <div className="rounded-md border border-dashed border-input/60 bg-muted/30 px-3 py-4">
+        <div className="border-[3px] border-dashed border-border bg-muted/40 px-3 py-4 shadow-[4px_4px_0_var(--color-accent)]">
           <p className="text-xs text-muted-foreground">
             {isDisassembling
               ? "Generating disassembly..."

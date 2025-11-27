@@ -325,12 +325,12 @@ export function ManageSavesDialog({
 
           <div className="space-y-3">
             {statusMessage ? (
-              <p className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-200">
+              <p className="border-[3px] border-foreground bg-primary/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary">
                 {statusMessage}
               </p>
             ) : null}
             {error ? (
-              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <p className="border-[3px] border-destructive bg-destructive/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-destructive">
                 {error}
               </p>
             ) : null}
