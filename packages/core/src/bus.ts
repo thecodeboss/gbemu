@@ -202,10 +202,7 @@ export class SystemBus
       }
     }
     if (mappedAddress === DIVIDER_REGISTER_ADDRESS) {
-      return this.#applyForcedOnes(
-        mappedAddress,
-        this.#readDivider() & 0xff,
-      );
+      return this.#applyForcedOnes(mappedAddress, this.#readDivider() & 0xff);
     }
     if (mappedAddress === TAC_REGISTER_ADDRESS) {
       return this.#applyForcedOnes(
@@ -224,10 +221,7 @@ export class SystemBus
     const byteValue = value & 0xff;
 
     const dmaTicksRemaining = this.#oamDmaRemainingTicks - ticksAhead;
-    if (
-      dmaTicksRemaining > 0 &&
-      this.#isBlockedDuringOamDma(mappedAddress)
-    ) {
+    if (dmaTicksRemaining > 0 && this.#isBlockedDuringOamDma(mappedAddress)) {
       return;
     }
 
