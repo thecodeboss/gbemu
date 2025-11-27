@@ -1,4 +1,52 @@
 import { disassembleInstruction } from "./rom/disassemble.js";
+import {
+  executeAdd,
+  executeAdc,
+  executeCp,
+  executeDaa,
+  executeDec,
+  executeInc,
+  executeSbc,
+  executeSub,
+} from "./cpu-instructions/arithmetic.js";
+import {
+  executeAnd,
+  executeBit,
+  executeCcf,
+  executeCpl,
+  executeOr,
+  executeRes,
+  executeRl,
+  executeRla,
+  executeRlca,
+  executeRlc,
+  executeRr,
+  executeRra,
+  executeRrc,
+  executeRrca,
+  executeScf,
+  executeSet,
+  executeSla,
+  executeSra,
+  executeSrl,
+  executeSwap,
+  executeXor,
+} from "./cpu-instructions/bitwise.js";
+import {
+  executeDi,
+  executeEi,
+  executeHalt,
+  executeStop,
+} from "./cpu-instructions/control.js";
+import {
+  executeCall,
+  executeJump,
+  executeRelativeJump,
+  executeReturn,
+  executeReti,
+  executeRst,
+} from "./cpu-instructions/jumps.js";
+import { executeLd, executePop, executePush } from "./cpu-instructions/load.js";
 import { InstructionOperand, OpcodeInstruction } from "./rom/types.js";
 
 export type CpuFlag = "Z" | "N" | "H" | "C";
@@ -123,7 +171,6 @@ const MEMORY_SIZE = 0x10000;
 const MAX_PREFETCH_BYTES = 3;
 const EIGHT_BIT_REGISTERS = new Set(["A", "B", "C", "D", "E", "H", "L"]);
 const SIXTEEN_BIT_REGISTERS = new Set(["AF", "BC", "DE", "HL", "SP"]);
-const STACK_REGISTER_NAMES = new Set(["AF", "BC", "DE", "HL"]);
 const INTERRUPT_FLAG_ADDRESS = 0xff0f;
 const INTERRUPT_ENABLE_ADDRESS = 0xffff;
 const INTERRUPT_PRIORITY_ORDER: InterruptType[] = [
@@ -242,10 +289,10 @@ export class Cpu {
     }
 
     this.state.ime = false;
-    this.#pushWord(this.state.registers.pc, 8);
+    this.pushWord(this.state.registers.pc, 8);
     const clearedFlags = interruptFlags & ~INTERRUPT_BITS[pendingType];
     bus.writeByte(INTERRUPT_FLAG_ADDRESS, clearedFlags);
-    this.#setProgramCounter(INTERRUPT_VECTORS[pendingType]);
+    this.setProgramCounter(INTERRUPT_VECTORS[pendingType]);
     return true;
   }
 
@@ -265,134 +312,134 @@ export class Cpu {
 
     switch (instruction.mnemonic) {
       case "nop":
-        this.#setProgramCounter(nextPc);
+        this.setProgramCounter(nextPc);
         return;
       case "daa":
-        this.#executeDaa(nextPc);
+        executeDaa(this, instruction, nextPc);
         return;
       case "di":
-        this.#executeDi(nextPc);
+        executeDi(this, instruction, nextPc);
         return;
       case "ei":
-        this.#executeEi(nextPc);
+        executeEi(this, instruction, nextPc);
         return;
       case "halt":
-        this.#executeHalt(nextPc);
+        executeHalt(this, instruction, nextPc);
         return;
       case "ld":
       case "ldh":
-        this.#executeLd(instruction, nextPc);
+        executeLd(this, instruction, nextPc);
         return;
       case "and":
-        this.#executeAnd(instruction, nextPc);
+        executeAnd(this, instruction, nextPc);
         return;
       case "add":
-        this.#executeAdd(instruction, nextPc);
+        executeAdd(this, instruction, nextPc);
         return;
       case "adc":
-        this.#executeAdc(instruction, nextPc);
+        executeAdc(this, instruction, nextPc);
         return;
       case "sub":
-        this.#executeSub(instruction, nextPc);
+        executeSub(this, instruction, nextPc);
         return;
       case "sbc":
-        this.#executeSbc(instruction, nextPc);
+        executeSbc(this, instruction, nextPc);
         return;
       case "cp":
-        this.#executeCp(instruction, nextPc);
+        executeCp(this, instruction, nextPc);
         return;
       case "cpl":
-        this.#executeCpl(nextPc);
+        executeCpl(this, instruction, nextPc);
         return;
       case "ccf":
-        this.#executeCcf(nextPc);
+        executeCcf(this, instruction, nextPc);
         return;
       case "scf":
-        this.#executeScf(nextPc);
+        executeScf(this, instruction, nextPc);
         return;
       case "or":
-        this.#executeOr(instruction, nextPc);
+        executeOr(this, instruction, nextPc);
         return;
       case "xor":
-        this.#executeXor(instruction, nextPc);
+        executeXor(this, instruction, nextPc);
         return;
       case "inc":
-        this.#executeInc(instruction, nextPc);
+        executeInc(this, instruction, nextPc);
         return;
       case "dec":
-        this.#executeDec(instruction, nextPc);
+        executeDec(this, instruction, nextPc);
         return;
       case "bit":
-        this.#executeBit(instruction, nextPc);
+        executeBit(this, instruction, nextPc);
         return;
       case "res":
-        this.#executeRes(instruction, nextPc);
+        executeRes(this, instruction, nextPc);
         return;
       case "set":
-        this.#executeSet(instruction, nextPc);
+        executeSet(this, instruction, nextPc);
         return;
       case "rl":
-        this.#executeRl(instruction, nextPc);
+        executeRl(this, instruction, nextPc);
         return;
       case "rlc":
-        this.#executeRlc(instruction, nextPc);
+        executeRlc(this, instruction, nextPc);
         return;
       case "rla":
-        this.#executeRla(nextPc);
+        executeRla(this, instruction, nextPc);
         return;
       case "rlca":
-        this.#executeRlca(nextPc);
+        executeRlca(this, instruction, nextPc);
         return;
       case "rr":
-        this.#executeRr(instruction, nextPc);
+        executeRr(this, instruction, nextPc);
         return;
       case "rrc":
-        this.#executeRrc(instruction, nextPc);
+        executeRrc(this, instruction, nextPc);
         return;
       case "rra":
-        this.#executeRra(nextPc);
+        executeRra(this, instruction, nextPc);
         return;
       case "rrca":
-        this.#executeRrca(nextPc);
+        executeRrca(this, instruction, nextPc);
         return;
       case "sla":
-        this.#executeSla(instruction, nextPc);
+        executeSla(this, instruction, nextPc);
         return;
       case "sra":
-        this.#executeSra(instruction, nextPc);
+        executeSra(this, instruction, nextPc);
         return;
       case "srl":
-        this.#executeSrl(instruction, nextPc);
+        executeSrl(this, instruction, nextPc);
         return;
       case "swap":
-        this.#executeSwap(instruction, nextPc);
+        executeSwap(this, instruction, nextPc);
         return;
       case "call":
-        this.#executeCall(instruction, nextPc);
+        executeCall(this, instruction, nextPc);
         return;
       case "jp":
-        this.#executeJump(instruction, nextPc);
+        executeJump(this, instruction, nextPc);
         return;
       case "jr":
-        this.#executeRelativeJump(instruction, nextPc);
+        executeRelativeJump(this, instruction, nextPc);
         return;
       case "ret":
-        this.#executeReturn(instruction, nextPc);
+        executeReturn(this, instruction, nextPc);
         return;
       case "reti":
-        this.#executeReti();
+        executeReti(this);
         return;
       case "rst":
-        this.#executeRst(instruction, nextPc);
+        executeRst(this, instruction, nextPc);
         return;
       case "stop":
-        this.#executeStop(nextPc);
+        executeStop(this, instruction, nextPc);
         return;
       case "pop":
-        this.#executePop(instruction, nextPc);
+        executePop(this, instruction, nextPc);
         return;
       case "push":
-        this.#executePush(instruction, nextPc);
+        executePush(this, instruction, nextPc);
         return;
       default:
         throw new Error(
@@ -401,695 +448,7 @@ export class Cpu {
     }
   }
 
-  #executeCall(instruction: OpcodeInstruction, nextPc: number): void {
-    const [first, second] = instruction.operands;
-    let conditionName: string | null = null;
-    let targetOperand: InstructionOperand | undefined = first;
-
-    if (instruction.operands.length === 2) {
-      conditionName = first?.meta.name ?? null;
-      targetOperand = second;
-    }
-
-    if (conditionName) {
-      const conditionTaken = this.#evaluateCondition(conditionName);
-      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
-      if (!conditionTaken) {
-        this.#setProgramCounter(nextPc);
-        return;
-      }
-    }
-
-    const target = this.#readImmediateOperand(targetOperand, "call target");
-    this.#pushWord(nextPc, 16);
-    this.#setProgramCounter(target);
-  }
-
-  #executeJump(instruction: OpcodeInstruction, nextPc: number): void {
-    const { operands } = instruction;
-    if (operands.length === 1 && operands[0]?.meta.name === "HL") {
-      this.#setProgramCounter(this.#readRegisterPairHL());
-      return;
-    }
-
-    let conditionName: string | null = null;
-    let targetOperand: InstructionOperand | undefined = operands[0];
-
-    if (operands.length === 2) {
-      conditionName = operands[0]?.meta.name ?? null;
-      targetOperand = operands[1];
-    }
-
-    if (conditionName) {
-      const conditionTaken = this.#evaluateCondition(conditionName);
-      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
-      if (!conditionTaken) {
-        this.#setProgramCounter(nextPc);
-        return;
-      }
-    }
-
-    const target = this.#readImmediateOperand(targetOperand, "jump target");
-    this.#setProgramCounter(target);
-  }
-
-  #executeRelativeJump(instruction: OpcodeInstruction, nextPc: number): void {
-    const operands = instruction.operands;
-    const offsetOperand = operands[operands.length - 1];
-
-    if (!offsetOperand || offsetOperand.meta.name !== "e8") {
-      throw new Error("JR instruction missing 8-bit signed offset operand");
-    }
-
-    let conditionName: string | null = null;
-    if (operands.length === 2) {
-      conditionName = operands[0]?.meta.name ?? null;
-    }
-
-    if (conditionName) {
-      const conditionTaken = this.#evaluateCondition(conditionName);
-      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
-      if (!conditionTaken) {
-        this.#setProgramCounter(nextPc);
-        return;
-      }
-    }
-
-    const target = offsetOperand.relativeTarget ?? null;
-    if (target === null) {
-      throw new Error("JR instruction missing relative target");
-    }
-
-    this.#setProgramCounter(target);
-  }
-
-  #executeReturn(instruction: OpcodeInstruction, nextPc: number): void {
-    const conditionOperand = instruction.operands[0];
-    if (conditionOperand) {
-      const conditionName = conditionOperand.meta.name;
-      const conditionTaken = this.#evaluateCondition(conditionName);
-      this.#setConditionalExtraCycles(instruction.opcode, conditionTaken);
-      if (!conditionTaken) {
-        this.#setProgramCounter(nextPc);
-        return;
-      }
-    }
-
-    const firstReadTicksAhead = conditionOperand ? 8 : 4;
-    const address = this.#popWord(firstReadTicksAhead);
-    this.#setProgramCounter(address);
-  }
-
-  #executeReti(): void {
-    const address = this.#popWord(4);
-    this.state.ime = true;
-    this.#setProgramCounter(address);
-  }
-
-  #executeRst(instruction: OpcodeInstruction, nextPc: number): void {
-    const vectorOperand = instruction.operands[0];
-    if (!vectorOperand) {
-      throw new Error("RST instruction missing target vector");
-    }
-
-    const target = this.#parseRstVector(vectorOperand.meta.name);
-    this.#pushWord(nextPc, 8);
-    this.#setProgramCounter(target);
-  }
-
-  #executeLd(instruction: OpcodeInstruction, nextPc: number): void {
-    const operands = instruction.operands;
-    if (operands.length === 3) {
-      const [destination, firstSource, secondSource] = operands;
-      if (
-        destination?.meta.name === "HL" &&
-        firstSource?.meta.name === "SP" &&
-        secondSource?.meta.name === "e8"
-      ) {
-        const offset = this.#readSignedImmediateOperand(
-          secondSource,
-          "LD HL,SP+e8 offset",
-        );
-        this.#loadHlWithSpOffset(offset);
-        this.#setProgramCounter(nextPc);
-        return;
-      }
-      throw new Error("LD instruction pattern not implemented");
-    }
-
-    if (operands.length !== 2) {
-      throw new Error("LD instruction pattern not implemented");
-    }
-
-    const [destination, source] = operands;
-    if (!destination || !source) {
-      throw new Error("LD instruction missing operands");
-    }
-
-    if (destination.meta.name === "a16" && source.meta.name === "SP") {
-      const address = destination.rawValue;
-      if (address === null) {
-        throw new Error("LD [a16],SP missing target address");
-      }
-      const value = this.state.registers.sp & 0xffff;
-      this.#writeWordToAddress(address, value);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (this.#isEightBitRegisterOperand(destination)) {
-      const value = this.#readEightBitValue(source, "LD source");
-      this.#writeRegister8(destination.meta.name, value);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (this.#isMemoryOperand(destination)) {
-      const value = this.#readEightBitValue(source, "LD source");
-      this.#writeEightBitValue(destination, value);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (
-      this.#is16BitRegisterOperand(destination) &&
-      this.#isImmediate16Operand(source)
-    ) {
-      const value = this.#readImmediateOperand(source, "LD immediate value");
-      this.#writeRegisterPairByName(destination.meta.name, value);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (
-      this.#is16BitRegisterOperand(destination) &&
-      this.#is16BitRegisterOperand(source)
-    ) {
-      const value = this.#readRegisterPairByName(source.meta.name);
-      this.#writeRegisterPairByName(destination.meta.name, value);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    throw new Error(
-      `LD operands not implemented: ${destination.meta.name}, ${source.meta.name}`,
-    );
-  }
-
-  #executeAnd(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    this.#assertAccumulatorDestination(destination, "AND");
-    const value = this.#readEightBitValue(source, "AND source");
-    const registers = this.state.registers;
-    const result = registers.a & value & 0xff;
-    registers.a = result;
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: true,
-      carry: false,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeOr(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    this.#assertAccumulatorDestination(destination, "OR");
-    const value = this.#readEightBitValue(source, "OR source");
-    const registers = this.state.registers;
-    const result = (registers.a | value) & 0xff;
-    registers.a = result;
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry: false,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeXor(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    this.#assertAccumulatorDestination(destination, "XOR");
-    const value = this.#readEightBitValue(source, "XOR source");
-    const registers = this.state.registers;
-    const result = (registers.a ^ value) & 0xff;
-    registers.a = result;
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry: false,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeCpl(nextPc: number): void {
-    const registers = this.state.registers;
-    registers.a = ~registers.a & 0xff;
-    this.#updateFlags({
-      subtract: true,
-      halfCarry: true,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeCcf(nextPc: number): void {
-    this.#updateFlags({
-      subtract: false,
-      halfCarry: false,
-      carry: !this.state.flags.carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeScf(nextPc: number): void {
-    this.#updateFlags({
-      subtract: false,
-      halfCarry: false,
-      carry: true,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeDaa(nextPc: number): void {
-    const registers = this.state.registers;
-    const flags = this.state.flags;
-    let correction = 0;
-    let carry = flags.carry;
-
-    if (!flags.subtract) {
-      if (flags.carry || registers.a > 0x99) {
-        correction |= 0x60;
-        carry = true;
-      }
-      if (flags.halfCarry || (registers.a & 0x0f) > 0x09) {
-        correction |= 0x06;
-      }
-      registers.a = (registers.a + correction) & 0xff;
-    } else {
-      if (flags.carry) {
-        correction |= 0x60;
-      }
-      if (flags.halfCarry) {
-        correction |= 0x06;
-      }
-      registers.a = (registers.a - correction) & 0xff;
-    }
-
-    this.#updateFlags({
-      zero: (registers.a & 0xff) === 0,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeDi(nextPc: number): void {
-    this.state.ime = false;
-    this.#imeEnableDelay = 0;
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeEi(nextPc: number): void {
-    this.#imeEnableDelay = 2;
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeHalt(nextPc: number): void {
-    this.state.halted = true;
-    this.state.stopped = false;
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeStop(nextPc: number): void {
-    this.state.stopped = true;
-    this.state.halted = true;
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executePop(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    if (!operand) {
-      throw new Error("POP instruction missing register operand");
-    }
-    const registerName = operand.meta.name;
-    if (!STACK_REGISTER_NAMES.has(registerName)) {
-      throw new Error(`POP instruction unsupported register ${registerName}`);
-    }
-    const value = this.#popWord(4);
-    this.#writeRegisterPairByName(registerName, value);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executePush(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    if (!operand) {
-      throw new Error("PUSH instruction missing register operand");
-    }
-    const registerName = operand.meta.name;
-    if (!STACK_REGISTER_NAMES.has(registerName)) {
-      throw new Error(`PUSH instruction unsupported register ${registerName}`);
-    }
-    const value = this.#readRegisterPairByName(registerName);
-    this.#pushWord(value, 8);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeBit(instruction: OpcodeInstruction, nextPc: number): void {
-    const [bitOperand, targetOperand] = instruction.operands;
-    const bitIndex = this.#parseBitIndex(bitOperand, "BIT index");
-    if (!targetOperand) {
-      throw new Error("BIT instruction missing target operand");
-    }
-    const value = this.#readEightBitValue(targetOperand, "BIT target");
-    const bitIsZero = ((value >> bitIndex) & 0x01) === 0;
-    this.#updateFlags({
-      zero: bitIsZero,
-      subtract: false,
-      halfCarry: true,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRes(instruction: OpcodeInstruction, nextPc: number): void {
-    const [bitOperand, targetOperand] = instruction.operands;
-    const bitIndex = this.#parseBitIndex(bitOperand, "RES index");
-    if (!targetOperand) {
-      throw new Error("RES instruction missing target operand");
-    }
-    const value = this.#readEightBitValue(targetOperand, "RES target");
-    const result = value & ~(1 << bitIndex);
-    this.#writeEightBitValue(targetOperand, result);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeSet(instruction: OpcodeInstruction, nextPc: number): void {
-    const [bitOperand, targetOperand] = instruction.operands;
-    const bitIndex = this.#parseBitIndex(bitOperand, "SET index");
-    if (!targetOperand) {
-      throw new Error("SET instruction missing target operand");
-    }
-    const value = this.#readEightBitValue(targetOperand, "SET target");
-    const result = value | (1 << bitIndex);
-    this.#writeEightBitValue(targetOperand, result);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRl(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.#transformMutableOperand(
-      operand,
-      "RL operand",
-      (value) => this.#rotateLeftThroughCarry(value),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRlc(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.#transformMutableOperand(
-      operand,
-      "RLC operand",
-      (value) => this.#rotateLeftCircular(value),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRla(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.#rotateLeftThroughCarry(registers.a);
-    registers.a = result;
-    this.#updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRlca(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.#rotateLeftCircular(registers.a);
-    registers.a = result;
-    this.#updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRr(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.#transformMutableOperand(
-      operand,
-      "RR operand",
-      (value) => this.#rotateRightThroughCarry(value),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRrc(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.#transformMutableOperand(
-      operand,
-      "RRC operand",
-      (value) => this.#rotateRightCircular(value),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRra(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.#rotateRightThroughCarry(registers.a);
-    registers.a = result;
-    this.#updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeRrca(nextPc: number): void {
-    const registers = this.state.registers;
-    const { result, carry } = this.#rotateRightCircular(registers.a);
-    registers.a = result;
-    this.#updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeSla(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.#transformMutableOperand(
-      operand,
-      "SLA operand",
-      (value) => this.#shiftLeftArithmetic(value),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeSra(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.#transformMutableOperand(
-      operand,
-      "SRA operand",
-      (value) => this.#shiftRightArithmetic(value),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeSrl(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result, carry } = this.#transformMutableOperand(
-      operand,
-      "SRL operand",
-      (value) => this.#shiftRightLogical(value),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeSwap(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    const { result } = this.#transformMutableOperand(
-      operand,
-      "SWAP operand",
-      (value) => ({ result: this.#swapNibbles(value), carry: false }),
-    );
-    this.#updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry: false,
-      carry: false,
-    });
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeAdd(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    if (!destination || !source) {
-      throw new Error("ADD instruction missing operands");
-    }
-
-    if (destination.meta.name === "A") {
-      const value = this.#readEightBitValue(source, "ADD source");
-      this.#addToAccumulator(value);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (destination.meta.name === "HL") {
-      const value = this.#readRegisterPairOperand(source, "ADD HL source");
-      this.#addToRegisterHl(value);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (destination.meta.name === "SP" && source.meta.name === "e8") {
-      const offset = this.#readSignedImmediateOperand(
-        source,
-        "ADD SP,e8 offset",
-      );
-      this.#addSignedImmediateToSp(offset);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    throw new Error(`ADD destination ${destination.meta.name} not implemented`);
-  }
-
-  #executeAdc(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    this.#assertAccumulatorDestination(destination, "ADC");
-    const value = this.#readEightBitValue(source, "ADC source");
-    this.#addToAccumulatorWithCarry(value);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeSub(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    this.#assertAccumulatorDestination(destination, "SUB");
-    const value = this.#readEightBitValue(source, "SUB source");
-    this.#subtractFromAccumulator(value);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeSbc(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    this.#assertAccumulatorDestination(destination, "SBC");
-    const value = this.#readEightBitValue(source, "SBC source");
-    this.#subtractFromAccumulatorWithCarry(value);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeCp(instruction: OpcodeInstruction, nextPc: number): void {
-    const [destination, source] = instruction.operands;
-    this.#assertAccumulatorDestination(destination, "CP");
-    const value = this.#readEightBitValue(source, "CP source");
-    this.#compareWithAccumulator(value);
-    this.#setProgramCounter(nextPc);
-  }
-
-  #executeInc(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    if (!operand) {
-      throw new Error("INC instruction missing operand");
-    }
-
-    if (
-      this.#isMemoryOperand(operand) ||
-      this.#isEightBitRegisterOperand(operand)
-    ) {
-      this.#increment8(operand);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (this.#is16BitRegisterOperand(operand)) {
-      this.#increment16(operand.meta.name);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    throw new Error(`INC operand ${operand.meta.name} not implemented`);
-  }
-
-  #executeDec(instruction: OpcodeInstruction, nextPc: number): void {
-    const operand = instruction.operands[0];
-    if (!operand) {
-      throw new Error("DEC instruction missing operand");
-    }
-
-    if (
-      this.#isMemoryOperand(operand) ||
-      this.#isEightBitRegisterOperand(operand)
-    ) {
-      this.#decrement8(operand);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    if (this.#is16BitRegisterOperand(operand)) {
-      this.#decrement16(operand.meta.name);
-      this.#setProgramCounter(nextPc);
-      return;
-    }
-
-    throw new Error(`DEC operand ${operand.meta.name} not implemented`);
-  }
-
-  #assertAccumulatorDestination(
+  assertAccumulatorDestination(
     operand: InstructionOperand | undefined,
     mnemonic: string,
   ): void {
@@ -1100,7 +459,7 @@ export class Cpu {
     }
   }
 
-  #readRegisterPairOperand(
+  readRegisterPairOperand(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -1111,10 +470,10 @@ export class Cpu {
     if (!this.#is16BitRegister(name)) {
       throw new Error(`Unsupported ${description}: ${name}`);
     }
-    return this.#readRegisterPairByName(name);
+    return this.readRegisterPairByName(name);
   }
 
-  #isEightBitRegisterOperand(operand: InstructionOperand | undefined): boolean {
+  isEightBitRegisterOperand(operand: InstructionOperand | undefined): boolean {
     return Boolean(
       operand &&
         operand.meta.immediate &&
@@ -1122,7 +481,7 @@ export class Cpu {
     );
   }
 
-  #is16BitRegisterOperand(operand: InstructionOperand | undefined): boolean {
+  is16BitRegisterOperand(operand: InstructionOperand | undefined): boolean {
     return Boolean(
       operand &&
         operand.meta.immediate &&
@@ -1130,7 +489,7 @@ export class Cpu {
     );
   }
 
-  #isMemoryOperand(operand: InstructionOperand | undefined): boolean {
+  isMemoryOperand(operand: InstructionOperand | undefined): boolean {
     if (!operand) {
       return false;
     }
@@ -1150,11 +509,11 @@ export class Cpu {
     return false;
   }
 
-  #isImmediate16Operand(operand: InstructionOperand | undefined): boolean {
+  isImmediate16Operand(operand: InstructionOperand | undefined): boolean {
     return Boolean(operand && operand.meta.name === "n16");
   }
 
-  #transformMutableOperand(
+  transformMutableOperand(
     operand: InstructionOperand | undefined,
     description: string,
     transform: (value: number) => { result: number; carry: boolean },
@@ -1162,10 +521,10 @@ export class Cpu {
     if (!operand) {
       throw new Error(`Missing ${description}`);
     }
-    const currentValue = this.#readEightBitValue(operand, description);
+    const currentValue = this.readEightBitValue(operand, description);
     const outcome = transform(currentValue & 0xff);
     const result = outcome.result & 0xff;
-    this.#writeEightBitValue(operand, result);
+    this.writeEightBitValue(operand, result);
     return { result, carry: outcome.carry };
   }
 
@@ -1196,7 +555,7 @@ export class Cpu {
     }
 
     if (name === "HL" && meta.immediate === false) {
-      const address = this.#readRegisterPairHL();
+      const address = this.readRegisterPairHL();
       const delta = meta.increment ? 1 : meta.decrement ? -1 : 0;
       if (delta === 0) {
         return { address };
@@ -1211,14 +570,14 @@ export class Cpu {
     }
 
     if (!meta.immediate && this.#is16BitRegister(name)) {
-      const address = this.#readRegisterPairByName(name);
+      const address = this.readRegisterPairByName(name);
       return { address };
     }
 
     throw new Error(`Unsupported ${description}: ${name}`);
   }
 
-  #parseBitIndex(
+  parseBitIndex(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -1232,7 +591,7 @@ export class Cpu {
     return index;
   }
 
-  #parseRstVector(name: string): number {
+  parseRstVector(name: string): number {
     if (!name.startsWith("$")) {
       throw new Error(`Unexpected RST vector operand "${name}"`);
     }
@@ -1243,7 +602,7 @@ export class Cpu {
     return value & 0xffff;
   }
 
-  #readImmediateOperand(
+  readImmediateOperand(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -1253,7 +612,7 @@ export class Cpu {
     return operand.rawValue & 0xffff;
   }
 
-  #readSignedImmediateOperand(
+  readSignedImmediateOperand(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -1273,7 +632,7 @@ export class Cpu {
     return raw >= 0x80 ? raw - 0x100 : raw;
   }
 
-  #evaluateCondition(name: string): boolean {
+  evaluateCondition(name: string): boolean {
     switch (name) {
       case "Z":
         return this.state.flags.zero;
@@ -1288,7 +647,7 @@ export class Cpu {
     }
   }
 
-  #setConditionalExtraCycles(opcode: number, conditionTaken: boolean): void {
+  setConditionalExtraCycles(opcode: number, conditionTaken: boolean): void {
     if (!conditionTaken) {
       this.#pendingExtraCycles = 0;
       return;
@@ -1319,7 +678,7 @@ export class Cpu {
     }
   }
 
-  #readEightBitValue(
+  readEightBitValue(
     operand: InstructionOperand | undefined,
     description: string,
   ): number {
@@ -1327,7 +686,7 @@ export class Cpu {
       throw new Error(`Missing ${description}`);
     }
 
-    if (this.#isMemoryOperand(operand)) {
+    if (this.isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, description);
       const value = this.#requireBus().readByte(reference.address, 4) & 0xff;
       reference.postAccess?.();
@@ -1342,15 +701,15 @@ export class Cpu {
     }
 
     if (this.#is8BitRegister(operand.meta.name)) {
-      return this.#readRegister8(operand.meta.name);
+      return this.readRegister8(operand.meta.name);
     }
 
     throw new Error(`Unsupported ${description}: ${operand.meta.name}`);
   }
 
-  #writeEightBitValue(operand: InstructionOperand, value: number): void {
+  writeEightBitValue(operand: InstructionOperand, value: number): void {
     const maskedValue = value & 0xff;
-    if (this.#isMemoryOperand(operand)) {
+    if (this.isMemoryOperand(operand)) {
       const reference = this.#resolveMemoryReference(operand, "memory target");
       this.#requireBus().writeByte(reference.address, maskedValue, 4);
       reference.postAccess?.();
@@ -1358,48 +717,48 @@ export class Cpu {
     }
 
     if (this.#is8BitRegister(operand.meta.name)) {
-      this.#writeRegister8(operand.meta.name, maskedValue);
+      this.writeRegister8(operand.meta.name, maskedValue);
       return;
     }
 
     throw new Error(`Cannot write to operand ${operand.meta.name}`);
   }
 
-  #increment8(operand: InstructionOperand): void {
-    const current = this.#readEightBitValue(operand, "INC operand");
+  increment8(operand: InstructionOperand): void {
+    const current = this.readEightBitValue(operand, "INC operand");
     const result = (current + 1) & 0xff;
-    this.#writeEightBitValue(operand, result);
+    this.writeEightBitValue(operand, result);
     const halfCarry = (current & 0x0f) + 1 > 0x0f;
-    this.#updateFlags({
+    this.updateFlags({
       zero: result === 0,
       subtract: false,
       halfCarry,
     });
   }
 
-  #decrement8(operand: InstructionOperand): void {
-    const current = this.#readEightBitValue(operand, "DEC operand");
+  decrement8(operand: InstructionOperand): void {
+    const current = this.readEightBitValue(operand, "DEC operand");
     const result = (current - 1) & 0xff;
-    this.#writeEightBitValue(operand, result);
+    this.writeEightBitValue(operand, result);
     const halfCarry = (current & 0x0f) === 0;
-    this.#updateFlags({
+    this.updateFlags({
       zero: result === 0,
       subtract: true,
       halfCarry,
     });
   }
 
-  #increment16(registerName: string): void {
-    const value = this.#readRegisterPairByName(registerName);
-    this.#writeRegisterPairByName(registerName, (value + 1) & 0xffff);
+  increment16(registerName: string): void {
+    const value = this.readRegisterPairByName(registerName);
+    this.writeRegisterPairByName(registerName, (value + 1) & 0xffff);
   }
 
-  #decrement16(registerName: string): void {
-    const value = this.#readRegisterPairByName(registerName);
-    this.#writeRegisterPairByName(registerName, (value - 1) & 0xffff);
+  decrement16(registerName: string): void {
+    const value = this.readRegisterPairByName(registerName);
+    this.writeRegisterPairByName(registerName, (value - 1) & 0xffff);
   }
 
-  #addToAccumulator(value: number): void {
+  addToAccumulator(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -1408,7 +767,7 @@ export class Cpu {
     const halfCarry = (current & 0x0f) + (operand & 0x0f) > 0x0f;
     const carry = sum > 0xff;
     registers.a = result;
-    this.#updateFlags({
+    this.updateFlags({
       zero: result === 0,
       subtract: false,
       halfCarry,
@@ -1416,7 +775,7 @@ export class Cpu {
     });
   }
 
-  #addToAccumulatorWithCarry(value: number): void {
+  addToAccumulatorWithCarry(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -1426,7 +785,7 @@ export class Cpu {
     const halfCarry = (current & 0x0f) + (operand & 0x0f) + carryIn > 0x0f;
     const carry = sum > 0xff;
     registers.a = result;
-    this.#updateFlags({
+    this.updateFlags({
       zero: result === 0,
       subtract: false,
       halfCarry,
@@ -1434,7 +793,7 @@ export class Cpu {
     });
   }
 
-  #subtractFromAccumulator(value: number): void {
+  subtractFromAccumulator(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -1442,7 +801,7 @@ export class Cpu {
     const borrow = current < operand;
     const halfBorrow = (current & 0x0f) < (operand & 0x0f);
     registers.a = result;
-    this.#updateFlags({
+    this.updateFlags({
       zero: result === 0,
       subtract: true,
       halfCarry: halfBorrow,
@@ -1450,7 +809,7 @@ export class Cpu {
     });
   }
 
-  #subtractFromAccumulatorWithCarry(value: number): void {
+  subtractFromAccumulatorWithCarry(value: number): void {
     const operand = value & 0xff;
     const registers = this.state.registers;
     const current = registers.a & 0xff;
@@ -1460,7 +819,7 @@ export class Cpu {
     const borrow = current < subtrahend;
     const halfBorrow = (current & 0x0f) < (operand & 0x0f) + carryIn;
     registers.a = result;
-    this.#updateFlags({
+    this.updateFlags({
       zero: result === 0,
       subtract: true,
       halfCarry: halfBorrow,
@@ -1468,13 +827,13 @@ export class Cpu {
     });
   }
 
-  #compareWithAccumulator(value: number): void {
+  compareWithAccumulator(value: number): void {
     const operand = value & 0xff;
     const current = this.state.registers.a & 0xff;
     const result = (current - operand) & 0xff;
     const borrow = current < operand;
     const halfBorrow = (current & 0x0f) < (operand & 0x0f);
-    this.#updateFlags({
+    this.updateFlags({
       zero: result === 0,
       subtract: true,
       halfCarry: halfBorrow,
@@ -1482,15 +841,15 @@ export class Cpu {
     });
   }
 
-  #addToRegisterHl(value: number): void {
+  addToRegisterHl(value: number): void {
     const operand = value & 0xffff;
-    const current = this.#readRegisterPairHL();
+    const current = this.readRegisterPairHL();
     const sum = current + operand;
     const result = sum & 0xffff;
     const halfCarry = (current & 0x0fff) + (operand & 0x0fff) > 0x0fff;
     const carry = sum > 0xffff;
     this.#writeRegisterPairHL(result);
-    this.#updateFlags({
+    this.updateFlags({
       subtract: false,
       halfCarry,
       carry,
@@ -1512,10 +871,10 @@ export class Cpu {
     return { result, halfCarry, carry };
   }
 
-  #addSignedImmediateToSp(offset: number): void {
+  addSignedImmediateToSp(offset: number): void {
     const { result, halfCarry, carry } = this.#computeSpOffsetResult(offset);
     this.state.registers.sp = result;
-    this.#updateFlags({
+    this.updateFlags({
       zero: false,
       subtract: false,
       halfCarry,
@@ -1523,10 +882,10 @@ export class Cpu {
     });
   }
 
-  #loadHlWithSpOffset(offset: number): void {
+  loadHlWithSpOffset(offset: number): void {
     const { result, halfCarry, carry } = this.#computeSpOffsetResult(offset);
     this.#writeRegisterPairHL(result);
-    this.#updateFlags({
+    this.updateFlags({
       zero: false,
       subtract: false,
       halfCarry,
@@ -1534,7 +893,7 @@ export class Cpu {
     });
   }
 
-  #readRegister8(name: string): number {
+  readRegister8(name: string): number {
     const registers = this.state.registers;
     switch (name) {
       case "A":
@@ -1556,7 +915,7 @@ export class Cpu {
     }
   }
 
-  #writeRegister8(name: string, value: number): void {
+  writeRegister8(name: string, value: number): void {
     const registers = this.state.registers;
     const masked = value & 0xff;
     switch (name) {
@@ -1586,7 +945,7 @@ export class Cpu {
     }
   }
 
-  #readRegisterPairByName(name: string): number {
+  readRegisterPairByName(name: string): number {
     const registers = this.state.registers;
     switch (name) {
       case "AF":
@@ -1596,7 +955,7 @@ export class Cpu {
       case "DE":
         return ((registers.d << 8) | registers.e) & 0xffff;
       case "HL":
-        return this.#readRegisterPairHL();
+        return this.readRegisterPairHL();
       case "SP":
         return registers.sp & 0xffff;
       default:
@@ -1604,7 +963,7 @@ export class Cpu {
     }
   }
 
-  #writeRegisterPairByName(name: string, value: number): void {
+  writeRegisterPairByName(name: string, value: number): void {
     const registers = this.state.registers;
     const masked = value & 0xffff;
     switch (name) {
@@ -1638,51 +997,51 @@ export class Cpu {
     registers.l = value & 0xff;
   }
 
-  #rotateLeftThroughCarry(value: number): { result: number; carry: boolean } {
+  rotateLeftThroughCarry(value: number): { result: number; carry: boolean } {
     const carryIn = this.state.flags.carry ? 1 : 0;
     const carry = (value & 0x80) !== 0;
     const result = ((value << 1) | carryIn) & 0xff;
     return { result, carry };
   }
 
-  #rotateLeftCircular(value: number): { result: number; carry: boolean } {
+  rotateLeftCircular(value: number): { result: number; carry: boolean } {
     const carry = (value & 0x80) !== 0;
     const result = ((value << 1) | (carry ? 1 : 0)) & 0xff;
     return { result, carry };
   }
 
-  #rotateRightThroughCarry(value: number): { result: number; carry: boolean } {
+  rotateRightThroughCarry(value: number): { result: number; carry: boolean } {
     const carryIn = this.state.flags.carry ? 1 : 0;
     const carry = (value & 0x01) !== 0;
     const result = ((carryIn << 7) | (value >> 1)) & 0xff;
     return { result, carry };
   }
 
-  #rotateRightCircular(value: number): { result: number; carry: boolean } {
+  rotateRightCircular(value: number): { result: number; carry: boolean } {
     const carry = (value & 0x01) !== 0;
     const result = ((carry ? 0x80 : 0) | (value >> 1)) & 0xff;
     return { result, carry };
   }
 
-  #shiftLeftArithmetic(value: number): { result: number; carry: boolean } {
+  shiftLeftArithmetic(value: number): { result: number; carry: boolean } {
     const carry = (value & 0x80) !== 0;
     const result = (value << 1) & 0xff;
     return { result, carry };
   }
 
-  #shiftRightArithmetic(value: number): { result: number; carry: boolean } {
+  shiftRightArithmetic(value: number): { result: number; carry: boolean } {
     const carry = (value & 0x01) !== 0;
     const result = ((value & 0x80) | (value >> 1)) & 0xff;
     return { result, carry };
   }
 
-  #shiftRightLogical(value: number): { result: number; carry: boolean } {
+  shiftRightLogical(value: number): { result: number; carry: boolean } {
     const carry = (value & 0x01) !== 0;
     const result = (value >> 1) & 0x7f;
     return { result, carry };
   }
 
-  #swapNibbles(value: number): number {
+  swapNibbles(value: number): number {
     const upper = (value & 0xf0) >> 4;
     const lower = value & 0x0f;
     return ((lower << 4) | upper) & 0xff;
@@ -1696,7 +1055,7 @@ export class Cpu {
     return SIXTEEN_BIT_REGISTERS.has(name);
   }
 
-  #updateFlags(flags: Partial<CpuFlags>): void {
+  updateFlags(flags: Partial<CpuFlags>): void {
     if (flags.zero !== undefined) {
       this.state.flags.zero = flags.zero;
     }
@@ -1740,14 +1099,14 @@ export class Cpu {
     this.state.flags.carry = (value & 0x10) !== 0;
   }
 
-  #writeWordToAddress(address: number, value: number): void {
+  writeWordToAddress(address: number, value: number): void {
     const bus = this.#requireBus();
     const targetAddress = address & 0xffff;
     bus.writeByte(targetAddress, value & 0xff, 4);
     bus.writeByte((targetAddress + 1) & 0xffff, (value >> 8) & 0xff, 8);
   }
 
-  #pushWord(value: number, firstWriteTicksAhead = 0): void {
+  pushWord(value: number, firstWriteTicksAhead = 0): void {
     const bus = this.#requireBus();
     const registers = this.state.registers;
     registers.sp = (registers.sp - 1) & 0xffff;
@@ -1756,7 +1115,7 @@ export class Cpu {
     bus.writeByte(registers.sp, value & 0xff, firstWriteTicksAhead + 4);
   }
 
-  #popWord(firstReadTicksAhead = 0): number {
+  popWord(firstReadTicksAhead = 0): number {
     const bus = this.#requireBus();
     const registers = this.state.registers;
     const low = bus.readByte(registers.sp, firstReadTicksAhead);
@@ -1766,13 +1125,17 @@ export class Cpu {
     return ((high << 8) | low) & 0xffff;
   }
 
-  #readRegisterPairHL(): number {
+  readRegisterPairHL(): number {
     const { h, l } = this.state.registers;
     return ((h << 8) | l) & 0xffff;
   }
 
-  #setProgramCounter(value: number): void {
+  setProgramCounter(value: number): void {
     this.state.registers.pc = value & 0xffff;
+  }
+
+  setImeEnableDelay(value: number): void {
+    this.#imeEnableDelay = value;
   }
 
   #computeInstructionCycles(instruction: OpcodeInstruction): number {
