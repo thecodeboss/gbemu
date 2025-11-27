@@ -397,31 +397,6 @@ export class Cpu {
     }
   }
 
-  assertAccumulatorDestination(
-    operand: InstructionOperand | undefined,
-    mnemonic: string,
-  ): void {
-    if (!operand || operand.meta.name !== "A") {
-      throw new Error(
-        `${mnemonic} instruction expects accumulator destination`,
-      );
-    }
-  }
-
-  readRegisterPairOperand(
-    operand: InstructionOperand | undefined,
-    description: string,
-  ): number {
-    if (!operand) {
-      throw new Error(`Missing ${description}`);
-    }
-    const name = operand.meta.name;
-    if (!SIXTEEN_BIT_REGISTERS.has(name)) {
-      throw new Error(`Unsupported ${description}: ${name}`);
-    }
-    return this.readRegisterPairByName(name);
-  }
-
   isEightBitRegisterOperand(operand: InstructionOperand | undefined): boolean {
     return Boolean(
       operand && operand.meta.imm && EIGHT_BIT_REGISTERS.has(operand.meta.name),
@@ -450,21 +425,6 @@ export class Cpu {
 
   isImmediate16Operand(operand: InstructionOperand | undefined): boolean {
     return Boolean(operand && operand.meta.name === "n16");
-  }
-
-  transformMutableOperand(
-    operand: InstructionOperand | undefined,
-    description: string,
-    transform: (value: number) => { result: number; carry: boolean },
-  ): { result: number; carry: boolean } {
-    if (!operand) {
-      throw new Error(`Missing ${description}`);
-    }
-    const currentValue = this.readEightBitValue(operand, description);
-    const outcome = transform(currentValue & 0xff);
-    const result = outcome.result & 0xff;
-    this.writeEightBitValue(operand, result);
-    return { result, carry: outcome.carry };
   }
 
   #resolveMemoryReference(
@@ -516,31 +476,6 @@ export class Cpu {
     throw new Error(`Unsupported ${description}: ${name}`);
   }
 
-  parseBitIndex(
-    operand: InstructionOperand | undefined,
-    description: string,
-  ): number {
-    if (!operand) {
-      throw new Error(`Missing ${description}`);
-    }
-    const index = Number.parseInt(operand.meta.name, 10);
-    if (Number.isNaN(index) || index < 0 || index > 7) {
-      throw new Error(`Invalid ${description}: ${operand.meta.name}`);
-    }
-    return index;
-  }
-
-  parseRstVector(name: string): number {
-    if (!name.startsWith("$")) {
-      throw new Error(`Unexpected RST vector operand "${name}"`);
-    }
-    const value = Number.parseInt(name.slice(1), 16);
-    if (Number.isNaN(value)) {
-      throw new Error(`Unable to parse RST vector "${name}"`);
-    }
-    return value & 0xffff;
-  }
-
   readImmediateOperand(
     operand: InstructionOperand | undefined,
     description: string,
@@ -569,21 +504,6 @@ export class Cpu {
     }
     const raw = operand.rawValue & 0xff;
     return raw >= 0x80 ? raw - 0x100 : raw;
-  }
-
-  evaluateCondition(name: string): boolean {
-    switch (name) {
-      case "Z":
-        return this.state.flags.zero;
-      case "NZ":
-        return !this.state.flags.zero;
-      case "C":
-        return this.state.flags.carry;
-      case "NC":
-        return !this.state.flags.carry;
-      default:
-        throw new Error(`Unsupported condition "${name}"`);
-    }
   }
 
   setConditionalExtraCycles(opcode: number, conditionTaken: boolean): void {
@@ -663,175 +583,6 @@ export class Cpu {
     throw new Error(`Cannot write to operand ${operand.meta.name}`);
   }
 
-  increment8(operand: InstructionOperand): void {
-    const current = this.readEightBitValue(operand, "INC operand");
-    const result = (current + 1) & 0xff;
-    this.writeEightBitValue(operand, result);
-    const halfCarry = (current & 0x0f) + 1 > 0x0f;
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry,
-    });
-  }
-
-  decrement8(operand: InstructionOperand): void {
-    const current = this.readEightBitValue(operand, "DEC operand");
-    const result = (current - 1) & 0xff;
-    this.writeEightBitValue(operand, result);
-    const halfCarry = (current & 0x0f) === 0;
-    this.updateFlags({
-      zero: result === 0,
-      subtract: true,
-      halfCarry,
-    });
-  }
-
-  increment16(registerName: string): void {
-    const value = this.readRegisterPairByName(registerName);
-    this.writeRegisterPairByName(registerName, (value + 1) & 0xffff);
-  }
-
-  decrement16(registerName: string): void {
-    const value = this.readRegisterPairByName(registerName);
-    this.writeRegisterPairByName(registerName, (value - 1) & 0xffff);
-  }
-
-  addToAccumulator(value: number): void {
-    const operand = value & 0xff;
-    const registers = this.state.registers;
-    const current = registers.a & 0xff;
-    const sum = current + operand;
-    const result = sum & 0xff;
-    const halfCarry = (current & 0x0f) + (operand & 0x0f) > 0x0f;
-    const carry = sum > 0xff;
-    registers.a = result;
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry,
-      carry,
-    });
-  }
-
-  addToAccumulatorWithCarry(value: number): void {
-    const operand = value & 0xff;
-    const registers = this.state.registers;
-    const current = registers.a & 0xff;
-    const carryIn = this.state.flags.carry ? 1 : 0;
-    const sum = current + operand + carryIn;
-    const result = sum & 0xff;
-    const halfCarry = (current & 0x0f) + (operand & 0x0f) + carryIn > 0x0f;
-    const carry = sum > 0xff;
-    registers.a = result;
-    this.updateFlags({
-      zero: result === 0,
-      subtract: false,
-      halfCarry,
-      carry,
-    });
-  }
-
-  subtractFromAccumulator(value: number): void {
-    const operand = value & 0xff;
-    const registers = this.state.registers;
-    const current = registers.a & 0xff;
-    const result = (current - operand) & 0xff;
-    const borrow = current < operand;
-    const halfBorrow = (current & 0x0f) < (operand & 0x0f);
-    registers.a = result;
-    this.updateFlags({
-      zero: result === 0,
-      subtract: true,
-      halfCarry: halfBorrow,
-      carry: borrow,
-    });
-  }
-
-  subtractFromAccumulatorWithCarry(value: number): void {
-    const operand = value & 0xff;
-    const registers = this.state.registers;
-    const current = registers.a & 0xff;
-    const carryIn = this.state.flags.carry ? 1 : 0;
-    const subtrahend = operand + carryIn;
-    const result = (current - subtrahend) & 0xff;
-    const borrow = current < subtrahend;
-    const halfBorrow = (current & 0x0f) < (operand & 0x0f) + carryIn;
-    registers.a = result;
-    this.updateFlags({
-      zero: result === 0,
-      subtract: true,
-      halfCarry: halfBorrow,
-      carry: borrow,
-    });
-  }
-
-  compareWithAccumulator(value: number): void {
-    const operand = value & 0xff;
-    const current = this.state.registers.a & 0xff;
-    const result = (current - operand) & 0xff;
-    const borrow = current < operand;
-    const halfBorrow = (current & 0x0f) < (operand & 0x0f);
-    this.updateFlags({
-      zero: result === 0,
-      subtract: true,
-      halfCarry: halfBorrow,
-      carry: borrow,
-    });
-  }
-
-  addToRegisterHl(value: number): void {
-    const operand = value & 0xffff;
-    const current = this.readRegisterPairHL();
-    const sum = current + operand;
-    const result = sum & 0xffff;
-    const halfCarry = (current & 0x0fff) + (operand & 0x0fff) > 0x0fff;
-    const carry = sum > 0xffff;
-    this.#writeRegisterPairHL(result);
-    this.updateFlags({
-      subtract: false,
-      halfCarry,
-      carry,
-    });
-  }
-
-  #computeSpOffsetResult(offset: number): {
-    result: number;
-    halfCarry: boolean;
-    carry: boolean;
-  } {
-    const registers = this.state.registers;
-    const sp = registers.sp & 0xffff;
-    const signedOffset = (offset << 24) >> 24;
-    const unsignedOffset = offset & 0xff;
-    const result = (sp + signedOffset) & 0xffff;
-    const halfCarry = (sp & 0x0f) + (unsignedOffset & 0x0f) > 0x0f;
-    const carry = (sp & 0xff) + unsignedOffset > 0xff;
-    return { result, halfCarry, carry };
-  }
-
-  addSignedImmediateToSp(offset: number): void {
-    const { result, halfCarry, carry } = this.#computeSpOffsetResult(offset);
-    this.state.registers.sp = result;
-    this.updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry,
-      carry,
-    });
-  }
-
-  loadHlWithSpOffset(offset: number): void {
-    const { result, halfCarry, carry } = this.#computeSpOffsetResult(offset);
-    this.#writeRegisterPairHL(result);
-    this.updateFlags({
-      zero: false,
-      subtract: false,
-      halfCarry,
-      carry,
-    });
-  }
-
   readRegister8(name: string): number {
     if (!EIGHT_BIT_REGISTERS.has(name))
       throw new Error(`Unsupported 8-bit register ${name}`);
@@ -897,56 +648,6 @@ export class Cpu {
     const registers = this.state.registers;
     registers.h = (value >> 8) & 0xff;
     registers.l = value & 0xff;
-  }
-
-  rotateLeftThroughCarry(value: number): { result: number; carry: boolean } {
-    const carryIn = this.state.flags.carry ? 1 : 0;
-    const carry = (value & 0x80) !== 0;
-    const result = ((value << 1) | carryIn) & 0xff;
-    return { result, carry };
-  }
-
-  rotateLeftCircular(value: number): { result: number; carry: boolean } {
-    const carry = (value & 0x80) !== 0;
-    const result = ((value << 1) | (carry ? 1 : 0)) & 0xff;
-    return { result, carry };
-  }
-
-  rotateRightThroughCarry(value: number): { result: number; carry: boolean } {
-    const carryIn = this.state.flags.carry ? 1 : 0;
-    const carry = (value & 0x01) !== 0;
-    const result = ((carryIn << 7) | (value >> 1)) & 0xff;
-    return { result, carry };
-  }
-
-  rotateRightCircular(value: number): { result: number; carry: boolean } {
-    const carry = (value & 0x01) !== 0;
-    const result = ((carry ? 0x80 : 0) | (value >> 1)) & 0xff;
-    return { result, carry };
-  }
-
-  shiftLeftArithmetic(value: number): { result: number; carry: boolean } {
-    const carry = (value & 0x80) !== 0;
-    const result = (value << 1) & 0xff;
-    return { result, carry };
-  }
-
-  shiftRightArithmetic(value: number): { result: number; carry: boolean } {
-    const carry = (value & 0x01) !== 0;
-    const result = ((value & 0x80) | (value >> 1)) & 0xff;
-    return { result, carry };
-  }
-
-  shiftRightLogical(value: number): { result: number; carry: boolean } {
-    const carry = (value & 0x01) !== 0;
-    const result = (value >> 1) & 0x7f;
-    return { result, carry };
-  }
-
-  swapNibbles(value: number): number {
-    const upper = (value & 0xf0) >> 4;
-    const lower = value & 0x0f;
-    return ((lower << 4) | upper) & 0xff;
   }
 
   updateFlags(flags: Partial<CpuFlags>): void {

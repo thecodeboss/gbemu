@@ -1,5 +1,6 @@
 import { Cpu } from "../cpu.js";
 import { OpcodeInstruction } from "../rom/types.js";
+import { loadHlWithSpOffset } from "./sp-offset.js";
 
 const STACK_REGISTER_NAMES = new Set(["AF", "BC", "DE", "HL"]);
 
@@ -20,7 +21,7 @@ export function executeLd(
         secondSource,
         "LD HL,SP+e8 offset",
       );
-      cpu.loadHlWithSpOffset(offset);
+      loadHlWithSpOffset(cpu, offset);
       cpu.setProgramCounter(nextPc);
       return;
     }

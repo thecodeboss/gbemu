@@ -1,5 +1,7 @@
 import { Cpu } from "../cpu.js";
-import { OpcodeInstruction } from "../rom/types.js";
+import { InstructionOperand, OpcodeInstruction } from "../rom/types.js";
+import { addSignedImmediateToSp } from "./sp-offset.js";
+import { assertAccumulatorDestination } from "./utils.js";
 
 export function executeAdd(
   cpu: Cpu,
@@ -13,21 +15,21 @@ export function executeAdd(
 
   if (destination.meta.name === "A") {
     const value = cpu.readEightBitValue(source, "ADD source");
-    cpu.addToAccumulator(value);
+    addToAccumulator(cpu, value);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
   if (destination.meta.name === "HL") {
-    const value = cpu.readRegisterPairOperand(source, "ADD HL source");
-    cpu.addToRegisterHl(value);
+    const value = readRegisterPairOperand(cpu, source, "ADD HL source");
+    addToRegisterHl(cpu, value);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
   if (destination.meta.name === "SP" && source.meta.name === "e8") {
     const offset = cpu.readSignedImmediateOperand(source, "ADD SP,e8 offset");
-    cpu.addSignedImmediateToSp(offset);
+    addSignedImmediateToSp(cpu, offset);
     cpu.setProgramCounter(nextPc);
     return;
   }
@@ -41,9 +43,9 @@ export function executeAdc(
   nextPc: number,
 ): void {
   const [destination, source] = instruction.operands;
-  cpu.assertAccumulatorDestination(destination, "ADC");
+  assertAccumulatorDestination(destination, "ADC");
   const value = cpu.readEightBitValue(source, "ADC source");
-  cpu.addToAccumulatorWithCarry(value);
+  addToAccumulatorWithCarry(cpu, value);
   cpu.setProgramCounter(nextPc);
 }
 
@@ -53,9 +55,9 @@ export function executeSub(
   nextPc: number,
 ): void {
   const [destination, source] = instruction.operands;
-  cpu.assertAccumulatorDestination(destination, "SUB");
+  assertAccumulatorDestination(destination, "SUB");
   const value = cpu.readEightBitValue(source, "SUB source");
-  cpu.subtractFromAccumulator(value);
+  subtractFromAccumulator(cpu, value);
   cpu.setProgramCounter(nextPc);
 }
 
@@ -65,9 +67,9 @@ export function executeSbc(
   nextPc: number,
 ): void {
   const [destination, source] = instruction.operands;
-  cpu.assertAccumulatorDestination(destination, "SBC");
+  assertAccumulatorDestination(destination, "SBC");
   const value = cpu.readEightBitValue(source, "SBC source");
-  cpu.subtractFromAccumulatorWithCarry(value);
+  subtractFromAccumulatorWithCarry(cpu, value);
   cpu.setProgramCounter(nextPc);
 }
 
@@ -77,9 +79,9 @@ export function executeCp(
   nextPc: number,
 ): void {
   const [destination, source] = instruction.operands;
-  cpu.assertAccumulatorDestination(destination, "CP");
+  assertAccumulatorDestination(destination, "CP");
   const value = cpu.readEightBitValue(source, "CP source");
-  cpu.compareWithAccumulator(value);
+  compareWithAccumulator(cpu, value);
   cpu.setProgramCounter(nextPc);
 }
 
@@ -94,13 +96,13 @@ export function executeInc(
   }
 
   if (cpu.isMemoryOperand(operand) || cpu.isEightBitRegisterOperand(operand)) {
-    cpu.increment8(operand);
+    increment8(cpu, operand);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
   if (cpu.is16BitRegisterOperand(operand)) {
-    cpu.increment16(operand.meta.name);
+    increment16(cpu, operand.meta.name);
     cpu.setProgramCounter(nextPc);
     return;
   }
@@ -119,13 +121,13 @@ export function executeDec(
   }
 
   if (cpu.isMemoryOperand(operand) || cpu.isEightBitRegisterOperand(operand)) {
-    cpu.decrement8(operand);
+    decrement8(cpu, operand);
     cpu.setProgramCounter(nextPc);
     return;
   }
 
   if (cpu.is16BitRegisterOperand(operand)) {
-    cpu.decrement16(operand.meta.name);
+    decrement16(cpu, operand.meta.name);
     cpu.setProgramCounter(nextPc);
     return;
   }
@@ -168,4 +170,153 @@ export function executeDaa(
     carry,
   });
   cpu.setProgramCounter(nextPc);
+}
+
+const REGISTER_PAIR_NAMES = new Set(["AF", "BC", "DE", "HL", "SP"]);
+
+function readRegisterPairOperand(
+  cpu: Cpu,
+  operand: InstructionOperand | undefined,
+  description: string,
+): number {
+  if (!operand) {
+    throw new Error(`Missing ${description}`);
+  }
+  const name = operand.meta.name;
+  if (!REGISTER_PAIR_NAMES.has(name)) {
+    throw new Error(`Unsupported ${description}: ${name}`);
+  }
+  return cpu.readRegisterPairByName(name);
+}
+
+function increment8(cpu: Cpu, operand: InstructionOperand): void {
+  const current = cpu.readEightBitValue(operand, "INC operand");
+  const result = (current + 1) & 0xff;
+  cpu.writeEightBitValue(operand, result);
+  const halfCarry = (current & 0x0f) + 1 > 0x0f;
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry,
+  });
+}
+
+function decrement8(cpu: Cpu, operand: InstructionOperand): void {
+  const current = cpu.readEightBitValue(operand, "DEC operand");
+  const result = (current - 1) & 0xff;
+  cpu.writeEightBitValue(operand, result);
+  const halfCarry = (current & 0x0f) === 0;
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: true,
+    halfCarry,
+  });
+}
+
+function increment16(cpu: Cpu, registerName: string): void {
+  const value = cpu.readRegisterPairByName(registerName);
+  cpu.writeRegisterPairByName(registerName, (value + 1) & 0xffff);
+}
+
+function decrement16(cpu: Cpu, registerName: string): void {
+  const value = cpu.readRegisterPairByName(registerName);
+  cpu.writeRegisterPairByName(registerName, (value - 1) & 0xffff);
+}
+
+function addToAccumulator(cpu: Cpu, value: number): void {
+  const operand = value & 0xff;
+  const registers = cpu.state.registers;
+  const current = registers.a & 0xff;
+  const sum = current + operand;
+  const result = sum & 0xff;
+  const halfCarry = (current & 0x0f) + (operand & 0x0f) > 0x0f;
+  const carry = sum > 0xff;
+  registers.a = result;
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry,
+    carry,
+  });
+}
+
+function addToAccumulatorWithCarry(cpu: Cpu, value: number): void {
+  const operand = value & 0xff;
+  const registers = cpu.state.registers;
+  const current = registers.a & 0xff;
+  const carryIn = cpu.state.flags.carry ? 1 : 0;
+  const sum = current + operand + carryIn;
+  const result = sum & 0xff;
+  const halfCarry = (current & 0x0f) + (operand & 0x0f) + carryIn > 0x0f;
+  const carry = sum > 0xff;
+  registers.a = result;
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: false,
+    halfCarry,
+    carry,
+  });
+}
+
+function subtractFromAccumulator(cpu: Cpu, value: number): void {
+  const operand = value & 0xff;
+  const registers = cpu.state.registers;
+  const current = registers.a & 0xff;
+  const result = (current - operand) & 0xff;
+  const borrow = current < operand;
+  const halfBorrow = (current & 0x0f) < (operand & 0x0f);
+  registers.a = result;
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: true,
+    halfCarry: halfBorrow,
+    carry: borrow,
+  });
+}
+
+function subtractFromAccumulatorWithCarry(cpu: Cpu, value: number): void {
+  const operand = value & 0xff;
+  const registers = cpu.state.registers;
+  const current = registers.a & 0xff;
+  const carryIn = cpu.state.flags.carry ? 1 : 0;
+  const subtrahend = operand + carryIn;
+  const result = (current - subtrahend) & 0xff;
+  const borrow = current < subtrahend;
+  const halfBorrow = (current & 0x0f) < (operand & 0x0f) + carryIn;
+  registers.a = result;
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: true,
+    halfCarry: halfBorrow,
+    carry: borrow,
+  });
+}
+
+function compareWithAccumulator(cpu: Cpu, value: number): void {
+  const operand = value & 0xff;
+  const current = cpu.state.registers.a & 0xff;
+  const result = (current - operand) & 0xff;
+  const borrow = current < operand;
+  const halfBorrow = (current & 0x0f) < (operand & 0x0f);
+  cpu.updateFlags({
+    zero: result === 0,
+    subtract: true,
+    halfCarry: halfBorrow,
+    carry: borrow,
+  });
+}
+
+function addToRegisterHl(cpu: Cpu, value: number): void {
+  const operand = value & 0xffff;
+  const current = cpu.readRegisterPairByName("HL");
+  const sum = current + operand;
+  const result = sum & 0xffff;
+  const halfCarry = (current & 0x0fff) + (operand & 0x0fff) > 0x0fff;
+  const carry = sum > 0xffff;
+  cpu.writeRegisterPairByName("HL", result);
+  cpu.updateFlags({
+    subtract: false,
+    halfCarry,
+    carry,
+  });
 }

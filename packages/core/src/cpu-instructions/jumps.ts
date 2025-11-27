@@ -16,7 +16,7 @@ export function executeCall(
   }
 
   if (conditionName) {
-    const conditionTaken = cpu.evaluateCondition(conditionName);
+    const conditionTaken = evaluateCondition(cpu, conditionName);
     cpu.setConditionalExtraCycles(instruction.opcode, conditionTaken);
     if (!conditionTaken) {
       cpu.setProgramCounter(nextPc);
@@ -49,7 +49,7 @@ export function executeJump(
   }
 
   if (conditionName) {
-    const conditionTaken = cpu.evaluateCondition(conditionName);
+    const conditionTaken = evaluateCondition(cpu, conditionName);
     cpu.setConditionalExtraCycles(instruction.opcode, conditionTaken);
     if (!conditionTaken) {
       cpu.setProgramCounter(nextPc);
@@ -79,7 +79,7 @@ export function executeRelativeJump(
   }
 
   if (conditionName) {
-    const conditionTaken = cpu.evaluateCondition(conditionName);
+    const conditionTaken = evaluateCondition(cpu, conditionName);
     cpu.setConditionalExtraCycles(instruction.opcode, conditionTaken);
     if (!conditionTaken) {
       cpu.setProgramCounter(nextPc);
@@ -103,7 +103,7 @@ export function executeReturn(
   const conditionOperand = instruction.operands[0];
   if (conditionOperand) {
     const conditionName = conditionOperand.meta.name;
-    const conditionTaken = cpu.evaluateCondition(conditionName);
+    const conditionTaken = evaluateCondition(cpu, conditionName);
     cpu.setConditionalExtraCycles(instruction.opcode, conditionTaken);
     if (!conditionTaken) {
       cpu.setProgramCounter(nextPc);
@@ -132,7 +132,33 @@ export function executeRst(
     throw new Error("RST instruction missing target vector");
   }
 
-  const target = cpu.parseRstVector(vectorOperand.meta.name);
+  const target = parseRstVector(cpu, vectorOperand.meta.name);
   cpu.pushWord(nextPc, 8);
   cpu.setProgramCounter(target);
+}
+
+function evaluateCondition(cpu: Cpu, name: string): boolean {
+  switch (name) {
+    case "Z":
+      return cpu.state.flags.zero;
+    case "NZ":
+      return !cpu.state.flags.zero;
+    case "C":
+      return cpu.state.flags.carry;
+    case "NC":
+      return !cpu.state.flags.carry;
+    default:
+      throw new Error(`Unsupported condition "${name}"`);
+  }
+}
+
+function parseRstVector(_cpu: Cpu, name: string): number {
+  if (!name.startsWith("$")) {
+    throw new Error(`Unexpected RST vector operand "${name}"`);
+  }
+  const value = Number.parseInt(name.slice(1), 16);
+  if (Number.isNaN(value)) {
+    throw new Error(`Unable to parse RST vector "${name}"`);
+  }
+  return value & 0xffff;
 }

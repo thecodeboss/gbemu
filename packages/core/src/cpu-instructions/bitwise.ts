@@ -1,5 +1,6 @@
 import { Cpu } from "../cpu.js";
-import { OpcodeInstruction } from "../rom/types.js";
+import { InstructionOperand, OpcodeInstruction } from "../rom/types.js";
+import { assertAccumulatorDestination } from "./utils.js";
 
 export function executeAnd(
   cpu: Cpu,
@@ -7,7 +8,7 @@ export function executeAnd(
   nextPc: number,
 ): void {
   const [destination, source] = instruction.operands;
-  cpu.assertAccumulatorDestination(destination, "AND");
+  assertAccumulatorDestination(destination, "AND");
   const value = cpu.readEightBitValue(source, "AND source");
   const registers = cpu.state.registers;
   const result = registers.a & value & 0xff;
@@ -27,7 +28,7 @@ export function executeOr(
   nextPc: number,
 ): void {
   const [destination, source] = instruction.operands;
-  cpu.assertAccumulatorDestination(destination, "OR");
+  assertAccumulatorDestination(destination, "OR");
   const value = cpu.readEightBitValue(source, "OR source");
   const registers = cpu.state.registers;
   const result = (registers.a | value) & 0xff;
@@ -47,7 +48,7 @@ export function executeXor(
   nextPc: number,
 ): void {
   const [destination, source] = instruction.operands;
-  cpu.assertAccumulatorDestination(destination, "XOR");
+  assertAccumulatorDestination(destination, "XOR");
   const value = cpu.readEightBitValue(source, "XOR source");
   const registers = cpu.state.registers;
   const result = (registers.a ^ value) & 0xff;
@@ -107,7 +108,7 @@ export function executeBit(
   nextPc: number,
 ): void {
   const [bitOperand, targetOperand] = instruction.operands;
-  const bitIndex = cpu.parseBitIndex(bitOperand, "BIT index");
+  const bitIndex = parseBitIndex(bitOperand, "BIT index");
   if (!targetOperand) {
     throw new Error("BIT instruction missing target operand");
   }
@@ -127,7 +128,7 @@ export function executeRes(
   nextPc: number,
 ): void {
   const [bitOperand, targetOperand] = instruction.operands;
-  const bitIndex = cpu.parseBitIndex(bitOperand, "RES index");
+  const bitIndex = parseBitIndex(bitOperand, "RES index");
   if (!targetOperand) {
     throw new Error("RES instruction missing target operand");
   }
@@ -143,7 +144,7 @@ export function executeSet(
   nextPc: number,
 ): void {
   const [bitOperand, targetOperand] = instruction.operands;
-  const bitIndex = cpu.parseBitIndex(bitOperand, "SET index");
+  const bitIndex = parseBitIndex(bitOperand, "SET index");
   if (!targetOperand) {
     throw new Error("SET instruction missing target operand");
   }
@@ -159,10 +160,11 @@ export function executeRl(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result, carry } = cpu.transformMutableOperand(
+  const { result, carry } = transformMutableOperand(
+    cpu,
     operand,
     "RL operand",
-    (value) => cpu.rotateLeftThroughCarry(value),
+    (value) => rotateLeftThroughCarry(cpu, value),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -179,10 +181,11 @@ export function executeRlc(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result, carry } = cpu.transformMutableOperand(
+  const { result, carry } = transformMutableOperand(
+    cpu,
     operand,
     "RLC operand",
-    (value) => cpu.rotateLeftCircular(value),
+    (value) => rotateLeftCircular(cpu, value),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -199,7 +202,7 @@ export function executeRla(
   nextPc: number,
 ): void {
   const registers = cpu.state.registers;
-  const { result, carry } = cpu.rotateLeftThroughCarry(registers.a);
+  const { result, carry } = rotateLeftThroughCarry(cpu, registers.a);
   registers.a = result;
   cpu.updateFlags({
     zero: false,
@@ -216,7 +219,7 @@ export function executeRlca(
   nextPc: number,
 ): void {
   const registers = cpu.state.registers;
-  const { result, carry } = cpu.rotateLeftCircular(registers.a);
+  const { result, carry } = rotateLeftCircular(cpu, registers.a);
   registers.a = result;
   cpu.updateFlags({
     zero: false,
@@ -233,10 +236,11 @@ export function executeRr(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result, carry } = cpu.transformMutableOperand(
+  const { result, carry } = transformMutableOperand(
+    cpu,
     operand,
     "RR operand",
-    (value) => cpu.rotateRightThroughCarry(value),
+    (value) => rotateRightThroughCarry(cpu, value),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -253,10 +257,11 @@ export function executeRrc(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result, carry } = cpu.transformMutableOperand(
+  const { result, carry } = transformMutableOperand(
+    cpu,
     operand,
     "RRC operand",
-    (value) => cpu.rotateRightCircular(value),
+    (value) => rotateRightCircular(cpu, value),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -273,7 +278,7 @@ export function executeRra(
   nextPc: number,
 ): void {
   const registers = cpu.state.registers;
-  const { result, carry } = cpu.rotateRightThroughCarry(registers.a);
+  const { result, carry } = rotateRightThroughCarry(cpu, registers.a);
   registers.a = result;
   cpu.updateFlags({
     zero: false,
@@ -290,7 +295,7 @@ export function executeRrca(
   nextPc: number,
 ): void {
   const registers = cpu.state.registers;
-  const { result, carry } = cpu.rotateRightCircular(registers.a);
+  const { result, carry } = rotateRightCircular(cpu, registers.a);
   registers.a = result;
   cpu.updateFlags({
     zero: false,
@@ -307,10 +312,11 @@ export function executeSla(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result, carry } = cpu.transformMutableOperand(
+  const { result, carry } = transformMutableOperand(
+    cpu,
     operand,
     "SLA operand",
-    (value) => cpu.shiftLeftArithmetic(value),
+    (value) => shiftLeftArithmetic(cpu, value),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -327,10 +333,11 @@ export function executeSra(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result, carry } = cpu.transformMutableOperand(
+  const { result, carry } = transformMutableOperand(
+    cpu,
     operand,
     "SRA operand",
-    (value) => cpu.shiftRightArithmetic(value),
+    (value) => shiftRightArithmetic(cpu, value),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -347,10 +354,11 @@ export function executeSrl(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result, carry } = cpu.transformMutableOperand(
+  const { result, carry } = transformMutableOperand(
+    cpu,
     operand,
     "SRL operand",
-    (value) => cpu.shiftRightLogical(value),
+    (value) => shiftRightLogical(cpu, value),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -367,10 +375,11 @@ export function executeSwap(
   nextPc: number,
 ): void {
   const operand = instruction.operands[0];
-  const { result } = cpu.transformMutableOperand(
+  const { result } = transformMutableOperand(
+    cpu,
     operand,
     "SWAP operand",
-    (value) => ({ result: cpu.swapNibbles(value), carry: false }),
+    (value) => ({ result: swapNibbles(cpu, value), carry: false }),
   );
   cpu.updateFlags({
     zero: result === 0,
@@ -379,4 +388,105 @@ export function executeSwap(
     carry: false,
   });
   cpu.setProgramCounter(nextPc);
+}
+
+function parseBitIndex(
+  operand: InstructionOperand | undefined,
+  description: string,
+): number {
+  if (!operand) {
+    throw new Error(`Missing ${description}`);
+  }
+  const index = Number.parseInt(operand.meta.name, 10);
+  if (Number.isNaN(index) || index < 0 || index > 7) {
+    throw new Error(`Invalid ${description}: ${operand.meta.name}`);
+  }
+  return index;
+}
+
+function transformMutableOperand(
+  cpu: Cpu,
+  operand: InstructionOperand | undefined,
+  description: string,
+  transform: (value: number) => { result: number; carry: boolean },
+): { result: number; carry: boolean } {
+  if (!operand) {
+    throw new Error(`Missing ${description}`);
+  }
+  const currentValue = cpu.readEightBitValue(operand, description);
+  const outcome = transform(currentValue & 0xff);
+  const result = outcome.result & 0xff;
+  cpu.writeEightBitValue(operand, result);
+  return { result, carry: outcome.carry };
+}
+
+function rotateLeftThroughCarry(
+  cpu: Cpu,
+  value: number,
+): { result: number; carry: boolean } {
+  const carryIn = cpu.state.flags.carry ? 1 : 0;
+  const carry = (value & 0x80) !== 0;
+  const result = ((value << 1) | carryIn) & 0xff;
+  return { result, carry };
+}
+
+function rotateLeftCircular(
+  _cpu: Cpu,
+  value: number,
+): { result: number; carry: boolean } {
+  const carry = (value & 0x80) !== 0;
+  const result = ((value << 1) | (carry ? 1 : 0)) & 0xff;
+  return { result, carry };
+}
+
+function rotateRightThroughCarry(
+  cpu: Cpu,
+  value: number,
+): { result: number; carry: boolean } {
+  const carryIn = cpu.state.flags.carry ? 1 : 0;
+  const carry = (value & 0x01) !== 0;
+  const result = ((carryIn << 7) | (value >> 1)) & 0xff;
+  return { result, carry };
+}
+
+function rotateRightCircular(
+  _cpu: Cpu,
+  value: number,
+): { result: number; carry: boolean } {
+  const carry = (value & 0x01) !== 0;
+  const result = ((carry ? 0x80 : 0) | (value >> 1)) & 0xff;
+  return { result, carry };
+}
+
+function shiftLeftArithmetic(
+  _cpu: Cpu,
+  value: number,
+): { result: number; carry: boolean } {
+  const carry = (value & 0x80) !== 0;
+  const result = (value << 1) & 0xff;
+  return { result, carry };
+}
+
+function shiftRightArithmetic(
+  _cpu: Cpu,
+  value: number,
+): { result: number; carry: boolean } {
+  const carry = (value & 0x01) !== 0;
+  const result = ((value & 0x80) | (value >> 1)) & 0xff;
+  return { result, carry };
+}
+
+function shiftRightLogical(
+  _cpu: Cpu,
+  value: number,
+): { result: number; carry: boolean } {
+  const carry = (value & 0x01) !== 0;
+  const result = (value >> 1) & 0x7f;
+  return { result, carry };
+}
+
+function swapNibbles(_cpu: Cpu, value: number): number {
+  const upper = (value & 0xf0) >> 4;
+  const lower = value & 0x0f;
+  return ((lower << 4) | upper) & 0xff;
 }
