@@ -1,4 +1,4 @@
-import { InterruptType } from "./cpu.js";
+import { InterruptType } from "./cpu-instructions/constants.js";
 import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 import { Mbc } from "./mbc.js";
 
@@ -86,41 +86,7 @@ const DMG_HARDWARE_REGISTER_DEFAULTS: ReadonlyArray<readonly [number, number]> =
     [0xffff, 0x00], // IE
   ];
 
-export type DmaTransferType = "oam" | "hdma";
-
-export interface AddressRange {
-  start: number;
-  end: number;
-}
-
-export interface MemoryBank {
-  range: AddressRange;
-  readByte(offset: number): number;
-  writeByte(offset: number, value: number): void;
-  serialize?(): Uint8Array;
-  deserialize?(data: Uint8Array): void;
-}
-
-export interface MemoryController {
-  mapBank(bank: MemoryBank): void;
-  unmapBank(range: AddressRange): void;
-  readByte(address: number, ticksAhead?: number): number;
-  writeByte(address: number, value: number, ticksAhead?: number): void;
-}
-
-export interface DirectMemoryAccess {
-  performTransfer(type: DmaTransferType, source: number): void;
-}
-
-export interface InterruptController {
-  requestInterrupt(type: InterruptType): void;
-  acknowledgeInterrupt(type: InterruptType): void;
-  getPendingInterrupts(): InterruptType[];
-}
-
-export class SystemBus
-  implements MemoryController, DirectMemoryAccess, InterruptController
-{
+export class SystemBus {
   #memory = new Uint8Array(0x10000);
   #pendingInterrupts = new Set<InterruptType>();
   #mbc: Mbc | null = null;
@@ -160,14 +126,6 @@ export class SystemBus
 
   refreshExternalRamWindow(): void {
     this.#mirrorExternalRamWindow();
-  }
-
-  mapBank(_bank: MemoryBank): void {
-    // No dynamic mapping in stub.
-  }
-
-  unmapBank(_range: AddressRange): void {
-    // No dynamic mapping in stub.
   }
 
   readByte(address: number, ticksAhead = 0): number {
@@ -292,7 +250,7 @@ export class SystemBus
     this.performTransfer("oam", startAddress);
   }
 
-  performTransfer(type: DmaTransferType, source: number): void {
+  performTransfer(type: "oam" | "hdma", source: number): void {
     if (type === "oam") {
       this.#startOamDmaTransfer(source);
     }
