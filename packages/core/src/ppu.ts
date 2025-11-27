@@ -82,6 +82,8 @@ export class Ppu {
   #windowLineCounter = 0;
   #xferX = 0;
   #windowLineForScanline = 0;
+  #mode3DurationDots = MODE3_XFER_DOTS;
+  #modeEndDot = MODE2_OAM_DOTS;
 
   constructor(bus: SystemBus) {
     this.#bus = bus;
@@ -186,6 +188,8 @@ export class Ppu {
     this.#windowLineCounter = 0;
     this.#xferX = 0;
     this.#windowLineForScanline = 0;
+    this.#mode3DurationDots = MODE3_XFER_DOTS;
+    this.#modeEndDot = MODE2_OAM_DOTS;
   }
 
   #onLcdEnabled(): void {
@@ -197,6 +201,8 @@ export class Ppu {
     this.#windowLineCounter = 0;
     this.#xferX = 0;
     this.#windowLineForScanline = 0;
+    this.#mode3DurationDots = MODE3_XFER_DOTS;
+    this.#modeEndDot = MODE2_OAM_DOTS;
   }
 
   #ensureLcdcEnabled(): void {
@@ -207,28 +213,20 @@ export class Ppu {
   }
 
   #dotsUntilNextTransition(): number {
-    const modeEnd = (() => {
-      switch (this.#currentMode) {
-        case "oam":
-          return MODE2_OAM_DOTS;
-        case "xfer":
-          return MODE2_OAM_DOTS + MODE3_XFER_DOTS;
-        case "hblank":
-        case "vblank":
-        default:
-          return DOTS_PER_LINE;
-      }
-    })();
-    const remaining = modeEnd - this.#lineDot;
+    const remaining = this.#modeEndDot - this.#lineDot;
     return remaining > 0 ? remaining : 1;
   }
 
   #advanceModeWithinLine(): void {
     if (this.#currentMode === "oam") {
+      this.#mode3DurationDots =
+        MODE3_XFER_DOTS + this.#computeSpritePenaltyDots();
+      this.#modeEndDot = MODE2_OAM_DOTS + this.#mode3DurationDots;
       this.#startXferLine();
       this.#setMode("xfer");
     } else if (this.#currentMode === "xfer") {
       this.#finalizeScanline();
+      this.#modeEndDot = DOTS_PER_LINE;
       this.#setMode("hblank");
     }
   }
@@ -237,6 +235,7 @@ export class Ppu {
     const nextLy = this.#ly + 1;
     if (nextLy >= TOTAL_SCANLINES) {
       this.#writeLyRegister(0);
+      this.#modeEndDot = MODE2_OAM_DOTS;
       this.#setMode("oam");
       this.#frameReady = true;
       this.#windowLineCounter = 0;
@@ -246,8 +245,10 @@ export class Ppu {
     this.#writeLyRegister(nextLy);
 
     if (this.#ly >= VBLANK_START_LINE && this.#ly <= VBLANK_END_LINE) {
+      this.#modeEndDot = DOTS_PER_LINE;
       this.#setMode("vblank");
     } else {
+      this.#modeEndDot = MODE2_OAM_DOTS;
       this.#setMode("oam");
     }
   }
@@ -339,6 +340,41 @@ export class Ppu {
     }
 
     this.#updateWindowLineCounter(lcdc);
+  }
+
+  #computeSpritePenaltyDots(): number {
+    const lcdc = this.#bus.readByte(LCDC_ADDRESS);
+    const spriteHeight = (lcdc & LCDC_OBJ_SIZE_FLAG) !== 0 ? 16 : 8;
+    let penalty = 0;
+    let spritesOnLine = 0;
+
+    for (
+      let index = 0;
+      index < 40 && spritesOnLine < MAX_SPRITES_PER_LINE;
+      index += 1
+    ) {
+      const oamAddress = 0xfe00 + index * 4;
+      const spriteY = this.#bus.readByte(oamAddress) - 16;
+      const spriteX = this.#bus.readByte(oamAddress + 1);
+
+      if (spriteX >= 168) {
+        continue;
+      }
+
+      if (this.#ly < spriteY || this.#ly >= spriteY + spriteHeight) {
+        continue;
+      }
+
+      spritesOnLine += 1;
+      if (spritesOnLine === 1) {
+        const alignmentBonus = spriteX % 8 < 4 ? 2 : 0;
+        penalty += 6 + alignmentBonus;
+      } else {
+        penalty += 6;
+      }
+    }
+
+    return penalty;
   }
 
   #updateWindowLineCounter(lcdc: number): void {

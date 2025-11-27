@@ -99,9 +99,9 @@ export class Cpu {
   }
 
   step(): number {
-    const interruptServiced = this.#serviceInterruptIfNeeded(this.#bus);
-    if (interruptServiced) {
-      const cycles = this.#consumeCycles(5);
+    const interruptCycles = this.#serviceInterruptIfNeeded(this.#bus);
+    if (interruptCycles > 0) {
+      const cycles = this.#consumeCycles(interruptCycles);
       this.#advanceImeEnableDelay();
       return cycles;
     }
@@ -130,7 +130,7 @@ export class Cpu {
     this.#doubleSpeed = enabled;
   }
 
-  #serviceInterruptIfNeeded(bus: CpuBusPort): boolean {
+  #serviceInterruptIfNeeded(bus: CpuBusPort): number {
     const interruptEnable =
       bus.readByte(constants.INTERRUPT_ENABLE_ADDRESS) & 0xff;
     const interruptFlags =
@@ -138,15 +138,16 @@ export class Cpu {
     const pendingMask = interruptEnable & interruptFlags & 0x1f;
 
     if (pendingMask === 0) {
-      return false;
+      return 0;
     }
 
+    const wasHalted = this.state.halted;
     if (this.state.halted) {
       this.state.halted = false;
     }
 
     if (!this.state.ime) {
-      return false;
+      return 0;
     }
 
     this.state.stopped = false;
@@ -172,7 +173,11 @@ export class Cpu {
 
     if (postHighPendingMask === 0) {
       this.setProgramCounter(0x0000);
-      return true;
+      return this.#computeInterruptEntryCycles({
+        wasHalted,
+        type: null,
+        bus,
+      });
     }
 
     const postHighPendingType = constants.INTERRUPT_PRIORITY_ORDER.find(
@@ -180,14 +185,33 @@ export class Cpu {
     );
 
     if (!postHighPendingType) {
-      return false;
+      return 0;
     }
 
     const clearedFlags =
       postHighInterruptFlags & ~constants.INTERRUPT_BITS[postHighPendingType];
     bus.writeByte(constants.INTERRUPT_FLAG_ADDRESS, clearedFlags);
     this.setProgramCounter(constants.INTERRUPT_VECTORS[postHighPendingType]);
-    return true;
+    return this.#computeInterruptEntryCycles({
+      wasHalted,
+      type: postHighPendingType,
+      bus,
+    });
+  }
+
+  #computeInterruptEntryCycles(params: {
+    wasHalted: boolean;
+    type: constants.InterruptType | null;
+    bus: CpuBusPort;
+  }): number {
+    const { wasHalted, type, bus } = params;
+    if (type === "lcdStat" && wasHalted) {
+      const statMode = bus.readByte(0xff41) & 0x03;
+      if (statMode === 0x02) {
+        return 6;
+      }
+    }
+    return 5;
   }
 
   #prefetchInstructionBytes(bus: CpuBusPort, pc: number): void {
