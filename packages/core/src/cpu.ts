@@ -456,7 +456,7 @@ export class Cpu {
       throw new Error(`Missing ${description}`);
     }
     const name = operand.meta.name;
-    if (!this.#is16BitRegister(name)) {
+    if (!SIXTEEN_BIT_REGISTERS.has(name)) {
       throw new Error(`Unsupported ${description}: ${name}`);
     }
     return this.readRegisterPairByName(name);
@@ -466,7 +466,7 @@ export class Cpu {
     return Boolean(
       operand &&
         operand.meta.immediate &&
-        this.#is8BitRegister(operand.meta.name),
+        EIGHT_BIT_REGISTERS.has(operand.meta.name),
     );
   }
 
@@ -474,7 +474,7 @@ export class Cpu {
     return Boolean(
       operand &&
         operand.meta.immediate &&
-        this.#is16BitRegister(operand.meta.name),
+        SIXTEEN_BIT_REGISTERS.has(operand.meta.name),
     );
   }
 
@@ -486,7 +486,7 @@ export class Cpu {
     if (meta.name === "HL" && meta.immediate === false) {
       return true;
     }
-    if (!meta.immediate && this.#is16BitRegister(meta.name)) {
+    if (!meta.immediate && SIXTEEN_BIT_REGISTERS.has(meta.name)) {
       return true;
     }
     if (!meta.immediate && meta.name === "C") {
@@ -558,7 +558,7 @@ export class Cpu {
       };
     }
 
-    if (!meta.immediate && this.#is16BitRegister(name)) {
+    if (!meta.immediate && SIXTEEN_BIT_REGISTERS.has(name)) {
       const address = this.readRegisterPairByName(name);
       return { address };
     }
@@ -689,7 +689,7 @@ export class Cpu {
       return operand.rawValue & 0xff;
     }
 
-    if (this.#is8BitRegister(operand.meta.name)) {
+    if (EIGHT_BIT_REGISTERS.has(operand.meta.name)) {
       return this.readRegister8(operand.meta.name);
     }
 
@@ -705,7 +705,7 @@ export class Cpu {
       return;
     }
 
-    if (this.#is8BitRegister(operand.meta.name)) {
+    if (EIGHT_BIT_REGISTERS.has(operand.meta.name)) {
       this.writeRegister8(operand.meta.name, maskedValue);
       return;
     }
@@ -999,45 +999,23 @@ export class Cpu {
     return ((lower << 4) | upper) & 0xff;
   }
 
-  #is8BitRegister(name: string): boolean {
-    return EIGHT_BIT_REGISTERS.has(name);
-  }
-
-  #is16BitRegister(name: string): boolean {
-    return SIXTEEN_BIT_REGISTERS.has(name);
-  }
-
   updateFlags(flags: Partial<CpuFlags>): void {
-    if (flags.zero !== undefined) {
-      this.state.flags.zero = flags.zero;
-    }
-    if (flags.subtract !== undefined) {
+    if (flags.zero !== undefined) this.state.flags.zero = flags.zero;
+    if (flags.subtract !== undefined)
       this.state.flags.subtract = flags.subtract;
-    }
-    if (flags.halfCarry !== undefined) {
+    if (flags.halfCarry !== undefined)
       this.state.flags.halfCarry = flags.halfCarry;
-    }
-    if (flags.carry !== undefined) {
-      this.state.flags.carry = flags.carry;
-    }
+    if (flags.carry !== undefined) this.state.flags.carry = flags.carry;
     this.#syncFlagRegister();
   }
 
   #syncFlagRegister(): void {
     const { flags, registers } = this.state;
     let value = 0;
-    if (flags.zero) {
-      value |= 0x80;
-    }
-    if (flags.subtract) {
-      value |= 0x40;
-    }
-    if (flags.halfCarry) {
-      value |= 0x20;
-    }
-    if (flags.carry) {
-      value |= 0x10;
-    }
+    if (flags.zero) value |= 0x80;
+    if (flags.subtract) value |= 0x40;
+    if (flags.halfCarry) value |= 0x20;
+    if (flags.carry) value |= 0x10;
     registers.f = value;
   }
 
