@@ -1,3 +1,4 @@
+import { decodeCgbColor } from "./colors.js";
 import { InterruptType } from "./cpu-instructions/constants.js";
 import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 import { Mbc } from "./mbc.js";
@@ -32,12 +33,13 @@ const PCM34_REGISTER_ADDRESS = 0xff77;
 const COMPAT_BG_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
 const COMPAT_OBJ0_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
 const COMPAT_OBJ1_DEFAULT: readonly number[] = [0x7fff, 0x5ad6, 0x35ad, 0x10a5];
-const CGB_HARDWARE_REGISTER_OVERRIDES: ReadonlyArray<readonly [number, number]> =
-  [
-    [0xff02, 0x7f], // SC
-    [0xff46, 0x00], // DMA
-    [RP_REGISTER_ADDRESS, 0x3e],
-  ];
+const CGB_HARDWARE_REGISTER_OVERRIDES: ReadonlyArray<
+  readonly [number, number]
+> = [
+  [0xff02, 0x7f], // SC
+  [0xff46, 0x00], // DMA
+  [RP_REGISTER_ADDRESS, 0x3e],
+];
 const OAM_START_ADDRESS = 0xfe00;
 const OAM_BLOCK_END_ADDRESS = 0xfeff;
 const OAM_TRANSFER_SIZE = 0xa0;
@@ -647,7 +649,7 @@ export class SystemBus {
     const base = ((paletteIndex & 0x07) * 8 + (colorIndex & 0x03) * 2) & 0x3f;
     const low = this.#bgPaletteData[base] ?? 0;
     const high = this.#bgPaletteData[base + 1] ?? 0;
-    return this.#decodeCgbColor(low, high);
+    return decodeCgbColor(low, high);
   }
 
   getObjPaletteColor(
@@ -657,16 +659,7 @@ export class SystemBus {
     const base = ((paletteIndex & 0x07) * 8 + (colorIndex & 0x03) * 2) & 0x3f;
     const low = this.#objPaletteData[base] ?? 0;
     const high = this.#objPaletteData[base + 1] ?? 0;
-    return this.#decodeCgbColor(low, high);
-  }
-
-  #decodeCgbColor(low: number, high: number): [number, number, number, number] {
-    const value = ((high & 0x7f) << 8) | (low & 0xff);
-    const r = value & 0x1f;
-    const g = (value >> 5) & 0x1f;
-    const b = (value >> 10) & 0x1f;
-    const scale = (component: number) => Math.floor((component / 0x1f) * 255);
-    return [scale(r), scale(g), scale(b), 0xff];
+    return decodeCgbColor(low, high);
   }
 
   #composeJoypadValue(selectBits: number, state: JoypadInputState): number {

@@ -123,9 +123,9 @@ export class Cpu {
   }
 
   reset(): void {
-    const useRegisters = this.#powerOnRegisters ?? createDefaultCpuState(
-      this.#bus.isCgbHardware(),
-    ).registers;
+    const useRegisters =
+      this.#powerOnRegisters ??
+      createDefaultCpuState(this.#bus.isCgbHardware()).registers;
     this.state = createDefaultCpuState(false);
     this.state.registers = { ...useRegisters };
     this.state.flags = flagsFromRegister(useRegisters.f);
