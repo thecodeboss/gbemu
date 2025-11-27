@@ -1,3 +1,4 @@
+import { UNPREFIXED_OPCODE_TABLE } from "./opcode-tables.js";
 import { disassembleInstruction } from "./rom/disassemble.js";
 import {
   executeAdd,
@@ -90,47 +91,6 @@ export type InterruptType =
   | "timer"
   | "serial"
   | "joypad";
-
-// Machine-cycle counts for each opcode (1 machine cycle = 4 clock cycles).
-// prettier-ignore
-const UNPREFIXED_OPCODE_CYCLES: number[] = [
-  1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0x0
-  0, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, // 0x1
-  2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 0x2
-  2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 0x3
-  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 0x4
-  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 0x5
-  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 0x6
-  2, 2, 2, 2, 2, 2, 0, 2, 1, 1, 1, 1, 1, 1, 2, 1, // 0x7
-  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 0x8
-  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 0x9
-  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 0xa
-  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 0xb
-  2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4, // 0xc
-  2, 3, 3, 0, 3, 4, 2, 4, 2, 4, 3, 0, 3, 0, 2, 4, // 0xd
-  3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4, // 0xe
-  3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4, // 0xf
-];
-
-// prettier-ignore
-const CB_PREFIXED_OPCODE_CYCLES: number[] = [
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0x0
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0x1
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0x2
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0x3
-  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 0x4
-  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 0x5
-  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 0x6
-  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 0x7
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0x8
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0x9
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0xa
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0xb
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0xc
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0xd
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0xe
-  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0xf
-];
 
 export interface CpuBusPort {
   readByte(address: number, ticksAhead?: number): number;
@@ -227,7 +187,7 @@ export class Cpu {
     }
 
     if (this.state.halted || this.state.stopped) {
-      return this.#consumeCycles(UNPREFIXED_OPCODE_CYCLES[0]);
+      return this.#consumeCycles(UNPREFIXED_OPCODE_TABLE[0].c);
     }
 
     const pc = this.state.registers.pc & 0xffff;
@@ -1056,10 +1016,7 @@ export class Cpu {
   }
 
   #computeInstructionCycles(instruction: OpcodeInstruction): number {
-    const opcode = instruction.opcode & 0xff;
-    const base = instruction.prefixed
-      ? (CB_PREFIXED_OPCODE_CYCLES[opcode] ?? 0)
-      : (UNPREFIXED_OPCODE_CYCLES[opcode] ?? 0);
+    const base = instruction.meta.c ?? 0;
     const total = base + this.#pendingExtraCycles;
     return Math.max(1, total);
   }
