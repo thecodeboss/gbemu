@@ -24,6 +24,20 @@ const INTERRUPT_BITS: Record<InterruptType, number> = {
   joypad: 0x10,
 };
 
+const FORCED_ONE_BITMASKS: Readonly<Record<number, number>> = {
+  [0xff00]: 0xc0, // P1: upper bits always read high.
+  [0xff02]: 0x7e, // SC: unused bits read as 1.
+  [0xff07]: 0xf8, // TAC: upper bits read as 1.
+  [0xff0f]: 0xe0, // IF: upper bits read as 1.
+  [0xff10]: 0x80, // NR10: bit 7 unused.
+  [0xff1a]: 0x7f, // NR30: bits 0-6 unused.
+  [0xff1c]: 0x9f, // NR32: bits 7 and 0-4 unused.
+  [0xff20]: 0xc0, // NR41: upper bits unused.
+  [0xff23]: 0x3f, // NR44: lower bits unused.
+  [0xff26]: 0x70, // NR52: bits 4-6 unused.
+  [0xff41]: 0x80, // STAT: bit 7 unused.
+};
+
 // DMG defaults gathered from Pan Docs' Power-Up Sequence tables.
 const DMG_HARDWARE_REGISTER_DEFAULTS: ReadonlyArray<readonly [number, number]> =
   [
@@ -177,19 +191,32 @@ export class SystemBus
       return 0xff;
     }
 
+    if (this.#isUnmappedIoRegister(mappedAddress)) {
+      return 0xff;
+    }
+
     if (this.#mbc) {
       const value = this.#mbc.read(mappedAddress);
       if (value !== null && value !== undefined) {
-        return value & 0xff;
+        return this.#applyForcedOnes(mappedAddress, value & 0xff);
       }
     }
     if (mappedAddress === DIVIDER_REGISTER_ADDRESS) {
-      return this.#readDivider();
+      return this.#applyForcedOnes(
+        mappedAddress,
+        this.#readDivider() & 0xff,
+      );
     }
     if (mappedAddress === TAC_REGISTER_ADDRESS) {
-      return this.#memory[TAC_REGISTER_ADDRESS] ?? 0xff;
+      return this.#applyForcedOnes(
+        mappedAddress,
+        this.#memory[TAC_REGISTER_ADDRESS] ?? 0xff,
+      );
     }
-    return this.#memory[mappedAddress] ?? 0xff;
+    return this.#applyForcedOnes(
+      mappedAddress,
+      this.#memory[mappedAddress] ?? 0xff,
+    );
   }
 
   writeByte(address: number, value: number, ticksAhead = 0): void {
@@ -206,6 +233,10 @@ export class SystemBus
 
     if (this.#mbc?.write(mappedAddress, byteValue)) {
       this.#mirrorAfterMbcWrite(mappedAddress);
+      return;
+    }
+
+    if (this.#isUnmappedIoRegister(mappedAddress)) {
       return;
     }
 
@@ -234,10 +265,11 @@ export class SystemBus
       return;
     }
 
-    this.#memory[mappedAddress] = byteValue;
+    const normalizedValue = this.#applyForcedOnes(mappedAddress, byteValue);
+    this.#memory[mappedAddress] = normalizedValue;
 
     if (mappedAddress === INTERRUPT_FLAG_ADDRESS) {
-      this.#syncPendingInterrupts(byteValue);
+      this.#syncPendingInterrupts(normalizedValue);
     }
 
     if (mappedAddress === DMA_REGISTER_ADDRESS) {
@@ -606,5 +638,32 @@ export class SystemBus
       this.#timaReloadPending = true;
       this.#timaReloadDelay = 4;
     }
+  }
+
+  #applyForcedOnes(address: number, value: number): number {
+    const forced = FORCED_ONE_BITMASKS[address];
+    if (forced === undefined) {
+      return value & 0xff;
+    }
+    return (value | forced) & 0xff;
+  }
+
+  #isUnmappedIoRegister(address: number): boolean {
+    if (address === 0xff03) {
+      return true;
+    }
+    if (address >= 0xff08 && address <= 0xff0e) {
+      return true;
+    }
+    if (address === 0xff15 || address === 0xff1f) {
+      return true;
+    }
+    if (address >= 0xff27 && address <= 0xff2f) {
+      return true;
+    }
+    if (address >= 0xff4c && address <= 0xff7f) {
+      return true;
+    }
+    return false;
   }
 }
