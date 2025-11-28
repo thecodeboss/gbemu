@@ -67,6 +67,15 @@ export abstract class Mbc {
    */
   abstract write(address: number, value: number): boolean;
 
+  getRomWindows(): { lower: Uint8Array; upper: Uint8Array } {
+    const lower = this.rom.subarray(0, ROM_BANK_SIZE);
+    const upper =
+      this.rom.length >= ROM_BANK_SIZE * 2
+        ? this.rom.subarray(ROM_BANK_SIZE, ROM_BANK_SIZE * 2)
+        : lower;
+    return { lower, upper };
+  }
+
   getRamSnapshot(): Uint8Array {
     return this.ram.slice();
   }
@@ -185,6 +194,22 @@ class Mbc1Controller extends Mbc {
     this.#upperBankBits = 0;
     this.#ramEnabled = false;
     this.#ramBankingMode = false;
+  }
+
+  getRomWindows(): { lower: Uint8Array; upper: Uint8Array } {
+    const lowerBank = this.#resolvedLowerRomBank();
+    const upperBank = this.#resolvedSwitchableRomBank();
+    const lower =
+      this.rom.subarray(
+        lowerBank * ROM_BANK_SIZE,
+        (lowerBank + 1) * ROM_BANK_SIZE,
+      ) ?? this.rom.subarray(0, ROM_BANK_SIZE);
+    const upper =
+      this.rom.subarray(
+        upperBank * ROM_BANK_SIZE,
+        (upperBank + 1) * ROM_BANK_SIZE,
+      ) ?? lower;
+    return { lower, upper };
   }
 
   read(address: number): number | null {
@@ -339,6 +364,22 @@ class Mbc3Controller extends Mbc {
 
   hasRtc(): boolean {
     return this.#hasRtc;
+  }
+
+  getRomWindows(): { lower: Uint8Array; upper: Uint8Array } {
+    const lowerBank = 0;
+    const upperBank = this.#resolvedRomBank();
+    const lower =
+      this.rom.subarray(
+        lowerBank * ROM_BANK_SIZE,
+        (lowerBank + 1) * ROM_BANK_SIZE,
+      ) ?? this.rom.subarray(0, ROM_BANK_SIZE);
+    const upper =
+      this.rom.subarray(
+        upperBank * ROM_BANK_SIZE,
+        (upperBank + 1) * ROM_BANK_SIZE,
+      ) ?? lower;
+    return { lower, upper };
   }
 
   getRtcSnapshot(): Uint8Array | null {

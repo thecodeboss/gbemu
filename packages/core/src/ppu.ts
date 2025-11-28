@@ -4,6 +4,15 @@ import { DMG_PALETTE } from "./palette.js";
 
 type HardwareMode = "dmg" | "cgb";
 
+type SpriteEntry = {
+  oamIndex: number;
+  rawX: number;
+  x: number;
+  y: number;
+  tileIndex: number;
+  attributes: number;
+};
+
 export const DEFAULT_SCREEN_WIDTH = 160;
 export const DEFAULT_SCREEN_HEIGHT = 144;
 
@@ -90,6 +99,29 @@ export class Ppu {
   #cgbMode = false;
   #dotsPerCpuCycle = DOTS_PER_CPU_CYCLE;
   #bgPriorityFlags = new Uint8Array(DEFAULT_SCREEN_WIDTH);
+  #spriteBuffer: SpriteEntry[] = [];
+  #spriteBufferLy = -1;
+  #spriteBufferHeight = 8;
+  #lineBgEnabled = false;
+  #lineCompatCgb = false;
+  #lineBgMasterEnabled = false;
+  #lineWindowEnabled = false;
+  #lineUseTileData8000 = false;
+  #lineBgTileMapBase = 0x9800;
+  #lineWindowTileMapBase = 0x9800;
+  #lineWy = 0;
+  #lineWx = 0;
+  #lineWindowVisible = false;
+  #lineBgPalette: [number, number, number, number] = [0, 0, 0, 0];
+  #lineScx = 0;
+  #lineScy = 0;
+  #tileRowCacheNumber = -1;
+  #tileRowCacheY = -1;
+  #tileRowCacheBank = -1;
+  #tileRowCacheUseTileData8000 = false;
+  #tileRowCacheIsWindow = false;
+  #tileRowCacheLow = 0;
+  #tileRowCacheHigh = 0;
 
   constructor(bus: SystemBus) {
     this.#bus = bus;
@@ -278,43 +310,43 @@ export class Ppu {
     this.#windowLineForScanline = this.#windowLineCounter & 0xff;
     this.#bgLineColorIndices.fill(0);
     this.#bgPriorityFlags.fill(0);
+    this.#spriteBufferLy = -1;
+    this.#tileRowCacheNumber = -1;
+    this.#tileRowCacheY = -1;
+    this.#tileRowCacheBank = -1;
+    this.#tileRowCacheUseTileData8000 = false;
+    this.#tileRowCacheIsWindow = false;
+    this.#refreshLineParams();
   }
 
   #renderXferDots(dots: number): void {
-    const bus = this.#bus;
     if (dots <= 0) {
       return;
     }
     const ly = this.#ly;
     if (ly < 0 || ly >= DEFAULT_SCREEN_HEIGHT) {
-      const wy = bus.readByte(WY_ADDRESS);
-      if (ly < wy) {
+      if (ly < this.#lineWy) {
         this.#windowLineCounter = 0;
       }
       return;
     }
 
-    const lcdc = bus.readByte(LCDC_ADDRESS);
-    const bgEnabled = (lcdc & LCDC_BG_ENABLE_FLAG) !== 0;
-    const compatCgb = this.#hardwareMode === "cgb" && !this.#cgbMode;
-    const bgMasterEnabled = this.#cgbMode || compatCgb ? true : bgEnabled;
-    const windowEnabled = (lcdc & LCDC_WINDOW_ENABLE_FLAG) !== 0;
-    const useTileData8000 = (lcdc & LCDC_TILE_DATA_FLAG) !== 0;
-    const bgTileMapBase =
-      (lcdc & LCDC_BG_TILE_MAP_FLAG) !== 0 ? 0x9c00 : 0x9800;
-    const windowTileMapBase =
-      (lcdc & LCDC_WINDOW_TILE_MAP_FLAG) !== 0 ? 0x9c00 : 0x9800;
-    const wy = bus.readByte(WY_ADDRESS);
-    const rawWx = bus.readByte(WX_ADDRESS);
-    const wx = rawWx - 7;
-    const windowVisible = windowEnabled && wy <= ly && rawWx <= 166;
+    const bgMasterEnabled = this.#lineBgMasterEnabled;
+    const compatCgb = this.#lineCompatCgb;
+    const windowVisible = this.#lineWindowVisible;
+    const useTileData8000 = this.#lineUseTileData8000;
+    const bgTileMapBase = this.#lineBgTileMapBase;
+    const windowTileMapBase = this.#lineWindowTileMapBase;
+    const wx = this.#lineWx - 7;
     const windowLine = windowVisible ? this.#windowLineForScanline & 0xff : 0;
-    const bgPalette = this.#decodePalette(BGP_ADDRESS);
-    const scx = bus.readByte(SCX_ADDRESS);
-    const scy = bus.readByte(SCY_ADDRESS);
+    const bgPalette = this.#lineBgPalette;
+    const scx = this.#lineScx;
+    const scy = this.#lineScy;
 
     const width = this.#framebuffer.width;
     const baseOffset = ly * width * 4;
+    let cachedTileLow = 0;
+    let cachedTileHigh = 0;
 
     for (let i = 0; i < dots; i += 1) {
       const x = this.#xferX;
@@ -338,8 +370,8 @@ export class Ppu {
       const tileRow = (sourceY >> 3) & (TILE_MAP_WIDTH - 1);
       const tileIndexAddress =
         tileMapBase + tileRow * TILE_MAP_WIDTH + tileColumn;
-      const tileNumber = bus.readVram(tileIndexAddress, 0);
-      const attrs = this.#cgbMode ? bus.readVram(tileIndexAddress, 1) : 0;
+      const tileNumber = this.#bus.readVram(tileIndexAddress, 0);
+      const attrs = this.#cgbMode ? this.#bus.readVram(tileIndexAddress, 1) : 0;
       const paletteIndex = this.#cgbMode ? attrs & 0x07 : 0;
       const tileBank = this.#cgbMode ? (attrs & 0x08) >> 3 : 0;
       const xFlip = this.#cgbMode && (attrs & 0x20) !== 0;
@@ -347,13 +379,39 @@ export class Ppu {
       const bgPriority = this.#cgbMode && (attrs & 0x80) !== 0;
       const tileX = xFlip ? 7 - (sourceX & 0x07) : sourceX & 0x07;
       const tileY = yFlip ? 7 - (sourceY & 0x07) : sourceY & 0x07;
-      const colorBits = this.#sampleTilePixel(
-        tileNumber,
-        useTileData8000,
-        tileX,
-        tileY,
-        tileBank,
-      );
+      const isWindow = useWindow;
+      if (
+        tileNumber !== this.#tileRowCacheNumber ||
+        tileY !== this.#tileRowCacheY ||
+        tileBank !== this.#tileRowCacheBank ||
+        useTileData8000 !== this.#tileRowCacheUseTileData8000 ||
+        isWindow !== this.#tileRowCacheIsWindow
+      ) {
+        let tileAddress: number;
+        if (useTileData8000) {
+          tileAddress = 0x8000 + tileNumber * TILE_STRIDE;
+        } else {
+          const signedTileNumber = (tileNumber << 24) >> 24;
+          tileAddress = 0x9000 + signedTileNumber * TILE_STRIDE;
+        }
+        const base = tileAddress + tileY * 2;
+        cachedTileLow = this.#bus.readVram(base, tileBank);
+        cachedTileHigh = this.#bus.readVram(base + 1, tileBank);
+        this.#tileRowCacheNumber = tileNumber;
+        this.#tileRowCacheY = tileY;
+        this.#tileRowCacheBank = tileBank;
+        this.#tileRowCacheUseTileData8000 = useTileData8000;
+        this.#tileRowCacheIsWindow = isWindow;
+        this.#tileRowCacheLow = cachedTileLow;
+        this.#tileRowCacheHigh = cachedTileHigh;
+      } else {
+        cachedTileLow = this.#tileRowCacheLow;
+        cachedTileHigh = this.#tileRowCacheHigh;
+      }
+      const bitIndex = 7 - (tileX & 0x07);
+      const colorBits =
+        (((cachedTileHigh >> bitIndex) & 0x01) << 1) |
+        ((cachedTileLow >> bitIndex) & 0x01);
       const offset = baseOffset + x * 4;
       this.#bgLineColorIndices[x] = colorBits;
       this.#bgPriorityFlags[x] = bgPriority ? 1 : 0;
@@ -396,30 +454,26 @@ export class Ppu {
 
   #computeSpritePenaltyDots(): number {
     const lcdc = this.#bus.readByte(LCDC_ADDRESS);
-    const spriteHeight = (lcdc & LCDC_OBJ_SIZE_FLAG) !== 0 ? 16 : 8;
+    const sprites = this.#getSpritesForLine(lcdc);
+    const spriteHeight = this.#spriteBufferHeight;
     let penalty = 0;
     let spritesOnLine = 0;
 
     for (
-      let index = 0;
-      index < 40 && spritesOnLine < MAX_SPRITES_PER_LINE;
-      index += 1
+      let i = 0;
+      i < sprites.length && spritesOnLine < MAX_SPRITES_PER_LINE;
+      i += 1
     ) {
-      const oamAddress = 0xfe00 + index * 4;
-      const spriteY = this.#bus.readByte(oamAddress) - 16;
-      const spriteX = this.#bus.readByte(oamAddress + 1);
-
-      if (spriteX >= 168) {
+      const sprite = sprites[i];
+      if (sprite.rawX >= 168) {
         continue;
       }
-
-      if (this.#ly < spriteY || this.#ly >= spriteY + spriteHeight) {
+      if (this.#ly < sprite.y || this.#ly >= sprite.y + spriteHeight) {
         continue;
       }
-
       spritesOnLine += 1;
       if (spritesOnLine === 1) {
-        const alignmentBonus = spriteX % 8 < 4 ? 2 : 0;
+        const alignmentBonus = sprite.rawX % 8 < 4 ? 2 : 0;
         penalty += 6 + alignmentBonus;
       } else {
         penalty += 6;
@@ -441,13 +495,69 @@ export class Ppu {
     }
   }
 
+  #getSpritesForLine(lcdc: number): SpriteEntry[] {
+    const spriteHeight = (lcdc & LCDC_OBJ_SIZE_FLAG) !== 0 ? 16 : 8;
+    if (
+      this.#spriteBufferLy === this.#ly &&
+      this.#spriteBufferHeight === spriteHeight
+    ) {
+      return this.#spriteBuffer;
+    }
+
+    const sprites: SpriteEntry[] = [];
+    for (let index = 0; index < 40; index += 1) {
+      const oamAddress = 0xfe00 + index * 4;
+      const spriteY = this.#bus.readByte(oamAddress) - 16;
+      const spriteXRaw = this.#bus.readByte(oamAddress + 1);
+      const spriteX = spriteXRaw - 8;
+      const tileIndex = this.#bus.readByte(oamAddress + 2);
+      const attributes = this.#bus.readByte(oamAddress + 3);
+
+      sprites.push({
+        oamIndex: index,
+        rawX: spriteXRaw,
+        x: spriteX,
+        y: spriteY,
+        tileIndex,
+        attributes,
+      });
+    }
+
+    this.#spriteBuffer = sprites;
+    this.#spriteBufferLy = this.#ly;
+    this.#spriteBufferHeight = spriteHeight;
+    return this.#spriteBuffer;
+  }
+
+  #refreshLineParams(): void {
+    const lcdc = this.#bus.readByte(LCDC_ADDRESS);
+    this.#lineBgEnabled = (lcdc & LCDC_BG_ENABLE_FLAG) !== 0;
+    this.#lineCompatCgb = this.#hardwareMode === "cgb" && !this.#cgbMode;
+    this.#lineBgMasterEnabled =
+      this.#cgbMode || this.#lineCompatCgb ? true : this.#lineBgEnabled;
+    this.#lineWindowEnabled = (lcdc & LCDC_WINDOW_ENABLE_FLAG) !== 0;
+    this.#lineUseTileData8000 = (lcdc & LCDC_TILE_DATA_FLAG) !== 0;
+    this.#lineBgTileMapBase =
+      (lcdc & LCDC_BG_TILE_MAP_FLAG) !== 0 ? 0x9c00 : 0x9800;
+    this.#lineWindowTileMapBase =
+      (lcdc & LCDC_WINDOW_TILE_MAP_FLAG) !== 0 ? 0x9c00 : 0x9800;
+    this.#lineWy = this.#bus.readByte(WY_ADDRESS);
+    this.#lineWx = this.#bus.readByte(WX_ADDRESS);
+    this.#lineWindowVisible =
+      this.#lineWindowEnabled &&
+      this.#lineWy <= this.#ly &&
+      this.#lineWx <= 166;
+    this.#lineBgPalette = this.#decodePalette(BGP_ADDRESS);
+    this.#lineScx = this.#bus.readByte(SCX_ADDRESS);
+    this.#lineScy = this.#bus.readByte(SCY_ADDRESS);
+  }
+
   #renderSprites(params: {
     lcdc: number;
     objPalette0?: [number, number, number, number];
     objPalette1?: [number, number, number, number];
   }): void {
     const { lcdc, objPalette0, objPalette1 } = params;
-    const bus = this.#bus;
     const ly = this.#ly;
     if (ly < 0 || ly >= DEFAULT_SCREEN_HEIGHT) {
       return;
@@ -457,52 +567,29 @@ export class Ppu {
     const spriteHeight = (lcdc & LCDC_OBJ_SIZE_FLAG) !== 0 ? 16 : 8;
     const width = this.#framebuffer.width;
     const baseOffset = ly * width * 4;
-    const sprites: Array<{
-      oamIndex: number;
-      x: number;
-      y: number;
-      tileIndex: number;
-      attributes: number;
-    }> = [];
-
-    for (let index = 0; index < 40; index += 1) {
-      const oamAddress = 0xfe00 + index * 4;
-      const spriteY = bus.readByte(oamAddress) - 16;
-      const spriteX = bus.readByte(oamAddress + 1) - 8;
-      const tileIndex = bus.readByte(oamAddress + 2);
-      const attributes = bus.readByte(oamAddress + 3);
-
-      if (spriteX >= 168) {
-        continue;
-      }
-
-      if (ly < spriteY || ly >= spriteY + spriteHeight) {
-        continue;
-      }
-
-      sprites.push({
-        oamIndex: index,
-        x: spriteX,
-        y: spriteY,
-        tileIndex,
-        attributes,
-      });
-
-      if (sprites.length >= MAX_SPRITES_PER_LINE) {
-        break;
-      }
-    }
+    const sprites = this.#getSpritesForLine(lcdc);
 
     const renderOrder = this.#cgbMode
       ? sprites
-      : sprites.sort((a, b) => {
+      : [...sprites].sort((a, b) => {
           if (a.x === b.x) {
             return a.oamIndex - b.oamIndex;
           }
           return a.x - b.x;
         });
 
+    let rendered = 0;
     for (const sprite of renderOrder) {
+      if (sprite.rawX >= 168) {
+        continue;
+      }
+      if (ly < sprite.y || ly >= sprite.y + spriteHeight) {
+        continue;
+      }
+      rendered += 1;
+      if (rendered > MAX_SPRITES_PER_LINE) {
+        break;
+      }
       let { tileIndex } = sprite;
       const { attributes } = sprite;
       let line = ly - sprite.y;
@@ -601,10 +688,10 @@ export class Ppu {
     const base = tileAddress + line * 2;
     const low = this.#cgbMode
       ? bus.readVram(base, vramBank)
-      : bus.readByte(base);
+      : bus.readVram(base, 0);
     const high = this.#cgbMode
       ? bus.readVram(base + 1, vramBank)
-      : bus.readByte(base + 1);
+      : bus.readVram(base + 1, 0);
     const bitIndex = 7 - (x & 0x07);
     return (((high >> bitIndex) & 0x01) << 1) | ((low >> bitIndex) & 0x01);
   }
@@ -630,6 +717,7 @@ export class Ppu {
     this.#ly = value % TOTAL_SCANLINES;
     this.#bus.writeByte(LY_ADDRESS, this.#ly);
     this.#updateLyCompareFlag();
+    this.#spriteBufferLy = -1;
   }
 
   #setMode(nextMode: PpuMode): void {

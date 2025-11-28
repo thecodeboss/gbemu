@@ -159,6 +159,8 @@ export class SystemBus {
   #ticksPerCpuCycle = 4;
   #pendingInterrupts = new Set<InterruptType>();
   #mbc: Mbc | null = null;
+  #fixedRomView: Uint8Array = new Uint8Array(0);
+  #switchableRomView: Uint8Array = new Uint8Array(0);
   #externalRamMirrorDirty = false;
   #ioWriteListeners: Array<(address: number, value: number) => void> = [];
   #joypadState: JoypadInputState = createEmptyJoypadState();
@@ -193,6 +195,9 @@ export class SystemBus {
   #hdmaSource = 0;
   #hdmaDestination = 0;
   #speedSwitchRequested = false;
+  #cgbRegisterHandlers: Array<(() => number) | null> = new Array(0x34).fill(
+    null,
+  );
 
   setSystemMode(hardwareMode: HardwareMode, cgbMode: boolean): void {
     this.#hardwareMode = hardwareMode;
@@ -245,12 +250,13 @@ export class SystemBus {
     this.#mbc?.reset();
 
     if (this.#mbc) {
-      this.#mirrorFixedRomBank();
-      this.#mirrorSwitchableRomBank();
+      this.#refreshRomWindows(true);
       this.#mirrorExternalRamWindow(true);
     } else {
       const mirrorLength = Math.min(rom.length, 0x8000);
       this.#memory.set(rom.subarray(0, mirrorLength), 0x0000);
+      this.#fixedRomView = this.#memory.subarray(0x0000, 0x4000);
+      this.#switchableRomView = this.#memory.subarray(0x4000, 0x8000);
     }
 
     this.#initializeHardwareRegisters();
@@ -266,6 +272,14 @@ export class SystemBus {
 
   readByte(address: number, ticksAhead = 0): number {
     return this.#readByteInternal(address, false, ticksAhead);
+  }
+
+  readRomByte(address: number): number {
+    const mapped = address & 0x7fff;
+    if (mapped < 0x4000) {
+      return this.#fixedRomView[mapped] ?? 0xff;
+    }
+    return this.#switchableRomView[mapped - 0x4000] ?? 0xff;
   }
 
   registerIoWriteListener(
@@ -298,6 +312,11 @@ export class SystemBus {
 
     if (this.#isCgbRegister(mappedAddress) && !this.#cgbMode) {
       return 0xff;
+    }
+
+    if (mappedAddress < 0x8000) {
+      // ROM region has no forced-one bits; mirrored banks are kept up to date.
+      return this.readRomByte(mappedAddress);
     }
 
     if (mappedAddress >= 0x8000 && mappedAddress < 0xa000) {
@@ -467,6 +486,9 @@ export class SystemBus {
   }
 
   dumpMemory(): Uint8Array {
+    if (this.#mbc) {
+      this.#refreshRomWindows(true);
+    }
     this.#mirrorExternalRamWindow();
     const snapshot = this.#memory.slice();
     snapshot[DIVIDER_REGISTER_ADDRESS] = (this.#dividerCounter >> 8) & 0xff;
@@ -547,7 +569,7 @@ export class SystemBus {
       return;
     }
     if (address < 0x4000) {
-      this.#mirrorSwitchableRomBank();
+      this.#refreshRomWindows();
       return;
     }
     if (address < 0x6000) {
@@ -561,27 +583,6 @@ export class SystemBus {
     if (address >= 0xa000 && address < 0xc000) {
       const value = this.#mbc.read(address);
       this.#memory[address] = value ?? 0xff;
-    }
-  }
-
-  #mirrorFixedRomBank(): void {
-    if (!this.#mbc) {
-      return;
-    }
-    for (let offset = 0; offset < 0x4000; offset += 1) {
-      const value = this.#mbc.read(offset) ?? 0xff;
-      this.#memory[offset] = value & 0xff;
-    }
-  }
-
-  #mirrorSwitchableRomBank(): void {
-    if (!this.#mbc) {
-      return;
-    }
-    for (let offset = 0; offset < 0x4000; offset += 1) {
-      const address = 0x4000 + offset;
-      const value = this.#mbc.read(address) ?? 0xff;
-      this.#memory[address] = value & 0xff;
     }
   }
 
@@ -601,6 +602,24 @@ export class SystemBus {
         break;
       }
       this.#memory[address] = value & 0xff;
+    }
+  }
+
+  #refreshRomWindows(writeMemory = false): void {
+    if (!this.#mbc) {
+      return;
+    }
+    const windows = this.#mbc.getRomWindows();
+    this.#fixedRomView = windows.lower;
+    this.#switchableRomView = windows.upper;
+    if (!writeMemory) {
+      return;
+    }
+    if (this.#fixedRomView.length === 0x4000) {
+      this.#memory.set(this.#fixedRomView, 0x0000);
+    }
+    if (this.#switchableRomView.length === 0x4000) {
+      this.#memory.set(this.#switchableRomView, 0x4000);
     }
   }
 
@@ -652,6 +671,7 @@ export class SystemBus {
       this.#memory[VBK_REGISTER_ADDRESS] = 0xff;
       this.#memory[SVBK_REGISTER_ADDRESS] = 0xff;
     }
+    this.#initializeCgbRegisterHandlers();
   }
 
   #startOamDmaTransfer(source: number): void {
@@ -792,50 +812,14 @@ export class SystemBus {
       return null;
     }
 
-    switch (address) {
-      case KEY0_REGISTER_ADDRESS:
-        return this.#memory[KEY0_REGISTER_ADDRESS] ?? 0xff;
-      case KEY1_REGISTER_ADDRESS:
-        return this.#composeKey1Value();
-      case VBK_REGISTER_ADDRESS:
-        return 0xfe | (this.#activeVramBank & 0x01);
-      case SVBK_REGISTER_ADDRESS:
-        return 0xf8 | (this.#activeWramBank & 0x07);
-      case BCPS_REGISTER_ADDRESS:
-        return (
-          (this.#bgPaletteIndex & 0x3f) |
-          (this.#bgPaletteAutoIncrement ? 0x80 : 0)
-        );
-      case BCPD_REGISTER_ADDRESS:
-        return this.#bgPaletteData[this.#bgPaletteIndex & 0x3f] ?? 0xff;
-      case OCPS_REGISTER_ADDRESS:
-        return (
-          (this.#objPaletteIndex & 0x3f) |
-          (this.#objPaletteAutoIncrement ? 0x80 : 0)
-        );
-      case OCPD_REGISTER_ADDRESS:
-        return this.#objPaletteData[this.#objPaletteIndex & 0x3f] ?? 0xff;
-      case HDMA1_REGISTER_ADDRESS:
-      case HDMA2_REGISTER_ADDRESS:
-      case HDMA3_REGISTER_ADDRESS:
-      case HDMA4_REGISTER_ADDRESS:
-        return this.#memory[address] ?? 0xff;
-      case HDMA5_REGISTER_ADDRESS:
-        if (this.#hdmaActive && this.#hdmaBlocksRemaining > 0) {
-          return 0x80 | ((this.#hdmaBlocksRemaining - 1) & 0x7f);
-        }
-        return 0xff;
-      case RP_REGISTER_ADDRESS:
-        return this.#memory[RP_REGISTER_ADDRESS] ?? 0x00;
-      case OPRI_REGISTER_ADDRESS:
-        return this.#memory[OPRI_REGISTER_ADDRESS] ?? 0x01;
-      case PCM12_REGISTER_ADDRESS:
-      case PCM34_REGISTER_ADDRESS:
-        return 0x00;
-      default:
-        break;
+    if (address < 0xff4c || address > 0xff7f) {
+      return null;
     }
-
+    const handlerIndex = address - 0xff4c;
+    const handler = this.#cgbRegisterHandlers[handlerIndex];
+    if (handler) {
+      return handler();
+    }
     return null;
   }
 
@@ -937,6 +921,52 @@ export class SystemBus {
     }
 
     return false;
+  }
+
+  #initializeCgbRegisterHandlers(): void {
+    if (this.#hardwareMode !== "cgb") {
+      return;
+    }
+    const handlers: Array<(() => number) | null> = new Array(0x34).fill(null);
+
+    handlers[KEY0_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#memory[KEY0_REGISTER_ADDRESS] ?? 0xff;
+    handlers[KEY1_REGISTER_ADDRESS - 0xff4c] = () => this.#composeKey1Value();
+    handlers[VBK_REGISTER_ADDRESS - 0xff4c] = () =>
+      0xfe | (this.#activeVramBank & 0x01);
+    handlers[SVBK_REGISTER_ADDRESS - 0xff4c] = () =>
+      0xf8 | (this.#activeWramBank & 0x07);
+    handlers[BCPS_REGISTER_ADDRESS - 0xff4c] = () =>
+      (this.#bgPaletteIndex & 0x3f) | (this.#bgPaletteAutoIncrement ? 0x80 : 0);
+    handlers[BCPD_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#bgPaletteData[this.#bgPaletteIndex & 0x3f] ?? 0xff;
+    handlers[OCPS_REGISTER_ADDRESS - 0xff4c] = () =>
+      (this.#objPaletteIndex & 0x3f) |
+      (this.#objPaletteAutoIncrement ? 0x80 : 0);
+    handlers[OCPD_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#objPaletteData[this.#objPaletteIndex & 0x3f] ?? 0xff;
+    handlers[HDMA1_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#memory[HDMA1_REGISTER_ADDRESS] ?? 0xff;
+    handlers[HDMA2_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#memory[HDMA2_REGISTER_ADDRESS] ?? 0xff;
+    handlers[HDMA3_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#memory[HDMA3_REGISTER_ADDRESS] ?? 0xff;
+    handlers[HDMA4_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#memory[HDMA4_REGISTER_ADDRESS] ?? 0xff;
+    handlers[HDMA5_REGISTER_ADDRESS - 0xff4c] = () => {
+      if (this.#hdmaActive && this.#hdmaBlocksRemaining > 0) {
+        return 0x80 | ((this.#hdmaBlocksRemaining - 1) & 0x7f);
+      }
+      return 0xff;
+    };
+    handlers[RP_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#memory[RP_REGISTER_ADDRESS] ?? 0x00;
+    handlers[OPRI_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#memory[OPRI_REGISTER_ADDRESS] ?? 0x01;
+    handlers[PCM12_REGISTER_ADDRESS - 0xff4c] = () => 0x00;
+    handlers[PCM34_REGISTER_ADDRESS - 0xff4c] = () => 0x00;
+
+    this.#cgbRegisterHandlers = handlers;
   }
 
   handleStop(): boolean {

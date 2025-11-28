@@ -13,6 +13,13 @@ export class Clock {
     this.#emitTick(1);
   }
 
+  stepBulk(cycles: number): void {
+    if (cycles <= 0) {
+      return;
+    }
+    this.#emitTick(cycles);
+  }
+
   runFrame(): void {
     this.#emitTick(Clock.FRAME_CYCLES);
   }

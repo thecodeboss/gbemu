@@ -47,8 +47,10 @@ const MASTER_GAIN = 0.5; // Keep headroom for multiple channels.
 
 class HighPassFilter {
   #alpha: number;
-  #prevInput: AudioSample = { left: 0, right: 0 };
-  #prevOutput: AudioSample = { left: 0, right: 0 };
+  #prevInputLeft = 0;
+  #prevInputRight = 0;
+  #prevOutputLeft = 0;
+  #prevOutputRight = 0;
 
   constructor(sampleRate: number, cutoffHz: number) {
     this.#alpha = this.#computeAlpha(sampleRate, cutoffHz);
@@ -60,19 +62,22 @@ class HighPassFilter {
   }
 
   reset(): void {
-    this.#prevInput = { left: 0, right: 0 };
-    this.#prevOutput = { left: 0, right: 0 };
+    this.#prevInputLeft = 0;
+    this.#prevInputRight = 0;
+    this.#prevOutputLeft = 0;
+    this.#prevOutputRight = 0;
   }
 
   process(sample: AudioSample): AudioSample {
     const left =
-      this.#alpha *
-      (this.#prevOutput.left + sample.left - this.#prevInput.left);
+      this.#alpha * (this.#prevOutputLeft + sample.left - this.#prevInputLeft);
     const right =
       this.#alpha *
-      (this.#prevOutput.right + sample.right - this.#prevInput.right);
-    this.#prevInput = { ...sample };
-    this.#prevOutput = { left, right };
+      (this.#prevOutputRight + sample.right - this.#prevInputRight);
+    this.#prevInputLeft = sample.left;
+    this.#prevInputRight = sample.right;
+    this.#prevOutputLeft = left;
+    this.#prevOutputRight = right;
     return { left, right };
   }
 
@@ -159,11 +164,13 @@ export class Apu {
   #frameSequencerCounter = 0;
   #frameSequencerStep = 0;
   #sampleCycleCounter = 0;
-  #rawLeft: number[] = [];
-  #rawRight: number[] = [];
+  #rawLeft = new Float32Array(MAX_RAW_BACKLOG_SAMPLES * 2);
+  #rawRight = new Float32Array(MAX_RAW_BACKLOG_SAMPLES * 2);
   #rawOffset = 0;
+  #rawLength = 0;
   #resampleCursor = 0;
   #lastSample: AudioSample = { left: 0, right: 0 };
+  #flushBuffer: Float32Array | null = null;
   #filter = new HighPassFilter(INTERNAL_SAMPLE_RATE, HIGH_PASS_CUTOFF_HZ);
   #nr50 = 0;
   #nr51 = 0;
@@ -387,7 +394,11 @@ export class Apu {
 
     const inputRate = this.#internalSampleRate;
     const step = inputRate / targetSampleRate;
-    const output = new Float32Array(targetSampleCount * 2);
+    const length = targetSampleCount * 2;
+    if (!this.#flushBuffer || this.#flushBuffer.length !== length) {
+      this.#flushBuffer = new Float32Array(length);
+    }
+    const output = this.#flushBuffer;
 
     for (let i = 0; i < targetSampleCount; i += 1) {
       const sample = this.#dequeueResampledSample(step);
@@ -1325,14 +1336,17 @@ export class Apu {
   }
 
   #pushRawSample(sample: AudioSample): void {
-    this.#rawLeft.push(sample.left);
-    this.#rawRight.push(sample.right);
+    this.#ensureRawCapacity(1);
+    const writeIndex = this.#rawOffset + this.#rawLength;
+    this.#rawLeft[writeIndex] = sample.left;
+    this.#rawRight[writeIndex] = sample.right;
+    this.#rawLength += 1;
     this.#lastSample = sample;
     this.#trimRawBacklog();
   }
 
   #dequeueResampledSample(step: number): AudioSample {
-    const available = this.#rawLeft.length - this.#rawOffset;
+    const available = this.#rawLength;
     if (available <= 0) {
       return this.#lastSample;
     }
@@ -1340,7 +1354,7 @@ export class Apu {
     const baseIndex = Math.floor(this.#resampleCursor);
     const frac = this.#resampleCursor - baseIndex;
     const idx0 = this.#rawOffset + baseIndex;
-    const idx1 = Math.min(idx0 + 1, this.#rawLeft.length - 1);
+    const idx1 = Math.min(idx0 + 1, this.#rawOffset + this.#rawLength - 1);
 
     const left0 = this.#rawLeft[idx0] ?? this.#lastSample.left;
     const left1 = this.#rawLeft[idx1] ?? left0;
@@ -1363,32 +1377,70 @@ export class Apu {
       return;
     }
     this.#rawOffset += consumed;
+    this.#rawLength -= consumed;
     this.#resampleCursor -= consumed;
 
-    if (this.#rawOffset > 2048 && this.#rawOffset * 2 > this.#rawLeft.length) {
-      this.#rawLeft = this.#rawLeft.slice(this.#rawOffset);
-      this.#rawRight = this.#rawRight.slice(this.#rawOffset);
-      this.#rawOffset = 0;
-    }
+    this.#compactRawIfNeeded();
   }
 
   #clearRawBuffers(): void {
-    this.#rawLeft.length = 0;
-    this.#rawRight.length = 0;
+    this.#rawLength = 0;
     this.#rawOffset = 0;
   }
 
   #trimRawBacklog(): void {
-    const backlog = this.#rawLeft.length - this.#rawOffset;
+    const backlog = this.#rawLength;
     if (backlog <= MAX_RAW_BACKLOG_SAMPLES) {
       return;
     }
     const drop = backlog - MAX_RAW_BACKLOG_SAMPLES;
-    const start = this.#rawOffset + drop;
-    this.#rawLeft = this.#rawLeft.slice(start);
-    this.#rawRight = this.#rawRight.slice(start);
-    this.#rawOffset = 0;
+    this.#rawOffset += drop;
+    this.#rawLength -= drop;
     this.#resampleCursor = 0;
+    this.#compactRawIfNeeded();
+  }
+
+  #ensureRawCapacity(extraSamples: number): void {
+    const needed = this.#rawOffset + this.#rawLength + extraSamples;
+    if (needed <= this.#rawLeft.length) {
+      return;
+    }
+    const nextSize = Math.max(
+      this.#rawLeft.length * 2,
+      needed,
+      MAX_RAW_BACKLOG_SAMPLES * 2,
+    );
+    const nextLeft = new Float32Array(nextSize);
+    const nextRight = new Float32Array(nextSize);
+    nextLeft.set(this.#rawLeft.subarray(0, this.#rawOffset + this.#rawLength));
+    nextRight.set(
+      this.#rawRight.subarray(0, this.#rawOffset + this.#rawLength),
+    );
+    this.#rawLeft = nextLeft;
+    this.#rawRight = nextRight;
+  }
+
+  #compactRawIfNeeded(): void {
+    if (this.#rawOffset === 0) {
+      return;
+    }
+    if (
+      this.#rawOffset * 2 <= this.#rawLeft.length &&
+      this.#rawLength <= this.#rawLeft.length / 2
+    ) {
+      return;
+    }
+    this.#rawLeft.copyWithin(
+      0,
+      this.#rawOffset,
+      this.#rawOffset + this.#rawLength,
+    );
+    this.#rawRight.copyWithin(
+      0,
+      this.#rawOffset,
+      this.#rawOffset + this.#rawLength,
+    );
+    this.#rawOffset = 0;
   }
 
   #calculateSweepTarget(): number {

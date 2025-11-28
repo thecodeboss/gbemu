@@ -1,5 +1,7 @@
-import { UNPREFIXED_OPCODE_TABLE } from "./opcode-tables.js";
-import { disassembleInstruction } from "./rom/disassemble.js";
+import {
+  CB_PREFIXED_OPCODE_TABLE,
+  UNPREFIXED_OPCODE_TABLE,
+} from "./opcode-tables.js";
 import { InstructionOperand, OpcodeInstruction } from "./rom/types.js";
 import { executeFns } from "./cpu-instructions/index.js";
 import * as constants from "./cpu-instructions/constants.js";
@@ -45,6 +47,7 @@ export interface CpuBusPort {
   writeByte(address: number, value: number, ticksAhead?: number): void;
   readWord(address: number): number;
   writeWord(address: number, value: number): void;
+  readRomByte(address: number): number;
   dmaTransfer(source: number): void;
   handleStop(): boolean;
   isDoubleSpeed(): boolean;
@@ -105,6 +108,7 @@ export class Cpu {
   #instructionView = new Uint8Array(constants.MEMORY_SIZE);
   #pendingExtraCycles = 0;
   imeEnableDelay = 0;
+  #operandBuffer: InstructionOperand[] = [];
   #powerOnRegisters: CpuRegisters = {
     a: 0x01,
     f: 0xb0,
@@ -180,12 +184,7 @@ export class Cpu {
 
     const pc = this.state.registers.pc & 0xffff;
     this.#prefetchInstructionBytes(this.#bus, pc);
-    const instruction = disassembleInstruction(this.#instructionView, pc);
-    if (instruction.type !== "opcode") {
-      throw new Error(
-        `Encountered non-opcode data at 0x${pc.toString(16).padStart(4, "0")}`,
-      );
-    }
+    const instruction = this.#decodeInstruction(pc);
 
     this.#executeInstruction(instruction, pc);
     const cycles = this.#computeInstructionCycles(instruction);
@@ -288,8 +287,95 @@ export class Cpu {
       if (address >= constants.MEMORY_SIZE) {
         break;
       }
-      this.#instructionView[address] = bus.readByte(address, offset * 4);
+      if (address < 0x8000) {
+        this.#instructionView[address] = bus.readRomByte(address);
+      } else {
+        this.#instructionView[address] = bus.readByte(address, offset * 4);
+      }
     }
+  }
+
+  #decodeInstruction(pc: number): OpcodeInstruction {
+    const opcode = this.#instructionView[pc] ?? 0;
+    if (opcode === 0xcb) {
+      const cbOpcode = this.#instructionView[pc + 1] ?? 0;
+      const meta = CB_PREFIXED_OPCODE_TABLE[cbOpcode];
+      const operands = this.#readOperands(meta, pc + 2);
+      const length = meta.len;
+      const bytes = this.#instructionView.subarray(pc, pc + length);
+      return {
+        type: "opcode",
+        length,
+        opcode: cbOpcode,
+        prefixed: true,
+        mnemonic: meta.m,
+        meta,
+        operands,
+        bytes,
+      };
+    }
+
+    const meta = UNPREFIXED_OPCODE_TABLE[opcode];
+    const operands = this.#readOperands(meta, pc + 1);
+    const length = meta.len;
+    const bytes = this.#instructionView.subarray(pc, pc + length);
+    return {
+      type: "opcode",
+      length,
+      opcode,
+      prefixed: false,
+      mnemonic: meta.m,
+      meta,
+      operands,
+      bytes,
+    };
+  }
+
+  #readOperands(
+    meta: (typeof UNPREFIXED_OPCODE_TABLE)[number],
+    start: number,
+  ): InstructionOperand[] {
+    let cursor = start;
+    const ops: InstructionOperand[] = this.#operandBuffer;
+    ops.length = meta.ops.length;
+
+    for (let i = 0; i < meta.ops.length; i += 1) {
+      const operandMeta = meta.ops[i];
+      let rawValue: number | null = null;
+      let signedValue: number | undefined;
+      let relativeTarget: number | undefined;
+
+      if (operandMeta.bytes === 1) {
+        rawValue = this.#instructionView[cursor] ?? 0;
+        cursor += 1;
+      } else if (operandMeta.bytes === 2) {
+        const lo = this.#instructionView[cursor] ?? 0;
+        const hi = this.#instructionView[cursor + 1] ?? 0;
+        rawValue = lo | (hi << 8);
+        cursor += 2;
+      }
+
+      if (operandMeta.name === "e8" && rawValue !== null) {
+        signedValue = rawValue >= 0x80 ? rawValue - 0x100 : rawValue;
+      }
+      if (operandMeta.name === "e8" && signedValue !== undefined) {
+        relativeTarget = (start - 1 + meta.len + signedValue) & 0xffff;
+      }
+
+      const existing = ops[i];
+      if (existing) {
+        ops[i] = {
+          meta: operandMeta,
+          rawValue,
+          signedValue,
+          relativeTarget,
+        };
+      } else {
+        ops[i] = { meta: operandMeta, rawValue, signedValue, relativeTarget };
+      }
+    }
+
+    return ops;
   }
 
   #executeInstruction(instruction: OpcodeInstruction, currentPc: number): void {

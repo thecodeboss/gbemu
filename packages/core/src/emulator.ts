@@ -505,9 +505,7 @@ export class Emulator {
     this.bus.tick(cycles);
     this.ppu.tick(cycles);
     this.apu.tick(cycles);
-    for (let i = 0; i < cycles; i += 1) {
-      this.clock.step();
-    }
+    this.clock.stepBulk(cycles);
   }
 
   #emitVideoFrame(): void {
