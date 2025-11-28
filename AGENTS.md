@@ -71,6 +71,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 - `src/worker/emulator-worker.ts` is the worker entry and instantiates the core `createEmulator` factory.
 - Main thread client:
   - `src/main/runtime-client.ts` provides `createRuntimeClient`, which instantiates the worker, sets up a `Canvas2DRenderer`, and initialises `createEmulatorAudioNode`. Save persistence now defaults on (`autoPersistSaves`), deriving a `SaveStorageKey` from the ROM header title + slot (`createSaveStorageKey`) and hydrating matching saves on load if a `SaveStorageAdapter` is supplied.
+  - `createRuntimeClient.loadRom` inspects the CGB flag at $0143 (0x80/0xC0 → CGB, otherwise DMG) before telling the worker which hardware mode to use.
   - `createRuntimeClient` exposes a `setBreakpoints(offsets: number[])` method on the returned client and accepts an `onBreakpointHit` option so UIs can be notified when the worker halted on a breakpoint. It also forwards `setInputState(state: JoypadInputState)` calls to the worker, which push the state into P1 and trigger the joypad interrupt when lines drop low.
   - The `AudioContext.sampleRate` is forwarded to the emulator so the core mixer can resample its 44.1 kHz stream to the actual playback rate before the worklet consumes it.
 - Rendering/audio/persistence helpers:
@@ -93,7 +94,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 - Gamepad + keyboard input lives in `src/hooks/use-gamepad.ts`, which polls the Gamepad API for common profiles (DualSense/DualShock/Xbox/Switch Pro/generic) and maps keyboard keys (`A`/`S` = B/A, Backspace = Select, Enter = Start, arrow keys = D-pad) into `RuntimeClient#setInputState`; the emulator feeds P1 with the state and raises the joypad interrupt on new presses.
 - Mobile viewports render a floating on-screen joypad (`VirtualJoypad` in `src/components/virtual-joypad.tsx`) with a D-pad, staggered B/A buttons, and Select/Start; its state merges with hardware/keyboard inputs before hitting `RuntimeClient#setInputState`.
 - ROMs now start running immediately after selection; hit Break if you need to pause before inspecting state. Breakpoints still pause automatically when hit.
-- Landing menu includes a DMG/CGB mode switch; set it before loading a ROM (propagates to emulator mode and worker).
+- ROM loads auto-select DMG vs CGB based on the cartridge header flag at $0143 (0x80/0xC0 → CGB, anything else → DMG); there is no manual toggle in the menu right now.
 - Saves auto-persist to IndexedDB via the runtime `createIndexedDbSaveAdapter`, keyed by the ROM header title + default slot so reloads pull the matching battery RAM without depending on the upload filename.
 - The main emulator card includes a **Manage Saves** button. The modal lists IndexedDB saves (autosave + any slots from `listSlots`), lets users rename slots inline, export `.sav` files, import 32 KiB `.sav` payloads (auto-named “Untitled N”), delete saves, and load saves behind a warning prompt. “New Save” creates a blank 32 KiB payload in the chosen slot and reloads the ROM with that slot.
 - The disassembly view adds a leading BP column; clicking a cell toggles a red-circle breakpoint that propagates to the runtime and automatically pauses when the PC hits that offset.

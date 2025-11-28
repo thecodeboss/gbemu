@@ -228,7 +228,6 @@ function App() {
       canvas,
       saveStorage: ensureSaveStorage() ?? undefined,
       autoPersistSaves: true,
-      mode: "cgb",
       onBreakpointHit: (offset: number) => {
         setIsBreakMode(true);
         setIsStepping(false);

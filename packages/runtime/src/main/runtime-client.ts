@@ -34,6 +34,11 @@ export interface RuntimeClientOptions {
   onBreakpointHit?(offset: number): void;
 }
 
+function detectModeFromRomHeader(rom: Uint8Array): EmulatorMode {
+  const cgbFlag = rom[0x143] ?? 0;
+  return cgbFlag === 0x80 || cgbFlag === 0xc0 ? "cgb" : "dmg";
+}
+
 export interface RuntimeClient {
   loadRom(
     rom: Uint8Array,
@@ -133,6 +138,7 @@ export async function createRuntimeClient(
     rom: Uint8Array,
     options?: { skipPersistentLoad?: boolean },
   ): Promise<void> {
+    currentMode = detectModeFromRomHeader(rom);
     const romCopy = rom.slice();
     await workerEndpoint.setMode({ mode: currentMode });
     await workerEndpoint.loadRom(
