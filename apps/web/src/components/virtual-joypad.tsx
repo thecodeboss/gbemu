@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PointerEvent } from "react";
 
 import {
@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 interface VirtualJoypadProps {
   onChange: (state: JoypadInputState) => void;
 }
+
+type DpadDirection = "up" | "down" | "left" | "right";
 
 function usePressHandlers(onPressChange: (next: boolean) => void) {
   return {
@@ -42,6 +44,8 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
   const [state, setState] = useState<JoypadInputState>(() =>
     createEmptyJoypadState(),
   );
+  const dpadRef = useRef<HTMLDivElement | null>(null);
+  const dpadPointerId = useRef<number | null>(null);
   const dpadButtonSize = 52;
   const dpadGap = 0;
   const dpadContainer = dpadButtonSize * 3 + dpadGap * 2;
@@ -67,19 +71,6 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
       onChange(createEmptyJoypadState());
     };
   }, [onChange]);
-
-  const upHandlers = usePressHandlers((pressed) =>
-    setButtonState("up", pressed),
-  );
-  const downHandlers = usePressHandlers((pressed) =>
-    setButtonState("down", pressed),
-  );
-  const leftHandlers = usePressHandlers((pressed) =>
-    setButtonState("left", pressed),
-  );
-  const rightHandlers = usePressHandlers((pressed) =>
-    setButtonState("right", pressed),
-  );
   const selectHandlers = usePressHandlers((pressed) =>
     setButtonState("select", pressed),
   );
@@ -89,12 +80,115 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
   const aHandlers = usePressHandlers((pressed) => setButtonState("a", pressed));
   const bHandlers = usePressHandlers((pressed) => setButtonState("b", pressed));
 
+  const setActiveDirection = useCallback((direction: DpadDirection | null) => {
+    setState((prev) => {
+      const nextState = { ...prev };
+      const directions: DpadDirection[] = ["up", "down", "left", "right"];
+      let changed = false;
+
+      for (const dir of directions) {
+        const shouldPress = direction === dir;
+        if (prev[dir] !== shouldPress) {
+          nextState[dir] = shouldPress;
+          changed = true;
+        }
+      }
+
+      return changed ? nextState : prev;
+    });
+  }, []);
+
+  const updateDpadFromPointer = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const rect = dpadRef.current?.getBoundingClientRect();
+      if (!rect) {
+        return;
+      }
+
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+        setActiveDirection(null);
+        return;
+      }
+
+      const dx = x - rect.width / 2;
+      const dy = y - rect.height / 2;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      const nextDirection: DpadDirection =
+        absDx > absDy ? (dx < 0 ? "left" : "right") : dy < 0 ? "up" : "down";
+
+      setActiveDirection(nextDirection);
+    },
+    [setActiveDirection],
+  );
+
+  const handleDpadPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (dpadPointerId.current !== null) {
+        return;
+      }
+
+      dpadPointerId.current = event.pointerId;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      updateDpadFromPointer(event);
+    },
+    [updateDpadFromPointer],
+  );
+
+  const handleDpadPointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (event.pointerId !== dpadPointerId.current) {
+        return;
+      }
+      event.preventDefault();
+      updateDpadFromPointer(event);
+    },
+    [updateDpadFromPointer],
+  );
+
+  const releaseDpadPointer = useCallback(() => {
+    if (dpadPointerId.current !== null && dpadRef.current) {
+      try {
+        dpadRef.current.releasePointerCapture(dpadPointerId.current);
+      } catch {
+        // Ignore if the capture was already released or never applied.
+      }
+    }
+    dpadPointerId.current = null;
+    setActiveDirection(null);
+  }, [setActiveDirection]);
+
+  const handleDpadPointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (event.pointerId !== dpadPointerId.current) {
+        return;
+      }
+      event.preventDefault();
+      releaseDpadPointer();
+    },
+    [releaseDpadPointer],
+  );
+
+  const handleDpadPointerCancel = useCallback(() => {
+    releaseDpadPointer();
+  }, [releaseDpadPointer]);
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 sm:hidden">
       <div className="relative mx-auto max-w-5xl px-4 pb-4">
         <div className="pointer-events-auto absolute bottom-24 left-4 right-[58%] flex justify-end">
           <div
-            className="grid -translate-y-6"
+            ref={dpadRef}
+            className="grid -translate-y-6 touch-none"
+            onPointerDown={handleDpadPointerDown}
+            onPointerMove={handleDpadPointerMove}
+            onPointerUp={handleDpadPointerUp}
+            onPointerCancel={handleDpadPointerCancel}
             style={{
               width: dpadContainer,
               height: dpadContainer,
@@ -110,7 +204,6 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
               size="icon-lg"
               className="min-h-0 min-w-0 border-b-0 p-0 leading-none"
               aria-label="Up"
-              {...upHandlers}
               style={{ width: dpadButtonSize, height: dpadButtonSize }}
             >
               <Play
@@ -127,7 +220,6 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
               size="icon-lg"
               className="min-h-0 min-w-0 border-r-0 p-0 leading-none"
               aria-label="Left"
-              {...leftHandlers}
               style={{ width: dpadButtonSize, height: dpadButtonSize }}
             >
               <Play
@@ -147,7 +239,6 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
               size="icon-lg"
               className="min-h-0 min-w-0 border-l-0 p-0 leading-none"
               aria-label="Right"
-              {...rightHandlers}
               style={{ width: dpadButtonSize, height: dpadButtonSize }}
             >
               <Play
@@ -164,7 +255,6 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
               size="icon-lg"
               className="min-h-0 min-w-0 border-t-0 p-0 leading-none"
               aria-label="Down"
-              {...downHandlers}
               style={{ width: dpadButtonSize, height: dpadButtonSize }}
             >
               <Play
@@ -178,7 +268,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
           </div>
         </div>
 
-        <div className="pointer-events-auto absolute bottom-24 left-[52%] right-4 flex justify-start">
+        <div className="pointer-events-auto absolute bottom-24 left-[52%] right-4 flex justify-start touch-none">
           <div className="relative h-32 w-32 -translate-y-8 translate-x-4">
             <Button
               type="button"
@@ -203,7 +293,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
           </div>
         </div>
 
-        <div className="pointer-events-auto flex justify-center gap-3 pb-2">
+        <div className="pointer-events-auto flex justify-center gap-3 pb-2 touch-none">
           <Button
             type="button"
             variant="outline"
