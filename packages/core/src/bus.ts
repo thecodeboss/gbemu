@@ -566,6 +566,7 @@ export class SystemBus {
     }
     if (address < 0x2000) {
       this.#externalRamMirrorDirty = true;
+      this.#refreshRomWindows();
       return;
     }
     if (address < 0x4000) {
@@ -573,10 +574,12 @@ export class SystemBus {
       return;
     }
     if (address < 0x6000) {
+      this.#refreshRomWindows();
       this.#externalRamMirrorDirty = true;
       return;
     }
     if (address < 0x8000) {
+      this.#refreshRomWindows();
       this.#externalRamMirrorDirty = true;
       return;
     }
