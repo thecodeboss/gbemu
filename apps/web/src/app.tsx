@@ -25,6 +25,7 @@ import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { useGamepad } from "@/hooks/use-gamepad";
 import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
 import { cn } from "@/lib/utils";
+import { RecentRomRecord, storeRecentRom } from "@/lib/recently-played";
 import { VirtualJoypad } from "@/components/virtual-joypad";
 import audioWorkletModuleUrl from "@gbemu/runtime/src/audio/worklet-processor.ts?worker&url";
 
@@ -70,6 +71,7 @@ function App() {
   const [isDebugVisible, setIsDebugVisible] = useState(false);
   const [isSaveManagerOpen, setIsSaveManagerOpen] = useState(false);
   const [hasRequestedDisassembly, setHasRequestedDisassembly] = useState(false);
+  const [recentlyPlayedRevision, setRecentlyPlayedRevision] = useState(0);
   const [isMobileDevice, setIsMobileDevice] = useState<boolean>(() =>
     detectIsMobileDevice(),
   );
@@ -200,6 +202,18 @@ function App() {
       return null;
     }
   }, []);
+
+  const persistRecentRom = useCallback(
+    async (name: string, rom: Uint8Array, existingId?: string) => {
+      try {
+        await storeRecentRom({ name, data: rom, id: existingId });
+        setRecentlyPlayedRevision((prev) => prev + 1);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [],
+  );
 
   const mergeInputStates = useCallback(
     (hardware: JoypadInputState, virtual: JoypadInputState) => {
@@ -381,53 +395,79 @@ function App() {
     };
   }, [isBreakMode, isMobileDevice, phase]);
 
+  const prepareRomLoad = useCallback((name: string) => {
+    setError(null);
+    setRomInfo(null);
+    setRomName(name);
+    romDataRef.current = null;
+    setDisassembly(null);
+    setDisassemblyError(null);
+    setIsDisassembling(false);
+    setHasRequestedDisassembly(false);
+    setCurrentInstructionOffset(null);
+    setIsBreakMode(false);
+    setIsStepping(false);
+    setBreakpoints(new Set());
+    setShouldCenterDisassembly(false);
+    setPhase("loading");
+  }, []);
+
+  const loadRomFromBytes = useCallback(
+    async (rom: Uint8Array, name: string, recentId?: string): Promise<void> => {
+      romDataRef.current = rom;
+
+      const runtime = await ensureRuntimeClient();
+      await runtime.pause();
+      await runtime.reset({ hard: true });
+      await runtime.loadRom(rom);
+      await runtime.setBreakpoints([]);
+      const info = await runtime.getRomInfo();
+      setRomInfo(info);
+      const programCounter = await runtime.getProgramCounter();
+      setCurrentInstructionOffset(programCounter ?? null);
+      await runtime.start();
+      setIsBreakMode(false);
+      setIsStepping(false);
+      setPhase("running");
+      void refreshDebugInfo();
+      void persistRecentRom(name, rom, recentId);
+    },
+    [ensureRuntimeClient, persistRecentRom, refreshDebugInfo],
+  );
+
   const handleRomSelection = useCallback(
     async (file: File | null): Promise<void> => {
       if (!file) {
         return;
       }
 
-      setError(null);
-      setRomInfo(null);
-      setRomName(file.name);
-      setDisassembly(null);
-      setDisassemblyError(null);
-      setIsDisassembling(false);
-      setHasRequestedDisassembly(false);
-      setCurrentInstructionOffset(null);
-      setIsBreakMode(false);
-      setIsStepping(false);
-      setBreakpoints(new Set());
-      setShouldCenterDisassembly(false);
-      setPhase("loading");
+      prepareRomLoad(file.name);
 
       try {
         const arrayBuffer = await file.arrayBuffer();
         const rom = new Uint8Array(arrayBuffer);
-        romDataRef.current = rom;
-
-        const runtime = await ensureRuntimeClient();
-        await runtime.pause();
-        await runtime.reset({ hard: true });
-        await runtime.loadRom(rom);
-        await runtime.setBreakpoints([]);
-        const info = await runtime.getRomInfo();
-        setRomInfo(info);
-        const programCounter = await runtime.getProgramCounter();
-        setCurrentInstructionOffset(programCounter ?? null);
-        await runtime.start();
-        setIsBreakMode(false);
-        setIsStepping(false);
-
-        setPhase("running");
-        void refreshDebugInfo();
+        await loadRomFromBytes(rom, file.name);
       } catch (err: unknown) {
         console.error(err);
         setError(err instanceof Error ? err.message : String(err));
         setPhase("error");
       }
     },
-    [ensureRuntimeClient, refreshDebugInfo],
+    [loadRomFromBytes, prepareRomLoad],
+  );
+
+  const handleLoadRecentRom = useCallback(
+    async (rom: RecentRomRecord) => {
+      prepareRomLoad(rom.name);
+      try {
+        await loadRomFromBytes(rom.data, rom.name, rom.id);
+      } catch (err: unknown) {
+        console.error(err);
+        setError(err instanceof Error ? err.message : String(err));
+        setPhase("error");
+      }
+    },
+    [loadRomFromBytes, prepareRomLoad],
   );
 
   const handleFileInputChange = useCallback(
@@ -725,7 +765,12 @@ function App() {
         className="hidden"
       />
 
-      <MenuCard hidden={phase !== "menu"} onSelectRom={openFilePicker} />
+      <MenuCard
+        hidden={phase !== "menu"}
+        onSelectRom={openFilePicker}
+        onSelectRecentRom={handleLoadRecentRom}
+        recentlyPlayedRevision={recentlyPlayedRevision}
+      />
 
       <LoadingCard hidden={phase !== "loading"} romName={romName} />
 
@@ -734,7 +779,7 @@ function App() {
         canvasRef={canvasRef}
         romName={romName}
         isDebugVisible={isDebugVisible}
-        onChangeRom={openFilePicker}
+        onReturnToMenu={handleReturnToMenu}
         onToggleDebug={handleToggleDebug}
         onManageSaves={handleOpenSaveManager}
         disableSaveManager={phase !== "running" || romInfo === null}

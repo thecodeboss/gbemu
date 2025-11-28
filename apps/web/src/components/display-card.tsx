@@ -9,6 +9,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_CANVAS_SCALE = 3;
@@ -32,7 +42,7 @@ interface DisplayCardProps {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   romName: string | null;
   isDebugVisible: boolean;
-  onChangeRom: () => void;
+  onReturnToMenu: () => void;
   onToggleDebug: () => void;
   onManageSaves: () => void;
   disableSaveManager?: boolean;
@@ -45,7 +55,7 @@ export function DisplayCard({
   canvasRef,
   romName,
   isDebugVisible,
-  onChangeRom,
+  onReturnToMenu,
   onToggleDebug,
   onManageSaves,
   disableSaveManager,
@@ -105,6 +115,7 @@ export function DisplayCard({
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
+  const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   const updateCanvasScale = useCallback((): void => {
     setScaledCanvasSize(computeScaledSize(isMobileViewport));
@@ -285,8 +296,12 @@ export function DisplayCard({
           )}
         >
           <CardAction>
-            <Button type="button" variant="outline" onClick={onChangeRom}>
-              ROM
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowReturnConfirm(true)}
+            >
+              Menu
             </Button>
           </CardAction>
           <CardAction>
@@ -317,6 +332,37 @@ export function DisplayCard({
           ) : null}
         </CardFooter>
       </Card>
+
+      <AlertDialog
+        open={showReturnConfirm}
+        onOpenChange={(next) => setShowReturnConfirm(next)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              Return to the menu?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The emulator will stop and any current progress will be lost.
+              Saves stored in your browser will remain available.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowReturnConfirm(false)}>
+              Stay Here
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60"
+              onClick={() => {
+                setShowReturnConfirm(false);
+                onReturnToMenu();
+              }}
+            >
+              Return to Menu
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
