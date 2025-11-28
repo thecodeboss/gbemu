@@ -192,8 +192,11 @@ export class Apu {
   };
   constructor(bus: SystemBus) {
     this.#bus = bus;
+    this.#bus.registerIoWriteListener((address, value) =>
+      this.#handleIoWrite(address, value),
+    );
     this.#masterEnabled = (bus.readByte(NR52_ADDRESS) & 0x80) !== 0;
-    this.#syncRegisterCache(true);
+    this.#primeRegisterCacheFromBus();
   }
   #channel1: Channel1State = {
     enabled: false,
@@ -344,16 +347,14 @@ export class Apu {
       lfsr: 0x7fff,
     };
     this.#channel4.frequencyTimer = this.#computeNoisePeriod();
-    this.#syncRegisterCache(true);
+    this.#masterEnabled = (this.#bus.readByte(NR52_ADDRESS) & 0x80) !== 0;
+    this.#primeRegisterCacheFromBus();
   }
 
   tick(cycles: number): void {
     if (cycles <= 0) {
       return;
     }
-
-    this.#syncPowerState();
-    this.#syncRegisterCache();
 
     if (!this.#masterEnabled) {
       return;
@@ -398,11 +399,174 @@ export class Apu {
     return output;
   }
 
-  #syncPowerState(): void {
-    const nr52Value = this.#bus.readByte(NR52_ADDRESS) & 0xff;
-    const masterOn = (nr52Value & 0x80) !== 0;
+  #handleIoWrite(address: number, value: number, force = false): void {
+    const normalized = value & 0xff;
+    const masterWrite = address === NR52_ADDRESS;
+    if (!force && !this.#masterEnabled && !masterWrite) {
+      return;
+    }
 
-    if (masterOn === this.#masterEnabled) {
+    switch (address) {
+      case NR10_ADDRESS:
+        this.#updateChannel1Sweep(normalized);
+        this.#prevRegisters.nr10 = normalized;
+        break;
+      case NR11_ADDRESS:
+        this.#updateChannel1Length(normalized);
+        this.#prevRegisters.nr11 = normalized;
+        break;
+      case NR12_ADDRESS:
+        this.#updateChannel1Envelope(normalized);
+        this.#prevRegisters.nr12 = normalized;
+        break;
+      case NR13_ADDRESS:
+        this.#updateChannel1FrequencyLow(normalized);
+        this.#prevRegisters.nr13 = normalized;
+        break;
+      case NR14_ADDRESS: {
+        const triggerRequested = (normalized & 0x80) !== 0;
+        const masked = normalized & ~0x80;
+        this.#updateChannel1FrequencyHigh(normalized);
+        this.#prevRegisters.nr14 = masked;
+        if (triggerRequested || force) {
+          this.#bus.writeByte(NR14_ADDRESS, masked, 0, true);
+        }
+        if (triggerRequested && !force) {
+          this.#triggerChannel1();
+        }
+        break;
+      }
+      case NR21_ADDRESS:
+        this.#updateChannel2Length(normalized);
+        this.#prevRegisters.nr21 = normalized;
+        break;
+      case NR22_ADDRESS:
+        this.#updateChannel2Envelope(normalized);
+        this.#prevRegisters.nr22 = normalized;
+        break;
+      case NR23_ADDRESS:
+        this.#updateChannel2FrequencyLow(normalized);
+        this.#prevRegisters.nr23 = normalized;
+        break;
+      case NR24_ADDRESS: {
+        const triggerRequested = (normalized & 0x80) !== 0;
+        const masked = normalized & ~0x80;
+        this.#updateChannel2FrequencyHigh(normalized);
+        this.#prevRegisters.nr24 = masked;
+        if (triggerRequested || force) {
+          this.#bus.writeByte(NR24_ADDRESS, masked, 0, true);
+        }
+        if (triggerRequested && !force) {
+          this.#triggerChannel2();
+        }
+        break;
+      }
+      case NR30_ADDRESS:
+        this.#updateChannel3Dac(normalized);
+        this.#prevRegisters.nr30 = normalized;
+        break;
+      case NR31_ADDRESS:
+        this.#updateChannel3Length(normalized);
+        this.#prevRegisters.nr31 = normalized;
+        break;
+      case NR32_ADDRESS:
+        this.#updateChannel3Volume(normalized);
+        this.#prevRegisters.nr32 = normalized;
+        break;
+      case NR33_ADDRESS:
+        this.#updateChannel3FrequencyLow(normalized);
+        this.#prevRegisters.nr33 = normalized;
+        break;
+      case NR34_ADDRESS: {
+        const triggerRequested = (normalized & 0x80) !== 0;
+        const masked = normalized & ~0x80;
+        this.#updateChannel3FrequencyHigh(normalized);
+        this.#prevRegisters.nr34 = masked;
+        if (triggerRequested || force) {
+          this.#bus.writeByte(NR34_ADDRESS, masked, 0, true);
+        }
+        if (triggerRequested && !force) {
+          this.#triggerChannel3();
+        }
+        break;
+      }
+      case NR41_ADDRESS:
+        this.#updateChannel4Length(normalized);
+        this.#prevRegisters.nr41 = normalized;
+        break;
+      case NR42_ADDRESS:
+        this.#updateChannel4Envelope(normalized);
+        this.#prevRegisters.nr42 = normalized;
+        break;
+      case NR43_ADDRESS:
+        this.#updateChannel4Noise(normalized);
+        this.#prevRegisters.nr43 = normalized;
+        break;
+      case NR44_ADDRESS: {
+        const triggerRequested = (normalized & 0x80) !== 0;
+        const masked = normalized & ~0x80;
+        this.#updateChannel4Control(normalized);
+        this.#prevRegisters.nr44 = masked;
+        if (triggerRequested || force) {
+          this.#bus.writeByte(NR44_ADDRESS, masked, 0, true);
+        }
+        if (triggerRequested && !force) {
+          this.#triggerChannel4();
+        }
+        break;
+      }
+      case NR50_ADDRESS:
+        this.#nr50 = normalized;
+        this.#prevRegisters.nr50 = normalized;
+        break;
+      case NR51_ADDRESS:
+        this.#nr51 = normalized;
+        this.#prevRegisters.nr51 = normalized;
+        break;
+      case NR52_ADDRESS:
+        this.#applyNr52Write(normalized, force);
+        break;
+      default:
+        break;
+    }
+  }
+
+  #primeRegisterCacheFromBus(): void {
+    const registers: Array<[number, number]> = [
+      [NR52_ADDRESS, this.#bus.readByte(NR52_ADDRESS) & 0xff],
+      [NR10_ADDRESS, this.#bus.readByte(NR10_ADDRESS) & 0xff],
+      [NR11_ADDRESS, this.#bus.readByte(NR11_ADDRESS) & 0xff],
+      [NR12_ADDRESS, this.#bus.readByte(NR12_ADDRESS) & 0xff],
+      [NR13_ADDRESS, this.#bus.readByte(NR13_ADDRESS) & 0xff],
+      [NR14_ADDRESS, this.#bus.readByte(NR14_ADDRESS) & 0xff],
+      [NR21_ADDRESS, this.#bus.readByte(NR21_ADDRESS) & 0xff],
+      [NR22_ADDRESS, this.#bus.readByte(NR22_ADDRESS) & 0xff],
+      [NR23_ADDRESS, this.#bus.readByte(NR23_ADDRESS) & 0xff],
+      [NR24_ADDRESS, this.#bus.readByte(NR24_ADDRESS) & 0xff],
+      [NR30_ADDRESS, this.#bus.readByte(NR30_ADDRESS) & 0xff],
+      [NR31_ADDRESS, this.#bus.readByte(NR31_ADDRESS) & 0xff],
+      [NR32_ADDRESS, this.#bus.readByte(NR32_ADDRESS) & 0xff],
+      [NR33_ADDRESS, this.#bus.readByte(NR33_ADDRESS) & 0xff],
+      [NR34_ADDRESS, this.#bus.readByte(NR34_ADDRESS) & 0xff],
+      [NR41_ADDRESS, this.#bus.readByte(NR41_ADDRESS) & 0xff],
+      [NR42_ADDRESS, this.#bus.readByte(NR42_ADDRESS) & 0xff],
+      [NR43_ADDRESS, this.#bus.readByte(NR43_ADDRESS) & 0xff],
+      [NR44_ADDRESS, this.#bus.readByte(NR44_ADDRESS) & 0xff],
+      [NR50_ADDRESS, this.#bus.readByte(NR50_ADDRESS) & 0xff],
+      [NR51_ADDRESS, this.#bus.readByte(NR51_ADDRESS) & 0xff],
+    ];
+
+    for (const [address, value] of registers) {
+      this.#handleIoWrite(address, value, true);
+    }
+  }
+
+  #applyNr52Write(nr52Value: number, force = false): void {
+    const masterOn = (nr52Value & 0x80) !== 0;
+    const prevMaster = this.#masterEnabled;
+    this.#prevRegisters.nr52 = nr52Value & 0x7f;
+
+    if (masterOn === prevMaster && !force) {
       return;
     }
 
@@ -429,6 +593,8 @@ export class Apu {
       this.#resampleCursor = 0;
       this.#lastSample = { left: 0, right: 0 };
       this.#writePowerOffRegisters(nr52Value & 0x7f);
+      this.#nr50 = 0;
+      this.#nr51 = 0;
       this.#prevRegisters = {
         nr10: 0,
         nr11: 0,
@@ -483,175 +649,14 @@ export class Apu {
       nr44: 0,
       nr50: 0,
       nr51: 0,
-      nr52: nr52Value,
+      nr52: nr52Value & 0xff,
     };
+    this.#nr50 = 0;
+    this.#nr51 = 0;
     this.#channel1.enabled = false;
     this.#channel2.enabled = false;
     this.#channel3.enabled = false;
     this.#channel4.enabled = false;
-    this.#syncRegisterCache(true);
-  }
-
-  #syncRegisterCache(force = false): void {
-    if (!this.#masterEnabled) {
-      return;
-    }
-
-    const nr10 = this.#bus.readByte(NR10_ADDRESS) & 0xff;
-    if (force || nr10 !== this.#prevRegisters.nr10) {
-      this.#updateChannel1Sweep(nr10);
-      this.#prevRegisters.nr10 = nr10;
-    }
-
-    const nr11 = this.#bus.readByte(NR11_ADDRESS) & 0xff;
-    if (force || nr11 !== this.#prevRegisters.nr11) {
-      this.#updateChannel1Length(nr11);
-      this.#prevRegisters.nr11 = nr11;
-    }
-
-    const nr12 = this.#bus.readByte(NR12_ADDRESS) & 0xff;
-    if (force || nr12 !== this.#prevRegisters.nr12) {
-      this.#updateChannel1Envelope(nr12);
-      this.#prevRegisters.nr12 = nr12;
-    }
-
-    const nr13 = this.#bus.readByte(NR13_ADDRESS) & 0xff;
-    if (force || nr13 !== this.#prevRegisters.nr13) {
-      this.#updateChannel1FrequencyLow(nr13);
-      this.#prevRegisters.nr13 = nr13;
-    }
-
-    const nr14 = this.#bus.readByte(NR14_ADDRESS) & 0xff;
-    const triggerRequested = (nr14 & 0x80) !== 0;
-    const shouldTrigger = triggerRequested && !force;
-    if (force || triggerRequested || nr14 !== this.#prevRegisters.nr14) {
-      this.#updateChannel1FrequencyHigh(nr14);
-      const masked = nr14 & ~0x80; // Treat trigger as write-only so repeated writes retrigger.
-      this.#prevRegisters.nr14 = masked;
-      if (triggerRequested || force) {
-        this.#bus.writeByte(NR14_ADDRESS, masked);
-      }
-      if (shouldTrigger) {
-        this.#triggerChannel1();
-      }
-    }
-
-    const nr21 = this.#bus.readByte(NR21_ADDRESS) & 0xff;
-    if (force || nr21 !== this.#prevRegisters.nr21) {
-      this.#updateChannel2Length(nr21);
-      this.#prevRegisters.nr21 = nr21;
-    }
-
-    const nr22 = this.#bus.readByte(NR22_ADDRESS) & 0xff;
-    if (force || nr22 !== this.#prevRegisters.nr22) {
-      this.#updateChannel2Envelope(nr22);
-      this.#prevRegisters.nr22 = nr22;
-    }
-
-    const nr23 = this.#bus.readByte(NR23_ADDRESS) & 0xff;
-    if (force || nr23 !== this.#prevRegisters.nr23) {
-      this.#updateChannel2FrequencyLow(nr23);
-      this.#prevRegisters.nr23 = nr23;
-    }
-
-    const nr24 = this.#bus.readByte(NR24_ADDRESS) & 0xff;
-    const ch2TriggerRequested = (nr24 & 0x80) !== 0;
-    const ch2ShouldTrigger = ch2TriggerRequested && !force;
-    if (force || ch2TriggerRequested || nr24 !== this.#prevRegisters.nr24) {
-      this.#updateChannel2FrequencyHigh(nr24);
-      const masked = nr24 & ~0x80;
-      this.#prevRegisters.nr24 = masked;
-      if (ch2TriggerRequested || force) {
-        this.#bus.writeByte(NR24_ADDRESS, masked);
-      }
-      if (ch2ShouldTrigger) {
-        this.#triggerChannel2();
-      }
-    }
-
-    const nr30 = this.#bus.readByte(NR30_ADDRESS) & 0xff;
-    if (force || nr30 !== this.#prevRegisters.nr30) {
-      this.#updateChannel3Dac(nr30);
-      this.#prevRegisters.nr30 = nr30;
-    }
-
-    const nr31 = this.#bus.readByte(NR31_ADDRESS) & 0xff;
-    if (force || nr31 !== this.#prevRegisters.nr31) {
-      this.#updateChannel3Length(nr31);
-      this.#prevRegisters.nr31 = nr31;
-    }
-
-    const nr32 = this.#bus.readByte(NR32_ADDRESS) & 0xff;
-    if (force || nr32 !== this.#prevRegisters.nr32) {
-      this.#updateChannel3Volume(nr32);
-      this.#prevRegisters.nr32 = nr32;
-    }
-
-    const nr33 = this.#bus.readByte(NR33_ADDRESS) & 0xff;
-    if (force || nr33 !== this.#prevRegisters.nr33) {
-      this.#updateChannel3FrequencyLow(nr33);
-      this.#prevRegisters.nr33 = nr33;
-    }
-
-    const nr34 = this.#bus.readByte(NR34_ADDRESS) & 0xff;
-    const ch3TriggerRequested = (nr34 & 0x80) !== 0;
-    const ch3ShouldTrigger = ch3TriggerRequested && !force;
-    if (force || ch3TriggerRequested || nr34 !== this.#prevRegisters.nr34) {
-      this.#updateChannel3FrequencyHigh(nr34);
-      const masked = nr34 & ~0x80;
-      this.#prevRegisters.nr34 = masked;
-      if (ch3TriggerRequested || force) {
-        this.#bus.writeByte(NR34_ADDRESS, masked);
-      }
-      if (ch3ShouldTrigger) {
-        this.#triggerChannel3();
-      }
-    }
-
-    const nr41 = this.#bus.readByte(NR41_ADDRESS) & 0xff;
-    if (force || nr41 !== this.#prevRegisters.nr41) {
-      this.#updateChannel4Length(nr41);
-      this.#prevRegisters.nr41 = nr41;
-    }
-
-    const nr42 = this.#bus.readByte(NR42_ADDRESS) & 0xff;
-    if (force || nr42 !== this.#prevRegisters.nr42) {
-      this.#updateChannel4Envelope(nr42);
-      this.#prevRegisters.nr42 = nr42;
-    }
-
-    const nr43 = this.#bus.readByte(NR43_ADDRESS) & 0xff;
-    if (force || nr43 !== this.#prevRegisters.nr43) {
-      this.#updateChannel4Noise(nr43);
-      this.#prevRegisters.nr43 = nr43;
-    }
-
-    const nr44 = this.#bus.readByte(NR44_ADDRESS) & 0xff;
-    const ch4TriggerRequested = (nr44 & 0x80) !== 0;
-    const ch4ShouldTrigger = ch4TriggerRequested && !force;
-    if (force || ch4TriggerRequested || nr44 !== this.#prevRegisters.nr44) {
-      this.#updateChannel4Control(nr44);
-      const masked = nr44 & ~0x80;
-      this.#prevRegisters.nr44 = masked;
-      if (ch4TriggerRequested || force) {
-        this.#bus.writeByte(NR44_ADDRESS, masked);
-      }
-      if (ch4ShouldTrigger) {
-        this.#triggerChannel4();
-      }
-    }
-
-    const nr50 = this.#bus.readByte(NR50_ADDRESS) & 0xff;
-    if (force || nr50 !== this.#prevRegisters.nr50) {
-      this.#nr50 = nr50;
-      this.#prevRegisters.nr50 = nr50;
-    }
-
-    const nr51 = this.#bus.readByte(NR51_ADDRESS) & 0xff;
-    if (force || nr51 !== this.#prevRegisters.nr51) {
-      this.#nr51 = nr51;
-      this.#prevRegisters.nr51 = nr51;
-    }
   }
 
   #updateChannel1Sweep(nr10: number): void {
@@ -1408,8 +1413,8 @@ export class Apu {
     const nr13 = nextFrequency & 0xff;
     this.#prevRegisters.nr13 = nr13;
     this.#prevRegisters.nr14 = nr14;
-    this.#bus.writeByte(NR13_ADDRESS, nr13);
-    this.#bus.writeByte(NR14_ADDRESS, nr14);
+    this.#bus.writeByte(NR13_ADDRESS, nr13, 0, true);
+    this.#bus.writeByte(NR14_ADDRESS, nr14, 0, true);
   }
 
   #computeFrequencyTimer(frequency: number): number {
@@ -1440,9 +1445,14 @@ export class Apu {
       NR50_ADDRESS,
       NR51_ADDRESS,
     ]) {
-      this.#bus.writeByte(address, 0);
+      this.#bus.writeByte(address, 0, 0, true);
     }
-    this.#bus.writeByte(NR52_ADDRESS, (nr52Value & 0x80) | NR52_CONSTANT_BITS);
+    this.#bus.writeByte(
+      NR52_ADDRESS,
+      (nr52Value & 0x80) | NR52_CONSTANT_BITS,
+      0,
+      true,
+    );
     this.#prevRegisters = {
       nr10: 0,
       nr11: 0,
@@ -1478,6 +1488,6 @@ export class Apu {
       (this.#channel4.enabled && this.#channel4.dacEnabled ? 0x08 : 0);
     const base = this.#bus.readByte(NR52_ADDRESS) & 0x80;
     const next = base | NR52_CONSTANT_BITS | activeChannelBits;
-    this.#bus.writeByte(NR52_ADDRESS, next);
+    this.#bus.writeByte(NR52_ADDRESS, next, 0, true);
   }
 }

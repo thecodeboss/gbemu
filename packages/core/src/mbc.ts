@@ -75,6 +75,18 @@ export abstract class Mbc {
     return this.ram.length;
   }
 
+  hasRtc(): boolean {
+    return false;
+  }
+
+  getRtcSnapshot(): Uint8Array | null {
+    return null;
+  }
+
+  loadRtcSnapshot(_payload: Uint8Array): void {
+    // No RTC state to hydrate by default.
+  }
+
   loadRamSnapshot(payload: Uint8Array): void {
     if (this.ram.length === 0) {
       return;
@@ -273,11 +285,27 @@ class Mbc3Controller extends Mbc {
   #romBank = 1;
   #ramBank = 0;
   #ramEnabled = false;
+  #hasRtc: boolean;
   #rtcRegisterSelect: number | null = null;
   #latchState = 0;
+  #rtcSeconds = 0;
+  #rtcMinutes = 0;
+  #rtcHours = 0;
+  #rtcDays = 0;
+  #rtcHalt = false;
+  #rtcCarry = false;
+  #rtcLatchedSeconds = 0;
+  #rtcLatchedMinutes = 0;
+  #rtcLatchedHours = 0;
+  #rtcLatchedDays = 0;
+  #rtcLatchedDayHigh = 0;
+  #rtcLatched = false;
+  #rtcLastUpdatedMs = 0;
 
   constructor(rom: Uint8Array, ramSize: number, options?: MbcOptions) {
     super("mbc3", rom, ramSize, options);
+    const cartridgeType = rom[0x147] ?? 0x00;
+    this.#hasRtc = cartridgeType === 0x0f || cartridgeType === 0x10;
     this.#romBankCount = Math.max(
       1,
       Math.ceil(this.rom.length / ROM_BANK_SIZE),
@@ -286,6 +314,7 @@ class Mbc3Controller extends Mbc {
       this.ram.length > 0
         ? Math.max(1, Math.ceil(this.ram.length / RAM_BANK_SIZE))
         : 0;
+    this.#rtcLastUpdatedMs = this.#nowMs();
   }
 
   reset(): void {
@@ -294,6 +323,71 @@ class Mbc3Controller extends Mbc {
     this.#ramEnabled = false;
     this.#rtcRegisterSelect = null;
     this.#latchState = 0;
+    this.#rtcSeconds = 0;
+    this.#rtcMinutes = 0;
+    this.#rtcHours = 0;
+    this.#rtcDays = 0;
+    this.#rtcHalt = false;
+    this.#rtcCarry = false;
+    this.#rtcLatched = false;
+    this.#rtcLastUpdatedMs = this.#nowMs();
+    this.#refreshLatchedFromRunning();
+    if (this.#hasRtc) {
+      this.markRamDirty();
+    }
+  }
+
+  hasRtc(): boolean {
+    return this.#hasRtc;
+  }
+
+  getRtcSnapshot(): Uint8Array | null {
+    if (!this.#hasRtc) {
+      return null;
+    }
+    this.#updateRtc();
+    const buffer = new ArrayBuffer(16);
+    const view = new DataView(buffer);
+    view.setUint8(0, this.#rtcSeconds & 0xff);
+    view.setUint8(1, this.#rtcMinutes & 0xff);
+    view.setUint8(2, this.#rtcHours & 0xff);
+    view.setUint8(3, this.#rtcDays & 0xff);
+    view.setUint8(
+      4,
+      this.#composeDayHighFlags(this.#rtcDays, this.#rtcHalt, this.#rtcCarry),
+    );
+    view.setUint8(5, 0x00);
+    view.setUint8(6, 0x00);
+    view.setUint8(7, 0x00);
+    view.setFloat64(8, this.#rtcLastUpdatedMs, true);
+    return new Uint8Array(buffer);
+  }
+
+  loadRtcSnapshot(payload: Uint8Array): void {
+    if (!this.#hasRtc || payload.length < 5) {
+      return;
+    }
+    const view = new DataView(
+      payload.buffer,
+      payload.byteOffset,
+      payload.byteLength,
+    );
+    this.#rtcSeconds = Math.min(59, view.getUint8(0));
+    this.#rtcMinutes = Math.min(59, view.getUint8(1));
+    this.#rtcHours = Math.min(23, view.getUint8(2));
+    const dayLow = view.getUint8(3);
+    const dayHigh = view.getUint8(4);
+    this.#rtcDays = (((dayHigh & 0x01) << 8) | dayLow) % 512;
+    this.#rtcHalt = (dayHigh & 0x40) !== 0;
+    this.#rtcCarry = (dayHigh & 0x80) !== 0;
+    const timestamp =
+      payload.length >= 16 ? view.getFloat64(8, true) : Number.NaN;
+    this.#rtcLastUpdatedMs = Number.isFinite(timestamp)
+      ? timestamp
+      : this.#nowMs();
+    this.#rtcLatched = false;
+    this.#updateRtc();
+    this.#refreshLatchedFromRunning();
   }
 
   read(address: number): number | null {
@@ -305,11 +399,17 @@ class Mbc3Controller extends Mbc {
       return this.readRomBank(this.#resolvedRomBank(), offset);
     }
     if (address >= 0xa000 && address < 0xc000) {
-      if (!this.#ramEnabled || this.ram.length === 0) {
+      if (!this.#ramEnabled) {
         return 0xff;
       }
       if (this.#rtcRegisterSelect !== null && this.#rtcRegisterSelect >= 0x08) {
+        if (!this.#hasRtc) {
+          return 0xff;
+        }
         return this.#readRtc(this.#rtcRegisterSelect);
+      }
+      if (this.ram.length === 0) {
+        return 0xff;
       }
       const offset = address - 0xa000;
       return this.readRamByte(this.#ramBank, offset);
@@ -338,11 +438,16 @@ class Mbc3Controller extends Mbc {
       return true;
     }
     if (address >= 0xa000 && address < 0xc000) {
-      if (!this.#ramEnabled || this.ram.length === 0) {
+      if (!this.#ramEnabled) {
         return true;
       }
       if (this.#rtcRegisterSelect !== null && this.#rtcRegisterSelect >= 0x08) {
-        this.#writeRtc(this.#rtcRegisterSelect, value & 0xff);
+        if (this.#hasRtc) {
+          this.#writeRtc(this.#rtcRegisterSelect, value & 0xff);
+        }
+        return true;
+      }
+      if (this.ram.length === 0) {
         return true;
       }
       const offset = address - 0xa000;
@@ -369,7 +474,7 @@ class Mbc3Controller extends Mbc {
   }
 
   #selectRamOrRtc(value: number): void {
-    if (value >= 0x08 && value <= 0x0c) {
+    if (value >= 0x08 && value <= 0x0c && this.#hasRtc) {
       this.#rtcRegisterSelect = value;
       return;
     }
@@ -382,23 +487,181 @@ class Mbc3Controller extends Mbc {
   }
 
   #latchClock(value: number): void {
-    // A write sequence of 0x00 -> 0x01 latches the RTC. The stub does not
-    // emulate the RTC yet, but we keep the edge-triggered state so future work
-    // can hook into it without changing the interface again.
     if (this.#latchState === 0 && value === 1) {
+      if (this.#hasRtc) {
+        this.#updateRtc();
+        this.#refreshLatchedFromRunning();
+        this.#rtcLatched = true;
+      }
       this.#latchState = 1;
-    } else if (value === 0) {
+      return;
+    }
+    if (value === 0) {
       this.#latchState = 0;
     }
   }
 
-  #readRtc(_register: number): number {
-    // RTC is not implemented yet; return 0xff so software treats it as idle.
-    return 0xff;
+  #readRtc(register: number): number {
+    if (!this.#hasRtc) {
+      return 0xff;
+    }
+    this.#updateRtc();
+    if (!this.#rtcLatched) {
+      this.#refreshLatchedFromRunning();
+    }
+    switch (register) {
+      case 0x08:
+        return this.#rtcLatchedSeconds;
+      case 0x09:
+        return this.#rtcLatchedMinutes;
+      case 0x0a:
+        return this.#rtcLatchedHours;
+      case 0x0b:
+        return this.#rtcLatchedDays & 0xff;
+      case 0x0c:
+        return this.#rtcLatchedDayHigh;
+      default:
+        return 0xff;
+    }
   }
 
-  #writeRtc(_register: number, _value: number): void {
-    // RTC writes are ignored until the emulator wires up a real clock source.
+  #writeRtc(register: number, value: number): void {
+    if (!this.#hasRtc) {
+      return;
+    }
+    this.#updateRtc();
+    const now = this.#nowMs();
+    let changed = false;
+
+    switch (register) {
+      case 0x08: {
+        const seconds = Math.min(59, value & 0xff);
+        changed = changed || seconds !== this.#rtcSeconds;
+        this.#rtcSeconds = seconds;
+        this.#rtcLastUpdatedMs = now;
+        break;
+      }
+      case 0x09: {
+        const minutes = Math.min(59, value & 0xff);
+        changed = changed || minutes !== this.#rtcMinutes;
+        this.#rtcMinutes = minutes;
+        this.#rtcLastUpdatedMs = now;
+        break;
+      }
+      case 0x0a: {
+        const hours = Math.min(23, value & 0xff);
+        changed = changed || hours !== this.#rtcHours;
+        this.#rtcHours = hours;
+        this.#rtcLastUpdatedMs = now;
+        break;
+      }
+      case 0x0b: {
+        const nextDays = ((value & 0xff) | (this.#rtcDays & 0x100)) % 512;
+        changed = changed || nextDays !== this.#rtcDays;
+        this.#rtcDays = nextDays;
+        this.#rtcLastUpdatedMs = now;
+        break;
+      }
+      case 0x0c: {
+        const wasHalted = this.#rtcHalt;
+        const nextCarry = (value & 0x80) !== 0;
+        const nextHalt = (value & 0x40) !== 0;
+        const nextDays = (((value & 0x01) << 8) | (this.#rtcDays & 0xff)) % 512;
+        changed =
+          changed ||
+          nextDays !== this.#rtcDays ||
+          nextCarry !== this.#rtcCarry ||
+          nextHalt !== this.#rtcHalt;
+        this.#rtcDays = nextDays;
+        this.#rtcCarry = nextCarry;
+        this.#rtcHalt = nextHalt;
+        this.#rtcLastUpdatedMs = now;
+        if (wasHalted && !this.#rtcHalt) {
+          this.#rtcLastUpdatedMs = now;
+        }
+        break;
+      }
+      default:
+        return;
+    }
+
+    this.#refreshLatchedFromRunning();
+    if (changed) {
+      this.markRamDirty();
+    }
+  }
+
+  #updateRtc(): void {
+    if (!this.#hasRtc) {
+      return;
+    }
+    const now = this.#nowMs();
+    if (this.#rtcHalt) {
+      this.#rtcLastUpdatedMs = now;
+      return;
+    }
+    const elapsedMs = Math.max(0, now - this.#rtcLastUpdatedMs);
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    if (elapsedSeconds <= 0) {
+      return;
+    }
+    this.#rtcLastUpdatedMs += elapsedSeconds * 1000;
+    this.#advanceRtcBySeconds(elapsedSeconds);
+    if (!this.#rtcLatched) {
+      this.#refreshLatchedFromRunning();
+    }
+  }
+
+  #advanceRtcBySeconds(deltaSeconds: number): void {
+    if (deltaSeconds <= 0) {
+      return;
+    }
+    const totalSeconds = this.#rtcSeconds + deltaSeconds;
+    const minutesCarry = Math.floor(totalSeconds / 60);
+    this.#rtcSeconds = totalSeconds % 60;
+
+    const totalMinutes = this.#rtcMinutes + minutesCarry;
+    const hoursCarry = Math.floor(totalMinutes / 60);
+    this.#rtcMinutes = totalMinutes % 60;
+
+    const totalHours = this.#rtcHours + hoursCarry;
+    const dayCarry = Math.floor(totalHours / 24);
+    this.#rtcHours = totalHours % 24;
+
+    if (dayCarry > 0) {
+      const nextDays = this.#rtcDays + dayCarry;
+      if (nextDays >= 512) {
+        this.#rtcCarry = true;
+      }
+      this.#rtcDays = nextDays % 512;
+    }
+  }
+
+  #refreshLatchedFromRunning(): void {
+    this.#rtcLatchedSeconds = this.#rtcSeconds;
+    this.#rtcLatchedMinutes = this.#rtcMinutes;
+    this.#rtcLatchedHours = this.#rtcHours;
+    this.#rtcLatchedDays = this.#rtcDays;
+    this.#rtcLatchedDayHigh = this.#composeDayHighFlags(
+      this.#rtcDays,
+      this.#rtcHalt,
+      this.#rtcCarry,
+    );
+  }
+
+  #composeDayHighFlags(days: number, halt: boolean, carry: boolean): number {
+    let value = days > 0xff ? 0x01 : 0x00;
+    if (halt) {
+      value |= 0x40;
+    }
+    if (carry) {
+      value |= 0x80;
+    }
+    return value & 0xff;
+  }
+
+  #nowMs(): number {
+    return Date.now();
   }
 }
 

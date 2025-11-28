@@ -310,6 +310,8 @@ export class Ppu {
     const windowVisible = windowEnabled && wy <= ly && rawWx <= 166;
     const windowLine = windowVisible ? this.#windowLineForScanline & 0xff : 0;
     const bgPalette = this.#decodePalette(BGP_ADDRESS);
+    const scx = bus.readByte(SCX_ADDRESS);
+    const scy = bus.readByte(SCY_ADDRESS);
 
     const width = this.#framebuffer.width;
     const baseOffset = ly * width * 4;
@@ -328,8 +330,6 @@ export class Ppu {
         continue;
       }
 
-      const scx = bus.readByte(SCX_ADDRESS);
-      const scy = bus.readByte(SCY_ADDRESS);
       const useWindow = windowVisible && x >= wx;
       const sourceX = useWindow ? (x - wx) & 0xff : (scx + x) & 0xff;
       const sourceY = useWindow ? windowLine : (scy + ly) & 0xff;
@@ -338,9 +338,7 @@ export class Ppu {
       const tileRow = (sourceY >> 3) & (TILE_MAP_WIDTH - 1);
       const tileIndexAddress =
         tileMapBase + tileRow * TILE_MAP_WIDTH + tileColumn;
-      const tileNumber = this.#cgbMode
-        ? bus.readVram(tileIndexAddress, 0)
-        : bus.readByte(tileIndexAddress);
+      const tileNumber = bus.readVram(tileIndexAddress, 0);
       const attrs = this.#cgbMode ? bus.readVram(tileIndexAddress, 1) : 0;
       const paletteIndex = this.#cgbMode ? attrs & 0x07 : 0;
       const tileBank = this.#cgbMode ? (attrs & 0x08) >> 3 : 0;

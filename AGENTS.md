@@ -47,9 +47,12 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 - Emulator highlights:
   - CPU executes the decoded opcode tables (prefetches instruction bytes, handles HALT/STOP/IME/interrupt servicing, honours conditional jump/call/ret timings, and consumes the per-opcode cycle counts).
   - `SystemBus` seeds DMG power-on register defaults (`$FF00`–`$FFFF`), mirrors ROM/RAM windows via the active MBC, drives DIV/TIMA/TMA/TAC each T-cycle (falling-edge timer increments + delayed TIMA reload/interrupt), handles joypad state + interrupts, and schedules OAM DMA over 640 + 4 T-cycles while blocking OAM accesses.
-  - `Ppu` runs the LCD mode state machine (OAM → XFER → HBLANK/VBLANK), renders BG/window per pixel with live SCX/SCY sampling, draws up to 10 sprites per scanline, and emits a blank frame when LCDC disables the display.
+  - External RAM mirroring is now dirty-tracked: MBC control writes mark the window dirty, and `dumpMemory`/`SystemBus#refreshExternalRamWindow` repopulate the $A000–$BFFF view so frames avoid copying 8 KiB repeatedly.
+  - The bus exposes an IO write listener (sound range `$FF10–$FF77`); the APU subscribes so NRxx register changes are event-driven instead of polled each tick, clearing trigger bits with suppressed callbacks to avoid reentrancy.
+  - `Ppu` runs the LCD mode state machine (OAM → XFER → HBLANK/VBLANK), renders BG/window per pixel with live SCX/SCY sampling, draws up to 10 sprites per scanline, and emits a blank frame when LCDC disables the display. Tile map fetches go through the direct VRAM accessor and XFER batches hoist LCDC/scroll/window registers per chunk to reduce bus traffic.
+  - CGB palette decoding uses a startup LUT (0x8000 entries) so `decodeCgbColor` is a constant-time table lookup instead of recomputing gamma-corrected colors per call.
   - `Apu` emulates all four channels (square 1 with sweep, square 2, wave, noise) with length/envelope/sweep/LFSR, mixes at 44.1 kHz, high-pass-filters DC, and resamples to the host AudioContext sample rate.
-  - `MbcFactory` detects cartridge type and builds ROM-only, MBC1, or MBC3 controllers (others default to ROM-only; RTC registers are stubbed). External RAM writes debounce (~200 ms) before flushing via `callbacks.onSaveData`; loading a save hydrates the active MBC and mirrors it into the bus via `SystemBus#refreshExternalRamWindow`.
+  - `MbcFactory` detects cartridge type and builds ROM-only, MBC1, or MBC3 controllers (others default to ROM-only). MBC3 now implements RTC latching/halt/day-carry behavior; RTC state is persisted via `SavePayload.rtc` (even when no external RAM) alongside debounced RAM flushes (~200 ms) before emitting `callbacks.onSaveData`. Loading a save hydrates the active MBC and mirrors it into the bus via `SystemBus#refreshExternalRamWindow`.
   - Frame pacing targets 59.73 Hz (70224 master cycles) using wall-clock scheduling; audio chunk sizes derive from elapsed wall time. Breakpoints pause the run loop and trigger `callbacks.onBreakpointHit`; `disassembleRom`, `getCpuState`, and `getMemorySnapshot` support debug tooling.
 - Debug helpers: `Emulator#getCpuState()` clones registers/flags/IME/cycle state and `Emulator#getMemorySnapshot()` returns a copy of the 64 KiB bus image so tooling can display live diagnostics safely.
 - `src/rom/` groups all ROM helpers: `info.ts` parses cartridge metadata (`parseRomInfo`), `sizes.ts` handles ROM/RAM sizing helpers, `disassemble.ts` produces structured `Instruction` objects, and `format.ts` renders them via `formatDisassembledRom`; `index.ts` re-exports the public surface for consumers.
@@ -125,7 +128,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 
 ## Future Work Notes
 
-- Extend core compatibility: fill in RTC support for MBC3, add MBC2/MBC5/MBC6/MBC7 controllers, and bring CGB-mode features online (double-speed timing, color palettes/VRAM banking). Wire `Emulator#restoreState` once save states land.
+- Extend core compatibility: add MBC2/MBC5/MBC6/MBC7 controllers and bring CGB-mode features online (double-speed timing, color palettes/VRAM banking). Wire `Emulator#restoreState` once save states land.
 - Add broader automated coverage (unit tests in `packages/core`, integration tests for the runtime client, lint/test scripts at the root) alongside the Mooneye suite.
 
 ## External References

@@ -30,6 +30,15 @@ const SVBK_REGISTER_ADDRESS = 0xff70;
 const PCM12_REGISTER_ADDRESS = 0xff76;
 const PCM34_REGISTER_ADDRESS = 0xff77;
 
+function buildForcedOneLut(): Uint8Array {
+  const lut = new Uint8Array(0x10000);
+  for (const [address, mask] of Object.entries(FORCED_ONE_BITMASKS)) {
+    const idx = Number.parseInt(address, 10) & 0xffff;
+    lut[idx] = mask & 0xff;
+  }
+  return lut;
+}
+
 const COMPAT_BG_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
 const COMPAT_OBJ0_DEFAULT: readonly number[] = [0x7fff, 0x56b5, 0x2d6b, 0x18c6];
 const COMPAT_OBJ1_DEFAULT: readonly number[] = [0x7fff, 0x5ad6, 0x35ad, 0x10a5];
@@ -72,6 +81,7 @@ const FORCED_ONE_BITMASKS: Readonly<Record<number, number>> = {
   [VBK_REGISTER_ADDRESS]: 0xfe, // VBK: upper bits read high.
   [SVBK_REGISTER_ADDRESS]: 0xf8, // SVBK: upper bits read high.
 };
+const FORCED_ONE_LUT = buildForcedOneLut();
 
 // DMG defaults gathered from Pan Docs' Power-Up Sequence tables.
 const DMG_HARDWARE_REGISTER_DEFAULTS: ReadonlyArray<readonly [number, number]> =
@@ -149,6 +159,8 @@ export class SystemBus {
   #ticksPerCpuCycle = 4;
   #pendingInterrupts = new Set<InterruptType>();
   #mbc: Mbc | null = null;
+  #externalRamMirrorDirty = false;
+  #ioWriteListeners: Array<(address: number, value: number) => void> = [];
   #joypadState: JoypadInputState = createEmptyJoypadState();
   #dividerCounter = 0;
   #timerSignal = false;
@@ -229,12 +241,13 @@ export class SystemBus {
     this.#oamDmaIndex = 0;
     this.#suppressOamDmaStep = false;
     this.#mbc = mbc ?? null;
+    this.#externalRamMirrorDirty = false;
     this.#mbc?.reset();
 
     if (this.#mbc) {
       this.#mirrorFixedRomBank();
       this.#mirrorSwitchableRomBank();
-      this.#mirrorExternalRamWindow();
+      this.#mirrorExternalRamWindow(true);
     } else {
       const mirrorLength = Math.min(rom.length, 0x8000);
       this.#memory.set(rom.subarray(0, mirrorLength), 0x0000);
@@ -248,11 +261,22 @@ export class SystemBus {
   }
 
   refreshExternalRamWindow(): void {
-    this.#mirrorExternalRamWindow();
+    this.#mirrorExternalRamWindow(true);
   }
 
   readByte(address: number, ticksAhead = 0): number {
     return this.#readByteInternal(address, false, ticksAhead);
+  }
+
+  registerIoWriteListener(
+    listener: (address: number, value: number) => void,
+  ): () => void {
+    this.#ioWriteListeners.push(listener);
+    return () => {
+      this.#ioWriteListeners = this.#ioWriteListeners.filter(
+        (entry) => entry !== listener,
+      );
+    };
   }
 
   #readByteInternal(
@@ -277,10 +301,7 @@ export class SystemBus {
     }
 
     if (mappedAddress >= 0x8000 && mappedAddress < 0xa000) {
-      return this.#applyForcedOnes(
-        mappedAddress,
-        this.#readVramBanked(mappedAddress),
-      );
+      return this.#readVramBanked(mappedAddress) & 0xff;
     }
 
     if (mappedAddress >= 0xc000 && mappedAddress < 0xd000) {
@@ -295,8 +316,16 @@ export class SystemBus {
     }
 
     if (mappedAddress >= 0xe000 && mappedAddress < 0xfe00) {
-      // Echo of WRAM.
-      return this.#readByteInternal(mappedAddress - 0x2000, true, ticksAhead);
+      const mirrored = mappedAddress - 0x2000;
+      if (mirrored >= 0xc000 && mirrored < 0xd000) {
+        const offset = mirrored - 0xc000;
+        return this.#wramBank0[offset] ?? 0xff;
+      }
+      if (mirrored >= 0xd000 && mirrored < 0xe000) {
+        const offset = mirrored - 0xd000;
+        const bankIndex = this.#activeWramBank - 1;
+        return this.#wramBanks[bankIndex]?.[offset] ?? 0xff;
+      }
     }
 
     const cgbRegisterRead = this.#readCgbRegister(mappedAddress);
@@ -329,7 +358,12 @@ export class SystemBus {
     );
   }
 
-  writeByte(address: number, value: number, ticksAhead = 0): void {
+  writeByte(
+    address: number,
+    value: number,
+    ticksAhead = 0,
+    suppressCallbacks = false,
+  ): void {
     const mappedAddress = address & 0xffff;
     const byteValue = value & 0xff;
 
@@ -408,6 +442,9 @@ export class SystemBus {
 
     const normalizedValue = this.#applyForcedOnes(mappedAddress, byteValue);
     this.#memory[mappedAddress] = normalizedValue;
+    if (!suppressCallbacks) {
+      this.#emitIoWrite(mappedAddress, normalizedValue);
+    }
 
     if (mappedAddress === INTERRUPT_FLAG_ADDRESS) {
       this.#syncPendingInterrupts(normalizedValue);
@@ -430,6 +467,7 @@ export class SystemBus {
   }
 
   dumpMemory(): Uint8Array {
+    this.#mirrorExternalRamWindow();
     const snapshot = this.#memory.slice();
     snapshot[DIVIDER_REGISTER_ADDRESS] = (this.#dividerCounter >> 8) & 0xff;
     snapshot.set(this.#vramBanks[this.#activeVramBank], 0x8000);
@@ -505,7 +543,7 @@ export class SystemBus {
       return;
     }
     if (address < 0x2000) {
-      this.#mirrorExternalRamWindow();
+      this.#externalRamMirrorDirty = true;
       return;
     }
     if (address < 0x4000) {
@@ -513,10 +551,11 @@ export class SystemBus {
       return;
     }
     if (address < 0x6000) {
-      this.#mirrorExternalRamWindow();
+      this.#externalRamMirrorDirty = true;
       return;
     }
     if (address < 0x8000) {
+      this.#externalRamMirrorDirty = true;
       return;
     }
     if (address >= 0xa000 && address < 0xc000) {
@@ -546,10 +585,15 @@ export class SystemBus {
     }
   }
 
-  #mirrorExternalRamWindow(): void {
+  #mirrorExternalRamWindow(force = false): void {
     if (!this.#mbc) {
+      this.#externalRamMirrorDirty = false;
       return;
     }
+    if (!force && !this.#externalRamMirrorDirty) {
+      return;
+    }
+    this.#externalRamMirrorDirty = false;
     for (let offset = 0; offset < 0x2000; offset += 1) {
       const address = 0xa000 + offset;
       const value = this.#mbc.read(address);
@@ -557,6 +601,19 @@ export class SystemBus {
         break;
       }
       this.#memory[address] = value & 0xff;
+    }
+  }
+
+  #emitIoWrite(address: number, value: number): void {
+    if (
+      this.#ioWriteListeners.length === 0 ||
+      address < 0xff10 ||
+      address > 0xff77
+    ) {
+      return;
+    }
+    for (const listener of this.#ioWriteListeners) {
+      listener(address, value);
     }
   }
 
@@ -1105,8 +1162,8 @@ export class SystemBus {
   }
 
   #applyForcedOnes(address: number, value: number): number {
-    const forced = FORCED_ONE_BITMASKS[address];
-    if (forced === undefined) {
+    const forced = FORCED_ONE_LUT[address & 0xffff];
+    if (forced === 0) {
       return value & 0xff;
     }
     return (value | forced) & 0xff;

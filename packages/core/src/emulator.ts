@@ -566,7 +566,7 @@ export class Emulator {
   }
 
   #scheduleSaveFlush(): void {
-    if (this.#mbc.getRamSize() === 0) {
+    if (this.#mbc.getRamSize() === 0 && !this.#mbc.hasRtc()) {
       return;
     }
     this.#ramDirty = true;
@@ -607,6 +607,9 @@ export class Emulator {
       return;
     }
     this.#mbc.loadRamSnapshot(payload.battery);
+    if (payload.rtc) {
+      this.#mbc.loadRtcSnapshot(payload.rtc);
+    }
     this.bus.refreshExternalRamWindow();
   }
 
@@ -615,16 +618,18 @@ export class Emulator {
       return null;
     }
     const ram = this.#mbc.getRamSnapshot();
-    if (ram.length === 0) {
+    const rtc = this.#mbc.getRtcSnapshot();
+    if (ram.length === 0 && !rtc) {
       return null;
     }
+    const battery = ram.length > 0 ? ram : new Uint8Array(0);
     const payload: SavePayload = {
-      battery: ram,
-      rtc: undefined,
+      battery,
+      rtc: rtc ?? undefined,
     };
     this.#saveData = {
-      battery: ram.slice(),
-      rtc: undefined,
+      battery: battery.slice(),
+      rtc: rtc ? rtc.slice() : undefined,
     };
     return payload;
   }

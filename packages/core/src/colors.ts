@@ -7,6 +7,9 @@ const COLOR_MATRIX: [number, number, number][] = [
 ];
 
 const GAMMA = 1.35;
+const CGB_COLOR_COUNT = 0x8000;
+const CGB_COLOR_STRIDE = 4;
+const CGB_COLOR_LUT = buildCgbColorLut();
 
 function applyColorCorrection(
   r: number,
@@ -57,19 +60,36 @@ export function decodeCgbColor(
   high: number,
 ): [number, number, number, number] {
   const value = ((high & 0x7f) << 8) | (low & 0xff);
+  const base = (value & 0x7fff) * CGB_COLOR_STRIDE;
+  return [
+    CGB_COLOR_LUT[base],
+    CGB_COLOR_LUT[base + 1],
+    CGB_COLOR_LUT[base + 2],
+    0xff,
+  ];
+}
 
-  const r5 = value & 0x1f;
-  const g5 = (value >> 5) & 0x1f;
-  const b5 = (value >> 10) & 0x1f;
+function buildCgbColorLut(): Uint8Array {
+  const lut = new Uint8Array(CGB_COLOR_COUNT * CGB_COLOR_STRIDE);
+  for (let value = 0; value < CGB_COLOR_COUNT; value += 1) {
+    const r5 = value & 0x1f;
+    const g5 = (value >> 5) & 0x1f;
+    const b5 = (value >> 10) & 0x1f;
 
-  // Same 5-bit → 8-bit scaling you’re already using
-  const scale = (component: number) => Math.floor((component / 0x1f) * 255);
+    // Same 5-bit → 8-bit scaling you’re already using
+    const scale = (component: number) => Math.floor((component / 0x1f) * 255);
 
-  const rawR = scale(r5);
-  const rawG = scale(g5);
-  const rawB = scale(b5);
+    const rawR = scale(r5);
+    const rawG = scale(g5);
+    const rawB = scale(b5);
 
-  const [r, g, b] = applyColorCorrection(rawR, rawG, rawB);
+    const [r, g, b] = applyColorCorrection(rawR, rawG, rawB);
+    const base = value * CGB_COLOR_STRIDE;
+    lut[base] = r;
+    lut[base + 1] = g;
+    lut[base + 2] = b;
+    lut[base + 3] = 0xff;
+  }
 
-  return [r, g, b, 0xff];
+  return lut;
 }
