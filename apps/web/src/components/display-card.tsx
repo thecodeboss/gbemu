@@ -246,21 +246,28 @@ export function DisplayCard({
         className={cn(
           "w-full sm:w-auto",
           isMobileViewport
-            ? "gap-3 border-none px-0 py-0 shadow-none"
+            ? "!gap-3 !border-none !px-0 !py-0 !shadow-none"
             : undefined,
         )}
         style={
           isMobileViewport
-            ? { minHeight: "var(--app-viewport-height, 100vh)" }
+            ? {
+                minHeight: "var(--app-viewport-height, 100vh)",
+                paddingTop: 0,
+                paddingBottom: 0,
+                paddingLeft: 0,
+                paddingRight: 0,
+                gap: "0.75rem",
+              }
             : undefined
         }
       >
         <CardHeader
-          className={cn(isMobileViewport ? "px-4 pb-1 pt-2" : undefined)}
+          className={cn(isMobileViewport ? "px-4 pb-1" : undefined)}
           style={
             isMobileViewport
               ? {
-                  paddingTop: "calc(env(safe-area-inset-top, 0px) + 6px)",
+                  paddingTop: "calc(env(safe-area-inset-top, 0px) + 4px)",
                 }
               : undefined
           }

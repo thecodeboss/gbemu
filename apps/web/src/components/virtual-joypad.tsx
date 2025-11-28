@@ -50,6 +50,57 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
   const dpadGap = 0;
   const dpadContainer = dpadButtonSize * 3 + dpadGap * 2;
 
+  const computeControlOffset = useCallback((): string => {
+    if (typeof window === "undefined") {
+      return "clamp(3rem, 8vh, 5rem)";
+    }
+
+    const fallbackViewportHeight =
+      Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--app-viewport-height",
+        ),
+      ) || 0;
+    const viewportHeight =
+      window.visualViewport?.height ??
+      window.innerHeight ??
+      fallbackViewportHeight;
+
+    if (viewportHeight >= 900) {
+      return "clamp(4.5rem, 14vh, 7.5rem)";
+    }
+    if (viewportHeight >= 780) {
+      return "clamp(3.75rem, 12vh, 6.25rem)";
+    }
+    return "clamp(3rem, 8vh, 5rem)";
+  }, []);
+
+  const [controlOffset, setControlOffset] = useState<string>(() =>
+    computeControlOffset(),
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleResize = () => {
+      setControlOffset(computeControlOffset());
+    };
+
+    const viewport = window.visualViewport;
+
+    viewport?.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    return () => {
+      viewport?.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, [computeControlOffset]);
+
   const setButtonState = useCallback(
     (button: JoypadButton, pressed: boolean) => {
       setState((prev) => {
@@ -188,7 +239,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
       >
         <div
           className="pointer-events-auto absolute left-4 flex justify-end"
-          style={{ bottom: "clamp(3rem, 8vh, 5rem)" }}
+          style={{ bottom: controlOffset }}
         >
           <div
             ref={dpadRef}
@@ -299,7 +350,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
 
         <div
           className="pointer-events-auto absolute right-8 flex justify-start touch-none"
-          style={{ bottom: "clamp(3rem, 8vh, 5rem)" }}
+          style={{ bottom: controlOffset }}
         >
           <div className="relative h-32 w-32 -translate-y-8 translate-x-4">
             <Button
