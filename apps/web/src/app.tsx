@@ -536,7 +536,7 @@ function App() {
   return (
     <div
       className={cn(
-        "box-border flex w-full flex-col gap-6 px-6 py-10 sm:flex-row sm:gap-6 sm:px-8 sm:py-10",
+        "box-border flex w-full flex-col gap-6 px-6 py-10 lg:flex-row lg:gap-6 lg:px-8 lg:py-10",
         isMobileViewport && phase === "running"
           ? "min-h-[100svh] gap-0 px-0 py-0"
           : undefined,
