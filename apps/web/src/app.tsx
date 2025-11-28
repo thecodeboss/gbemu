@@ -35,6 +35,19 @@ const AUDIO_WORKLET_MODULE_URL = new URL(
 
 type AppPhase = "menu" | "loading" | "running" | "error";
 
+const detectIsMobileDevice = (): boolean => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+  const coarsePointer =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+  const ua = navigator.userAgent ?? "";
+  const isMobileUa =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  return coarsePointer || isMobileUa;
+};
+
 function App() {
   const [phase, setPhase] = useState<AppPhase>("menu");
   const [romName, setRomName] = useState<string | null>(null);
@@ -57,6 +70,9 @@ function App() {
   const [isDebugVisible, setIsDebugVisible] = useState(false);
   const [isSaveManagerOpen, setIsSaveManagerOpen] = useState(false);
   const [hasRequestedDisassembly, setHasRequestedDisassembly] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState<boolean>(() =>
+    detectIsMobileDevice(),
+  );
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
     typeof window === "undefined"
       ? false
@@ -70,6 +86,7 @@ function App() {
   const romDataRef = useRef<Uint8Array | null>(null);
   const hardwareInputRef = useRef<JoypadInputState>(createEmptyJoypadState());
   const virtualInputRef = useRef<JoypadInputState>(createEmptyJoypadState());
+  const autoPauseRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -85,6 +102,21 @@ function App() {
     query.addEventListener("change", updateViewportFlag);
     return () => {
       query.removeEventListener("change", updateViewportFlag);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const updateMobileDeviceFlag = () => {
+      setIsMobileDevice(detectIsMobileDevice());
+    };
+    updateMobileDeviceFlag();
+    const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+    coarsePointerQuery.addEventListener("change", updateMobileDeviceFlag);
+    return () => {
+      coarsePointerQuery.removeEventListener("change", updateMobileDeviceFlag);
     };
   }, []);
 
@@ -273,6 +305,49 @@ function App() {
       }
     };
   }, [isDebugVisible, isMobileViewport, phase, refreshDebugInfo]);
+
+  useEffect(() => {
+    if (phase !== "running") {
+      autoPauseRef.current = false;
+    }
+  }, [phase]);
+
+  useEffect(() => {
+    if (!isMobileDevice) {
+      autoPauseRef.current = false;
+      return;
+    }
+    const handleVisibilityChange = () => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        return;
+      }
+      if (document.visibilityState === "hidden") {
+        if (phase === "running" && !isBreakMode) {
+          autoPauseRef.current = true;
+          void runtime.pause().catch((err: unknown) => {
+            console.error(err);
+          });
+        }
+        return;
+      }
+      if (
+        document.visibilityState === "visible" &&
+        phase === "running" &&
+        autoPauseRef.current &&
+        !isBreakMode
+      ) {
+        autoPauseRef.current = false;
+        void runtime.start().catch((err: unknown) => {
+          console.error(err);
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isBreakMode, isMobileDevice, phase]);
 
   const handleRomSelection = useCallback(
     async (file: File | null): Promise<void> => {
