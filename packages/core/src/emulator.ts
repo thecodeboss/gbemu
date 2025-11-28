@@ -162,6 +162,7 @@ export class Emulator {
   #lastAudioTimestamp: number | null = null;
   #ramDirty = false;
   #saveFlushTimer: number | null = null;
+  #persistSaves = false;
 
   constructor(deps: EmulatorDependencies) {
     this.clock = deps.clock;
@@ -193,6 +194,10 @@ export class Emulator {
     this.#saveData = null;
     this.#romData = rom.slice();
     this.#romInfo = parseRomInfo(rom);
+    const cartridgeConfig = this.#mbcFactory.describeCartridge(rom, {
+      cartridgeType: this.#romInfo?.cartridgeType,
+      ramSize: this.#romInfo?.ramSize,
+    });
     const cgbFlag = this.#romInfo?.cgbFlag ?? 0;
     const supportsCgb = (cgbFlag & 0x80) !== 0;
     const cgbOnly = (cgbFlag & 0xc0) === 0xc0;
@@ -206,11 +211,16 @@ export class Emulator {
       );
     }
 
-    const ramSize = this.#romInfo?.ramSize ?? 0;
-    const cartridgeType = this.#mbcFactory.detect(rom);
-    this.#mbc = this.#mbcFactory.create(cartridgeType, rom, ramSize, {
-      onRamWrite: () => this.#scheduleSaveFlush(),
-    });
+    this.#mbc = this.#mbcFactory.create(
+      cartridgeConfig.type,
+      rom,
+      cartridgeConfig.ramSize,
+      {
+        onRamWrite: () => this.#scheduleSaveFlush(),
+      },
+    );
+    this.#persistSaves =
+      cartridgeConfig.batteryBacked || cartridgeConfig.hasRtc;
     this.bus.setSystemMode(this.#mode, cgbMode);
     this.ppu.setSystemMode(this.#mode, cgbMode, this.bus.getTicksPerCpuCycle());
     this.bus.loadCartridge(rom, this.#mbc);
@@ -564,7 +574,10 @@ export class Emulator {
   }
 
   #scheduleSaveFlush(): void {
-    if (this.#mbc.getRamSize() === 0 && !this.#mbc.hasRtc()) {
+    if (
+      !this.#persistSaves ||
+      (this.#mbc.getRamSize() === 0 && !this.#mbc.hasRtc())
+    ) {
       return;
     }
     this.#ramDirty = true;
