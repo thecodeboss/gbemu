@@ -46,7 +46,7 @@ export function DisplayCard({
           height={canvasDimensions.height}
         />
       </CardContent>
-      <CardFooter className="gap-1">
+      <CardFooter className="gap-2">
         <CardAction>
           <Button type="button" variant="outline" onClick={onChangeRom}>
             Change ROM

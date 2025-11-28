@@ -16,7 +16,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         className={cn(
           inputBaseClasses,
-          variant === "muted" && "bg-muted shadow-[4px_4px_0_var(--color-border)]",
+          variant === "muted" &&
+            "bg-muted shadow-[4px_4px_0_var(--color-border)]",
           className,
         )}
         ref={ref}

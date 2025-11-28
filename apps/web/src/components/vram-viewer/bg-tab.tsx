@@ -210,7 +210,7 @@ export function BgTab({ memorySnapshot }: BgTabProps) {
   return memorySnapshot ? (
     <canvas
       ref={canvasRef}
-      className="size-[289px] border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)] [image-rendering:pixelated]"
+      className="size-[293px] border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)] [image-rendering:pixelated]"
     />
   ) : (
     <p className="text-sm text-muted-foreground">

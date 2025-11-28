@@ -56,9 +56,12 @@
   --secondary-foreground: #d4e7a1;
   --muted: #15192d;
   --muted-foreground: #9db0b5;
-  --accent: #000;
-  --accent-foreground: #0b0b1a;
-  --destructive: #ff6b6b;
+  --accent: #15192d;
+  --accent-foreground: #9db0b5;
+  --destructive: #8e2121;
+  --success: #0f271b;
+  --success-border: #193e15;
+  --success-foreground: #9bdba5;
   --border: #303556;
   --input: #1a1e34;
   --ring: #ffdd55;
@@ -89,10 +92,13 @@
     background-image:
       linear-gradient(0deg, rgba(255, 221, 85, 0.04) 1px, transparent 1px),
       linear-gradient(90deg, rgba(124, 244, 107, 0.05) 1px, transparent 1px),
-      radial-gradient(circle at 10% 20%, rgba(124, 244, 107, 0.08), transparent 40%),
-      radial-gradient(circle at 80% 0%, rgba(255, 221, 85, 0.04), transparent 35%),
       linear-gradient(180deg, #0b0b1a, #0c1023);
-    background-size: 8px 8px, 8px 8px, 100% 100%, 100% 100%, 100% 100%;
+    background-size:
+      8px 8px,
+      8px 8px,
+      100% 100%,
+      100% 100%,
+      100% 100%;
     image-rendering: pixelated;
   }
   button,

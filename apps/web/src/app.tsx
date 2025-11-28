@@ -30,7 +30,6 @@ type AppPhase = "menu" | "loading" | "running" | "error";
 
 function App() {
   const [phase, setPhase] = useState<AppPhase>("menu");
-  const [emulatorMode, setEmulatorMode] = useState<"dmg" | "cgb">("dmg");
   const [romName, setRomName] = useState<string | null>(null);
   const [romInfo, setRomInfo] = useState<RomInfo>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +163,7 @@ function App() {
       canvas,
       saveStorage: ensureSaveStorage() ?? undefined,
       autoPersistSaves: true,
-      mode: emulatorMode,
+      mode: "cgb",
       onBreakpointHit: (offset: number) => {
         setIsBreakMode(true);
         setIsStepping(false);
@@ -176,18 +175,7 @@ function App() {
 
     runtimeRef.current = runtimeClient;
     return runtimeClient;
-  }, [emulatorMode, ensureAudioContext, ensureSaveStorage, refreshDebugInfo]);
-
-  useEffect(() => {
-    const runtime = runtimeRef.current;
-    if (!runtime) {
-      return;
-    }
-    void runtime.setMode(emulatorMode).catch((err: unknown) => {
-      console.error(err);
-      setError(err instanceof Error ? err.message : String(err));
-    });
-  }, [emulatorMode]);
+  }, [ensureAudioContext, ensureSaveStorage, refreshDebugInfo]);
 
   useEffect(() => {
     if (phase !== "running" || !isDebugVisible) {
@@ -532,12 +520,7 @@ function App() {
         className="hidden"
       />
 
-      <MenuCard
-        hidden={phase !== "menu"}
-        onSelectRom={openFilePicker}
-        mode={emulatorMode}
-        onModeChange={setEmulatorMode}
-      />
+      <MenuCard hidden={phase !== "menu"} onSelectRom={openFilePicker} />
 
       <LoadingCard hidden={phase !== "loading"} romName={romName} />
 

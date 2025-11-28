@@ -325,7 +325,7 @@ export function ManageSavesDialog({
 
           <div className="space-y-3">
             {statusMessage ? (
-              <p className="border-[3px] border-foreground bg-primary/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary">
+              <p className="border-[3px] border-[var(--success-border)] bg-[var(--success)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--success-foreground)]">
                 {statusMessage}
               </p>
             ) : null}
