@@ -53,6 +53,16 @@ export function DisplayCard({
   canvasDimensions,
 }: DisplayCardProps) {
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
+  const resolveFullscreenTarget = useCallback((): FullscreenElement | null => {
+    if (typeof document === "undefined") {
+      return fullscreenContainerRef.current;
+    }
+    // Use the document root so overlays (like the virtual joypad) stay visible in fullscreen.
+    return (
+      (document.documentElement as FullscreenElement | null) ??
+      fullscreenContainerRef.current
+    );
+  }, []);
   const computeScaledSize = useCallback(
     (useMobileRules: boolean) => {
       if (useMobileRules && typeof window !== "undefined") {
@@ -120,8 +130,11 @@ export function DisplayCard({
 
     const doc = document as FullscreenDocument;
     const detectSupport = (): void => {
-      const host = (fullscreenContainerRef.current ??
-        document.documentElement) as FullscreenElement;
+      const host = resolveFullscreenTarget();
+      if (!host) {
+        setIsFullscreenSupported(false);
+        return;
+      }
       const canRequest =
         typeof host.requestFullscreen === "function" ||
         typeof host.webkitRequestFullscreen === "function" ||
@@ -135,7 +148,14 @@ export function DisplayCard({
         doc.webkitFullscreenElement ??
         doc.msFullscreenElement ??
         null;
-      setIsFullscreen(activeElement === fullscreenContainerRef.current);
+      const target = resolveFullscreenTarget();
+      const container = fullscreenContainerRef.current;
+      const isTargetFullscreen =
+        activeElement !== null &&
+        (activeElement === target ||
+          activeElement === container ||
+          activeElement === document.documentElement);
+      setIsFullscreen(isTargetFullscreen);
       updateCanvasScale();
     };
 
@@ -156,30 +176,29 @@ export function DisplayCard({
         handleFullscreenChange,
       );
     };
-  }, [updateCanvasScale]);
+  }, [resolveFullscreenTarget, updateCanvasScale]);
 
   const requestFullscreen = useCallback(async () => {
-    const container =
-      fullscreenContainerRef.current as FullscreenElement | null;
-    if (!container) {
+    const target = resolveFullscreenTarget();
+    if (!target) {
       return;
     }
     const request =
-      container.requestFullscreen ??
-      container.webkitRequestFullscreen ??
-      container.msRequestFullscreen;
+      target.requestFullscreen ??
+      target.webkitRequestFullscreen ??
+      target.msRequestFullscreen;
     if (!request) {
       return;
     }
     try {
-      const result = request.call(container);
+      const result = request.call(target);
       if (result instanceof Promise) {
         await result;
       }
     } catch (err) {
       console.error(err);
     }
-  }, []);
+  }, [resolveFullscreenTarget]);
 
   const exitFullscreen = useCallback(async () => {
     if (typeof document === "undefined") {
@@ -253,7 +272,17 @@ export function DisplayCard({
         >
           <CardAction>
             <Button type="button" variant="outline" onClick={onChangeRom}>
-              Change ROM
+              ROM
+            </Button>
+          </CardAction>
+          <CardAction>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onManageSaves}
+              disabled={disableSaveManager}
+            >
+              Saves
             </Button>
           </CardAction>
           <CardAction className="hidden sm:block">
@@ -272,24 +301,6 @@ export function DisplayCard({
               </Button>
             </div>
           ) : null}
-        </CardFooter>
-        <CardFooter
-          className={cn(
-            "flex items-center justify-between border-t-[3px] border-border pt-4",
-            isMobileViewport ? "flex-col gap-3 px-4" : undefined,
-          )}
-        >
-          <div className="text-xs text-muted-foreground text-center sm:text-left">
-            Manage browser saves for this ROM.
-          </div>
-          <Button
-            type="button"
-            variant="default"
-            onClick={onManageSaves}
-            disabled={disableSaveManager}
-          >
-            Manage Saves
-          </Button>
         </CardFooter>
       </Card>
     </div>
