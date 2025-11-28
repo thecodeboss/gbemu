@@ -1,4 +1,4 @@
-import { RefObject, useCallback, useEffect, useState } from "react";
+import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Card,
@@ -14,6 +14,18 @@ import { cn } from "@/lib/utils";
 const DEFAULT_CANVAS_SCALE = 3;
 const MOBILE_RESERVED_VERTICAL_SPACE = 200;
 const MOBILE_HORIZONTAL_BUFFER = 16;
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+  msFullscreenElement?: Element | null;
+  msExitFullscreen?: () => Promise<void> | void;
+};
 
 interface DisplayCardProps {
   hidden: boolean;
@@ -40,6 +52,7 @@ export function DisplayCard({
   isMobileViewport,
   canvasDimensions,
 }: DisplayCardProps) {
+  const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const computeScaledSize = useCallback(
     (useMobileRules: boolean) => {
       if (useMobileRules && typeof window !== "undefined") {
@@ -80,14 +93,14 @@ export function DisplayCard({
   const [scaledCanvasSize, setScaledCanvasSize] = useState(() =>
     computeScaledSize(isMobileViewport),
   );
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
+
+  const updateCanvasScale = useCallback((): void => {
+    setScaledCanvasSize(computeScaledSize(isMobileViewport));
+  }, [computeScaledSize, isMobileViewport]);
 
   useEffect(() => {
-    const updateCanvasScale = (): void => {
-      setScaledCanvasSize(computeScaledSize(isMobileViewport));
-    };
-
-    updateCanvasScale();
-
     if (typeof window === "undefined") {
       return;
     }
@@ -98,78 +111,187 @@ export function DisplayCard({
       window.removeEventListener("resize", updateCanvasScale);
       window.removeEventListener("orientationchange", updateCanvasScale);
     };
-  }, [computeScaledSize, isMobileViewport]);
+  }, [updateCanvasScale]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const doc = document as FullscreenDocument;
+    const detectSupport = (): void => {
+      const host = (fullscreenContainerRef.current ??
+        document.documentElement) as FullscreenElement;
+      const canRequest =
+        typeof host.requestFullscreen === "function" ||
+        typeof host.webkitRequestFullscreen === "function" ||
+        typeof host.msRequestFullscreen === "function";
+      setIsFullscreenSupported(canRequest);
+    };
+
+    const handleFullscreenChange = (): void => {
+      const activeElement =
+        doc.fullscreenElement ??
+        doc.webkitFullscreenElement ??
+        doc.msFullscreenElement ??
+        null;
+      setIsFullscreen(activeElement === fullscreenContainerRef.current);
+      updateCanvasScale();
+    };
+
+    detectSupport();
+    handleFullscreenChange();
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("msfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        handleFullscreenChange,
+      );
+      document.removeEventListener(
+        "msfullscreenchange",
+        handleFullscreenChange,
+      );
+    };
+  }, [updateCanvasScale]);
+
+  const requestFullscreen = useCallback(async () => {
+    const container =
+      fullscreenContainerRef.current as FullscreenElement | null;
+    if (!container) {
+      return;
+    }
+    const request =
+      container.requestFullscreen ??
+      container.webkitRequestFullscreen ??
+      container.msRequestFullscreen;
+    if (!request) {
+      return;
+    }
+    try {
+      const result = request.call(container);
+      if (result instanceof Promise) {
+        await result;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(async () => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const doc = document as FullscreenDocument;
+    const exit =
+      doc.exitFullscreen ?? doc.webkitExitFullscreen ?? doc.msExitFullscreen;
+    if (!exit) {
+      return;
+    }
+    try {
+      const result = exit.call(doc);
+      if (result instanceof Promise) {
+        await result;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (isFullscreen) {
+      void exitFullscreen();
+    } else {
+      void requestFullscreen();
+    }
+  }, [exitFullscreen, isFullscreen, requestFullscreen]);
 
   return (
-    <Card
-      hidden={hidden}
-      className={cn(
-        "w-full sm:w-auto",
-        isMobileViewport
-          ? "min-h-[100svh] gap-4 border-none px-0 py-0 shadow-none"
-          : undefined,
-      )}
-    >
-      <CardHeader className={cn(isMobileViewport ? "px-4 pt-4" : undefined)}>
-        <CardTitle>ROM: {romName ?? "Untitled"}</CardTitle>
-      </CardHeader>
-      <CardContent
+    <div ref={fullscreenContainerRef} hidden={hidden}>
+      <Card
+        hidden={hidden}
         className={cn(
-          "flex justify-center",
-          isMobileViewport ? "px-0" : undefined,
+          "w-full sm:w-auto",
+          isMobileViewport
+            ? "min-h-svh gap-4 border-none px-0 py-0 shadow-none"
+            : undefined,
         )}
       >
-        <canvas
-          ref={canvasRef}
+        <CardHeader className={cn(isMobileViewport ? "px-4 pt-4" : undefined)}>
+          <CardTitle>ROM: {romName ?? "Untitled"}</CardTitle>
+        </CardHeader>
+        <CardContent
           className={cn(
-            "mx-auto block border-[4px] border-foreground bg-black [image-rendering:pixelated]",
-            isMobileViewport
-              ? "max-w-full shadow-none"
-              : "shadow-[8px_8px_0_var(--color-accent)]",
+            "flex justify-center",
+            isMobileViewport ? "px-0" : undefined,
           )}
-          style={{
-            width: `${scaledCanvasSize.width}px`,
-            height: `${scaledCanvasSize.height}px`,
-          }}
-          width={canvasDimensions.width}
-          height={canvasDimensions.height}
-        />
-      </CardContent>
-      <CardFooter
-        className={cn(
-          "gap-2",
-          isMobileViewport ? "flex-wrap justify-center px-4" : undefined,
-        )}
-      >
-        <CardAction>
-          <Button type="button" variant="outline" onClick={onChangeRom}>
-            Change ROM
-          </Button>
-        </CardAction>
-        <CardAction className="hidden sm:block">
-          <Button type="button" variant="outline" onClick={onToggleDebug}>
-            {isDebugVisible ? "Hide Debug Panel" : "Show Debug Panel"}
-          </Button>
-        </CardAction>
-      </CardFooter>
-      <CardFooter
-        className={cn(
-          "flex items-center justify-between border-t-[3px] border-border pt-4",
-          isMobileViewport ? "flex-col gap-3 px-4" : undefined,
-        )}
-      >
-        <div className="text-xs text-muted-foreground text-center sm:text-left">
-          Manage browser saves for this ROM.
-        </div>
-        <Button
-          type="button"
-          variant="default"
-          onClick={onManageSaves}
-          disabled={disableSaveManager}
         >
-          Manage Saves
-        </Button>
-      </CardFooter>
-    </Card>
+          <canvas
+            ref={canvasRef}
+            className={cn(
+              "mx-auto block border-4 border-foreground bg-black [image-rendering:pixelated]",
+              isMobileViewport
+                ? "max-w-full shadow-none"
+                : "shadow-[8px_8px_0_var(--color-accent)]",
+            )}
+            style={{
+              width: `${scaledCanvasSize.width}px`,
+              height: `${scaledCanvasSize.height}px`,
+            }}
+            width={canvasDimensions.width}
+            height={canvasDimensions.height}
+          />
+        </CardContent>
+        <CardFooter
+          className={cn(
+            "gap-2",
+            isMobileViewport ? "flex-wrap justify-center px-4" : undefined,
+          )}
+        >
+          <CardAction>
+            <Button type="button" variant="outline" onClick={onChangeRom}>
+              Change ROM
+            </Button>
+          </CardAction>
+          <CardAction className="hidden sm:block">
+            <Button type="button" variant="outline" onClick={onToggleDebug}>
+              {isDebugVisible ? "Hide Debug Panel" : "Show Debug Panel"}
+            </Button>
+          </CardAction>
+          {isFullscreenSupported ? (
+            <div className="sm:hidden">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={toggleFullscreen}
+              >
+                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              </Button>
+            </div>
+          ) : null}
+        </CardFooter>
+        <CardFooter
+          className={cn(
+            "flex items-center justify-between border-t-[3px] border-border pt-4",
+            isMobileViewport ? "flex-col gap-3 px-4" : undefined,
+          )}
+        >
+          <div className="text-xs text-muted-foreground text-center sm:text-left">
+            Manage browser saves for this ROM.
+          </div>
+          <Button
+            type="button"
+            variant="default"
+            onClick={onManageSaves}
+            disabled={disableSaveManager}
+          >
+            Manage Saves
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }

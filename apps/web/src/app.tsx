@@ -9,7 +9,12 @@ import {
   createSaveStorageKey,
   deserializeSavePayload,
 } from "@gbemu/runtime";
-import { JoypadInputState, SavePayload } from "@gbemu/core";
+import {
+  JOYPAD_BUTTONS,
+  JoypadInputState,
+  SavePayload,
+  createEmptyJoypadState,
+} from "@gbemu/core";
 import { DisplayCard } from "@/components/display-card";
 import { ErrorCard } from "@/components/error-card";
 import { LoadingCard } from "@/components/loading-card";
@@ -20,6 +25,7 @@ import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { useGamepad } from "@/hooks/use-gamepad";
 import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
 import { cn } from "@/lib/utils";
+import { VirtualJoypad } from "@/components/virtual-joypad";
 import audioWorkletModuleUrl from "@gbemu/runtime/src/audio/worklet-processor.ts?worker&url";
 
 const AUDIO_WORKLET_MODULE_URL = new URL(
@@ -62,6 +68,8 @@ function App() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const romDataRef = useRef<Uint8Array | null>(null);
+  const hardwareInputRef = useRef<JoypadInputState>(createEmptyJoypadState());
+  const virtualInputRef = useRef<JoypadInputState>(createEmptyJoypadState());
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -128,6 +136,40 @@ function App() {
       return null;
     }
   }, []);
+
+  const mergeInputStates = useCallback(
+    (hardware: JoypadInputState, virtual: JoypadInputState) => {
+      const merged = createEmptyJoypadState();
+      for (const button of JOYPAD_BUTTONS) {
+        merged[button] = Boolean(hardware[button] || virtual[button]);
+      }
+      return merged;
+    },
+    [],
+  );
+
+  const applyInputState = useCallback(
+    (partial: { hardware?: JoypadInputState; virtual?: JoypadInputState }) => {
+      if (partial.hardware) {
+        hardwareInputRef.current = partial.hardware;
+      }
+      if (partial.virtual) {
+        virtualInputRef.current = partial.virtual;
+      }
+      const runtime = runtimeRef.current;
+      const merged = mergeInputStates(
+        hardwareInputRef.current,
+        virtualInputRef.current,
+      );
+      if (!runtime) {
+        return;
+      }
+      void runtime.setInputState(merged).catch((err: unknown) => {
+        console.error(err);
+      });
+    },
+    [mergeInputStates],
+  );
 
   const refreshDebugInfo = useCallback(async (): Promise<void> => {
     const runtime = runtimeRef.current;
@@ -197,8 +239,20 @@ function App() {
     });
 
     runtimeRef.current = runtimeClient;
+    const initialInput = mergeInputStates(
+      hardwareInputRef.current,
+      virtualInputRef.current,
+    );
+    void runtimeClient.setInputState(initialInput).catch((err: unknown) => {
+      console.error(err);
+    });
     return runtimeClient;
-  }, [ensureAudioContext, ensureSaveStorage, refreshDebugInfo]);
+  }, [
+    ensureAudioContext,
+    ensureSaveStorage,
+    mergeInputStates,
+    refreshDebugInfo,
+  ]);
 
   useEffect(() => {
     if (phase !== "running" || !isDebugVisible || isMobileViewport) {
@@ -305,7 +359,10 @@ function App() {
       void runtime.pause();
       void runtime.setBreakpoints([]);
       runtime.renderer.clear("#000000");
+      void runtime.setInputState(createEmptyJoypadState());
     }
+    hardwareInputRef.current = createEmptyJoypadState();
+    virtualInputRef.current = createEmptyJoypadState();
     setDisassembly(null);
     setDisassemblyError(null);
     setIsDisassembling(false);
@@ -518,19 +575,23 @@ function App() {
     ],
   );
 
-  const handleInputStateChange = useCallback((state: JoypadInputState) => {
-    const runtime = runtimeRef.current;
-    if (!runtime) {
-      return;
-    }
-    void runtime.setInputState(state).catch((err: unknown) => {
-      console.error(err);
-    });
-  }, []);
+  const handleHardwareInputStateChange = useCallback(
+    (state: JoypadInputState) => {
+      applyInputState({ hardware: state });
+    },
+    [applyInputState],
+  );
+
+  const handleVirtualInputStateChange = useCallback(
+    (state: JoypadInputState) => {
+      applyInputState({ virtual: state });
+    },
+    [applyInputState],
+  );
 
   useGamepad({
     enabled: phase === "running",
-    onInputState: handleInputStateChange,
+    onInputState: handleHardwareInputStateChange,
   });
 
   return (
@@ -538,7 +599,7 @@ function App() {
       className={cn(
         "box-border flex w-full flex-col gap-6 px-6 py-10 lg:flex-row lg:gap-6 lg:px-8 lg:py-10",
         isMobileViewport && phase === "running"
-          ? "min-h-[100svh] gap-0 px-0 py-0"
+          ? "min-h-svh gap-0 px-0 py-0"
           : undefined,
       )}
     >
@@ -569,6 +630,10 @@ function App() {
           height: DEFAULT_CANVAS_HEIGHT,
         }}
       />
+
+      {phase === "running" && isMobileViewport ? (
+        <VirtualJoypad onChange={handleVirtualInputStateChange} />
+      ) : null}
 
       <RomDebugCard
         hidden={phase !== "running" || !isDebugVisible || isMobileViewport}
