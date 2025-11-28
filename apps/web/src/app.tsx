@@ -19,6 +19,7 @@ import { VramViewerCard } from "@/components/vram-viewer";
 import { CpuDebugSnapshot, RomInfo } from "@/types/runtime";
 import { useGamepad } from "@/hooks/use-gamepad";
 import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
+import { cn } from "@/lib/utils";
 import audioWorkletModuleUrl from "@gbemu/runtime/src/audio/worklet-processor.ts?worker&url";
 
 const AUDIO_WORKLET_MODULE_URL = new URL(
@@ -50,12 +51,34 @@ function App() {
   const [isDebugVisible, setIsDebugVisible] = useState(false);
   const [isSaveManagerOpen, setIsSaveManagerOpen] = useState(false);
   const [hasRequestedDisassembly, setHasRequestedDisassembly] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia("(max-width: 767px)").matches,
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const saveStorageRef = useRef<SaveStorageAdapter | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const romDataRef = useRef<Uint8Array | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const query = window.matchMedia("(max-width: 767px)");
+    const updateViewportFlag = (
+      event: MediaQueryList | MediaQueryListEvent,
+    ) => {
+      setIsMobileViewport(event.matches);
+    };
+    updateViewportFlag(query);
+    query.addEventListener("change", updateViewportFlag);
+    return () => {
+      query.removeEventListener("change", updateViewportFlag);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -178,7 +201,7 @@ function App() {
   }, [ensureAudioContext, ensureSaveStorage, refreshDebugInfo]);
 
   useEffect(() => {
-    if (phase !== "running" || !isDebugVisible) {
+    if (phase !== "running" || !isDebugVisible || isMobileViewport) {
       return;
     }
     let cancelled = false;
@@ -196,7 +219,7 @@ function App() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [isDebugVisible, phase, refreshDebugInfo]);
+  }, [isDebugVisible, isMobileViewport, phase, refreshDebugInfo]);
 
   const handleRomSelection = useCallback(
     async (file: File | null): Promise<void> => {
@@ -511,7 +534,14 @@ function App() {
   });
 
   return (
-    <div className="box-border flex w-full gap-6 px-6 py-10 sm:px-8">
+    <div
+      className={cn(
+        "box-border flex w-full flex-col gap-6 px-6 py-10 sm:flex-row sm:gap-6 sm:px-8 sm:py-10",
+        isMobileViewport && phase === "running"
+          ? "min-h-[100svh] gap-0 px-0 py-0"
+          : undefined,
+      )}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -533,6 +563,7 @@ function App() {
         onToggleDebug={handleToggleDebug}
         onManageSaves={handleOpenSaveManager}
         disableSaveManager={phase !== "running" || romInfo === null}
+        isMobileViewport={isMobileViewport}
         canvasDimensions={{
           width: DEFAULT_CANVAS_WIDTH,
           height: DEFAULT_CANVAS_HEIGHT,
@@ -540,7 +571,7 @@ function App() {
       />
 
       <RomDebugCard
-        hidden={phase !== "running" || !isDebugVisible}
+        hidden={phase !== "running" || !isDebugVisible || isMobileViewport}
         romInfo={romInfo}
         disassembly={disassembly}
         disassemblyError={disassemblyError}
@@ -560,7 +591,7 @@ function App() {
       />
 
       <VramViewerCard
-        hidden={phase !== "running" || !isDebugVisible}
+        hidden={phase !== "running" || !isDebugVisible || isMobileViewport}
         memorySnapshot={memorySnapshot}
       />
 
