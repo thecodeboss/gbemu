@@ -240,9 +240,7 @@ export function DisplayCard({
         )}
       >
         <CardHeader
-          className={cn(
-            isMobileViewport ? "px-4 pb-1 pt-2" : undefined,
-          )}
+          className={cn(isMobileViewport ? "px-4 pb-1 pt-2" : undefined)}
           style={
             isMobileViewport
               ? {
@@ -278,9 +276,7 @@ export function DisplayCard({
         <CardFooter
           className={cn(
             "gap-2",
-            isMobileViewport
-              ? "flex-wrap justify-center px-4 pb-2"
-              : undefined,
+            isMobileViewport ? "flex-wrap justify-center px-4 pb-2" : undefined,
           )}
         >
           <CardAction>

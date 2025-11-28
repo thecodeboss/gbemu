@@ -86,6 +86,8 @@
     @apply border-border outline-ring/50;
   }
   body {
+    margin: 0;
+    min-height: 100dvh;
     font-family: "Press Start 2P", "VT323", monospace;
     letter-spacing: 0.02em;
     @apply bg-background text-foreground;
