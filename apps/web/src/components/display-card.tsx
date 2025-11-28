@@ -240,7 +240,7 @@ export function DisplayCard({
         )}
       >
         <CardHeader className={cn(isMobileViewport ? "px-4 pt-4" : undefined)}>
-          <CardTitle>ROM: {romName ?? "Untitled"}</CardTitle>
+          <CardTitle>{romName?.replace(/.gbc?/gi, "") ?? "Untitled"}</CardTitle>
         </CardHeader>
         <CardContent
           className={cn(
