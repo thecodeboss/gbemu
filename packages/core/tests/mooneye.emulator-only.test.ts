@@ -11,30 +11,18 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ACCEPTANCE_ROM_DIR = path.resolve(
+const EMULATOR_ONLY_ROM_DIR = path.resolve(
   __dirname,
-  "../../../roms/mooneye-test-suite/acceptance",
+  "../../../roms/mooneye-test-suite/emulator-only",
 );
-const UNSUPPORTED_MARKERS = [
-  "mgb",
-  "sgb2",
-  "sgb",
-  "cgb",
-  "agb",
-  "ags",
-  "boot_div",
-  "boot_hwio",
-  "boot_regs",
-];
-const romTestCases = collectRomTestCases(ACCEPTANCE_ROM_DIR, {
-  unsupportedMarkers: UNSUPPORTED_MARKERS,
-});
+
+const romTestCases = collectRomTestCases(EMULATOR_ONLY_ROM_DIR);
 
 if (romTestCases.length === 0) {
-  throw new Error(`No acceptance ROMs found in ${ACCEPTANCE_ROM_DIR}`);
+  throw new Error(`No emulator-only ROMs found in ${EMULATOR_ONLY_ROM_DIR}`);
 }
 
-describe("Mooneye acceptance ROMs", () => {
+describe("Mooneye emulator-only ROMs", () => {
   for (const testCase of romTestCases) {
     test(
       testCase.displayName,

@@ -22,7 +22,7 @@ pnpm install  # bootstrap workspace
 pnpm build    # builds all packages/apps
 pnpm dev      # start Vite dev server at apps/web
 pnpm lint     # runs `eslint . --fix` then `prettier --cache --write .` (expect safe writes)
-pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
+pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator-only MBC ROMs)
 ```
 
 ## Linting & Formatting
@@ -32,7 +32,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 - `apps/web` adds React-specific configs (`eslint-plugin-react`, `react-hooks`, and `react-refresh`) so hooks rules and Fast Refresh safety checks will fire in that subtree.
 - Running `pnpm lint` will modify files automatically because of the `--fix` flag and subsequent Prettier write step, so review those changes before committing.
 
-`@gbemu/core` ships Vitest-based Mooneye acceptance ROM tests in `packages/core/tests` (DMG-only); run them with `pnpm --filter @gbemu/core test` (each ROM has a ~10s window to hit the LD B, B sentinel).
+`@gbemu/core` ships Vitest-based Mooneye acceptance ROM tests and emulator-only MBC suites in `packages/core/tests` (DMG-only); run them with `pnpm --filter @gbemu/core test` (each ROM has a ~10s window to hit the LD B, B sentinel).
 
 ## Package Reference
 
@@ -58,7 +58,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance ROMs)
 - `src/rom/` groups all ROM helpers: `info.ts` parses cartridge metadata (`parseRomInfo`), `sizes.ts` handles ROM/RAM sizing helpers, `disassemble.ts` produces structured `Instruction` objects, and `format.ts` renders them via `formatDisassembledRom`; `index.ts` re-exports the public surface for consumers.
 - A shared DMG palette (`palette.ts`) is exported and used by both the PPU framebuffer and UI tooling (Tile Viewer) so debug tools and on-screen output use the same hues.
 - Export surface collected in `src/index.ts`; package compiles to `dist/` via `pnpm --filter @gbemu/core build`.
-- Tests: Vitest-based Mooneye acceptance ROMs live in `packages/core/tests` (DMG-only); run them with `pnpm --filter @gbemu/core test` (each ROM has a ~10s window to hit the LD B, B sentinel).
+- Tests: Vitest-based Mooneye acceptance ROMs and emulator-only MBC suites live in `packages/core/tests` (DMG-only); run them with `pnpm --filter @gbemu/core test` (each ROM has a ~10s window to hit the LD B, B sentinel).
 
 ### `@gbemu/runtime` (`packages/runtime`)
 
