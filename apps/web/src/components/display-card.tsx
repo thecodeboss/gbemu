@@ -235,11 +235,22 @@ export function DisplayCard({
         className={cn(
           "w-full sm:w-auto",
           isMobileViewport
-            ? "min-h-svh gap-4 border-none px-0 py-0 shadow-none"
+            ? "min-h-dvh gap-3 border-none px-0 py-0 shadow-none"
             : undefined,
         )}
       >
-        <CardHeader className={cn(isMobileViewport ? "px-4 pt-4" : undefined)}>
+        <CardHeader
+          className={cn(
+            isMobileViewport ? "px-4 pb-1 pt-2" : undefined,
+          )}
+          style={
+            isMobileViewport
+              ? {
+                  paddingTop: "calc(env(safe-area-inset-top, 0px) + 6px)",
+                }
+              : undefined
+          }
+        >
           <CardTitle>{romName?.replace(/.gbc?/gi, "") ?? "Untitled"}</CardTitle>
         </CardHeader>
         <CardContent
@@ -267,7 +278,9 @@ export function DisplayCard({
         <CardFooter
           className={cn(
             "gap-2",
-            isMobileViewport ? "flex-wrap justify-center px-4" : undefined,
+            isMobileViewport
+              ? "flex-wrap justify-center px-4 pb-2"
+              : undefined,
           )}
         >
           <CardAction>

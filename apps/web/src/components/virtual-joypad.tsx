@@ -180,7 +180,12 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 sm:hidden">
-      <div className="relative mx-auto max-w-5xl px-4 pb-4">
+      <div
+        className="relative mx-auto max-w-5xl px-4 pb-4"
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
+        }}
+      >
         <div className="pointer-events-auto absolute bottom-24 left-4 right-[58%] flex justify-end">
           <div
             ref={dpadRef}
@@ -274,7 +279,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
               type="button"
               variant="default"
               size="icon-lg"
-              className="absolute bottom-3 left-2 text-sm"
+              className="absolute bottom-3 left-2 text-sm rounded-full"
               aria-label="B"
               {...bHandlers}
             >
@@ -284,7 +289,10 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
               type="button"
               variant="default"
               size="icon-lg"
-              className={cn("absolute right-2 text-sm", "top-2 translate-x-2")}
+              className={cn(
+                "absolute right-2 text-sm rounded-full",
+                "top-2 translate-x-2",
+              )}
               aria-label="A"
               {...aHandlers}
             >
