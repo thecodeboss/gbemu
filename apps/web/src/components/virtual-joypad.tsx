@@ -186,7 +186,10 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
         }}
       >
-        <div className="pointer-events-auto absolute bottom-24 left-4 right-[58%] flex justify-end">
+        <div
+          className="pointer-events-auto absolute left-4 flex justify-end"
+          style={{ bottom: "clamp(3rem, 8vh, 5rem)" }}
+        >
           <div
             ref={dpadRef}
             className="grid -translate-y-6 touch-none"
@@ -235,9 +238,30 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
               <span className="sr-only">Left</span>
             </Button>
             <div
-              className="bg-accent"
+              className="relative bg-accent"
               style={{ width: dpadButtonSize, height: dpadButtonSize }}
-            />
+            >
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute block bg-foreground"
+                style={{ width: 3, height: 3, left: 0, top: 0 }}
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute block bg-foreground"
+                style={{ width: 3, height: 3, right: 0, top: 0 }}
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute block bg-foreground"
+                style={{ width: 3, height: 3, left: 0, bottom: 0 }}
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute block bg-foreground"
+                style={{ width: 3, height: 3, right: 0, bottom: 0 }}
+              />
+            </div>
             <Button
               type="button"
               variant="secondary"
@@ -273,7 +297,10 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
           </div>
         </div>
 
-        <div className="pointer-events-auto absolute bottom-24 left-[52%] right-4 flex justify-start touch-none">
+        <div
+          className="pointer-events-auto absolute right-8 flex justify-start touch-none"
+          style={{ bottom: "clamp(3rem, 8vh, 5rem)" }}
+        >
           <div className="relative h-32 w-32 -translate-y-8 translate-x-4">
             <Button
               type="button"

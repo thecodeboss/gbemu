@@ -235,9 +235,14 @@ export function DisplayCard({
         className={cn(
           "w-full sm:w-auto",
           isMobileViewport
-            ? "min-h-dvh gap-3 border-none px-0 py-0 shadow-none"
+            ? "gap-3 border-none px-0 py-0 shadow-none"
             : undefined,
         )}
+        style={
+          isMobileViewport
+            ? { minHeight: "var(--app-viewport-height, 100vh)" }
+            : undefined
+        }
       >
         <CardHeader
           className={cn(isMobileViewport ? "px-4 pb-1 pt-2" : undefined)}

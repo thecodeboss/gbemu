@@ -89,6 +89,38 @@ function App() {
   const autoPauseRef = useRef(false);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return;
+    }
+
+    const updateViewportHeight = () => {
+      const viewportHeight =
+        window.visualViewport?.height ??
+        window.innerHeight ??
+        document.documentElement.clientHeight;
+      document.documentElement.style.setProperty(
+        "--app-viewport-height",
+        `${viewportHeight}px`,
+      );
+    };
+
+    updateViewportHeight();
+
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("orientationchange", updateViewportHeight);
+    document.addEventListener("fullscreenchange", updateViewportHeight);
+
+    return () => {
+      viewport?.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("orientationchange", updateViewportHeight);
+      document.removeEventListener("fullscreenchange", updateViewportHeight);
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -668,14 +700,22 @@ function App() {
     onInputState: handleHardwareInputStateChange,
   });
 
+  const shouldCenterContent =
+    phase === "menu" || phase === "loading" || phase === "error";
+  const viewportFillStyle = {
+    minHeight: "var(--app-viewport-height, 100vh)",
+  } as const;
+
   return (
     <div
       className={cn(
-        "box-border flex w-full min-h-dvh flex-col gap-6 px-6 lg:flex-row lg:gap-6 lg:px-8 lg:py-10",
+        "box-border flex w-full flex-col gap-6 px-6 lg:flex-row lg:gap-6 lg:px-8 lg:py-10",
+        shouldCenterContent ? "items-center justify-center" : undefined,
         isMobileViewport && phase === "running"
-          ? "min-h-dvh gap-0 bg-card px-0 py-0"
+          ? "gap-0 bg-card px-0 py-0"
           : undefined,
       )}
+      style={viewportFillStyle}
     >
       <input
         ref={fileInputRef}
