@@ -120,7 +120,7 @@
   button,
   [role="button"],
   [role="tab"] {
-    @apply cursor-pointer;
+    @apply cursor-pointer select-none;
   }
   button:disabled,
   [role="button"][aria-disabled="true"],
