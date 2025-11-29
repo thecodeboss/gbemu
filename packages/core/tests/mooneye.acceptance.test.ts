@@ -19,7 +19,6 @@ const UNSUPPORTED_MARKERS = [
   "mgb",
   "sgb2",
   "sgb",
-  "cgb",
   "agb",
   "ags",
   "boot_div",

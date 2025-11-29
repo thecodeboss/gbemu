@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
-import { Emulator, createEmulator } from "../../src/emulator.js";
+import { Emulator, createEmulator, EmulatorMode } from "../../src/emulator.js";
 
 export const PASS_PATTERN = [3, 5, 8, 13, 21, 34];
 export const FAIL_SENTINEL = 0x42;
@@ -12,6 +12,7 @@ export const MOONEYE_TEST_TIMEOUT_MS = 10_000;
 export interface RomTestCase {
   filePath: string;
   displayName: string;
+  mode: EmulatorMode;
 }
 
 export interface RomExecutionResult {
@@ -27,6 +28,17 @@ export function collectRomTestCases(
 ): RomTestCase[] {
   const cases: RomTestCase[] = [];
   const { unsupportedMarkers = [] } = options;
+
+  const inferHardwareMode = (name: string): EmulatorMode => {
+    const normalized = name.toLowerCase();
+    if (normalized.includes("cgb")) {
+      return "cgb";
+    }
+    if (normalized.includes("dmg")) {
+      return "dmg";
+    }
+    return "dmg";
+  };
 
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -45,10 +57,12 @@ export function collectRomTestCases(
       if (unsupportedMarkers.some((marker) => normalized.includes(marker))) {
         continue;
       }
+      const displayName = relativePath.split(path.sep).join("/");
 
       cases.push({
         filePath: fullPath,
-        displayName: relativePath.split(path.sep).join("/"),
+        displayName,
+        mode: inferHardwareMode(displayName),
       });
     }
   };
@@ -58,13 +72,14 @@ export function collectRomTestCases(
   return cases;
 }
 
-export function createTestEmulator(): Emulator {
+export function createTestEmulator(mode: EmulatorMode = "dmg"): Emulator {
   return createEmulator({
     callbacks: {
       onVideoFrame: () => {},
       onAudioSamples: () => {},
       onSaveData: () => {},
     },
+    mode,
   });
 }
 
@@ -116,7 +131,7 @@ export async function runMooneyeRomTest(
   testCase: RomTestCase,
   timeoutMs: number = MOONEYE_TEST_TIMEOUT_MS,
 ): Promise<void> {
-  const emulator = createTestEmulator();
+  const emulator = createTestEmulator(testCase.mode);
   try {
     const romData = await readFile(testCase.filePath);
     const result = runRomUntilCompletion(
