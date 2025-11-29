@@ -1,7 +1,10 @@
-packages:
-  - "packages/*"
-  - "apps/*"
-
-catalog:
-  typescript: 5.9.3
-  vitest: 4.0.13
+{
+  "packages": [
+    "packages/*",
+    "apps/*"
+  ],
+  "catalog": {
+    "typescript": "5.9.3",
+    "vitest": "4.0.14"
+  }
+}
