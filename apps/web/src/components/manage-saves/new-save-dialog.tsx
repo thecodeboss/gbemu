@@ -9,23 +9,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type ConfirmationType = "load" | "start-new";
+import { useManageSavesContext } from "./use-manage-saves";
 
-interface NewSaveDialogProps {
-  open: boolean;
-  confirmationType: ConfirmationType;
-  onCancel: () => void;
-  onConfirm: () => void;
-}
+export function NewSaveDialog() {
+  const {
+    loadTarget,
+    confirmationType,
+    actions: { confirmLoad, cancelLoad },
+  } = useManageSavesContext();
+  const open = Boolean(loadTarget);
 
-export function NewSaveDialog({
-  open,
-  confirmationType,
-  onCancel,
-  onConfirm,
-}: NewSaveDialogProps) {
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !next && onCancel()}>
+    <AlertDialog open={open} onOpenChange={(next) => !next && cancelLoad()}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="text-foreground">
@@ -39,8 +34,8 @@ export function NewSaveDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={() => onConfirm()}>
+          <AlertDialogCancel onClick={cancelLoad}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => void confirmLoad()}>
             {confirmationType === "start-new" ? "Start New Save" : "Load Save"}
           </AlertDialogAction>
         </AlertDialogFooter>

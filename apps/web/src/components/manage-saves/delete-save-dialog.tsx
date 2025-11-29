@@ -9,19 +9,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface DeleteSaveDialogProps {
-  open: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}
+import { useManageSavesContext } from "./use-manage-saves";
 
-export function DeleteSaveDialog({
-  open,
-  onCancel,
-  onConfirm,
-}: DeleteSaveDialogProps) {
+export function DeleteSaveDialog() {
+  const {
+    deleteTarget,
+    actions: { confirmDelete, cancelDelete },
+  } = useManageSavesContext();
+  const open = Boolean(deleteTarget);
+
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !next && onCancel()}>
+    <AlertDialog open={open} onOpenChange={(next) => !next && cancelDelete()}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="text-foreground">
@@ -33,10 +31,10 @@ export function DeleteSaveDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={cancelDelete}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             className="border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:-translate-y-px hover:-translate-x-px hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60"
-            onClick={() => onConfirm()}
+            onClick={() => void confirmDelete()}
           >
             Delete Save
           </AlertDialogAction>

@@ -5,29 +5,15 @@ import { DEFAULT_SAVE_SLOT } from "@gbemu/runtime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { MAX_SAVE_NAME_LENGTH, SaveEntry, formatUpdatedAt } from "./utils";
+import { useManageSavesContext } from "./use-manage-saves";
+import { MAX_SAVE_NAME_LENGTH, formatUpdatedAt } from "./utils";
 
-interface SaveListProps {
-  hasStorage: boolean;
-  isLoading: boolean;
-  isImporting: boolean;
-  saves: SaveEntry[];
-  onRename: (slot: string, nextName: string) => Promise<boolean>;
-  onExport: (entry: SaveEntry) => void;
-  onLoad: (entry: SaveEntry) => void;
-  onDelete: (entry: SaveEntry) => void;
-}
-
-export function SaveList({
-  hasStorage,
-  isLoading,
-  isImporting,
-  saves,
-  onRename,
-  onExport,
-  onLoad,
-  onDelete,
-}: SaveListProps) {
+export function SaveList() {
+  const {
+    saves,
+    state: { hasStorage, isLoading, isImporting },
+    actions: { renameSave, exportSave, queueLoad, requestDelete },
+  } = useManageSavesContext();
   const [editingSlot, setEditingSlot] = useState<string | null>(null);
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -50,7 +36,7 @@ export function SaveList({
 
   const handleRename = async (slot: string) => {
     const draftValue = draftNames[slot] ?? slot;
-    const success = await onRename(slot, draftValue);
+    const success = await renameSave(slot, draftValue);
     if (success) {
       setEditingSlot(null);
     }
@@ -155,7 +141,7 @@ export function SaveList({
                   variant="outline"
                   size="sm"
                   type="button"
-                  onClick={() => onExport(entry)}
+                  onClick={() => exportSave(entry)}
                   disabled={isImporting}
                 >
                   <Download />
@@ -163,7 +149,7 @@ export function SaveList({
                 <Button
                   size="sm"
                   type="button"
-                  onClick={() => onLoad(entry)}
+                  onClick={() => queueLoad(entry)}
                   disabled={isImporting}
                 >
                   <Play />
@@ -172,7 +158,7 @@ export function SaveList({
                   variant="destructive"
                   size="icon-sm"
                   type="button"
-                  onClick={() => onDelete(entry)}
+                  onClick={() => requestDelete(entry)}
                   disabled={isImporting}
                   aria-label={`Delete ${viewLabel}`}
                 >

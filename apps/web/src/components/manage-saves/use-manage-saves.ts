@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   DEFAULT_SAVE_SLOT,
   createSaveStorageKey,
@@ -43,7 +50,7 @@ interface SaveManagerActions {
   cancelLoad: () => void;
 }
 
-interface SaveManagerContext {
+export interface SaveManagerContext {
   dialogOpen: boolean;
   closeDialog: () => void;
   saves: SaveEntry[];
@@ -369,4 +376,18 @@ export function useManageSaves(): SaveManagerContext {
       cancelLoad,
     },
   };
+}
+
+export const ManageSavesContext = createContext<SaveManagerContext | null>(
+  null,
+);
+
+export function useManageSavesContext(): SaveManagerContext {
+  const context = useContext(ManageSavesContext);
+  if (!context) {
+    throw new Error(
+      "useManageSavesContext must be used within a ManageSavesContext provider.",
+    );
+  }
+  return context;
 }
