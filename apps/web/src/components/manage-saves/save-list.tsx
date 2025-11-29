@@ -1,4 +1,4 @@
-import { MutableRefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Download, Pencil, Play, Trash2 } from "lucide-react";
 import { DEFAULT_SAVE_SLOT } from "@gbemu/runtime";
 
@@ -10,15 +10,9 @@ import { MAX_SAVE_NAME_LENGTH, SaveEntry, formatUpdatedAt } from "./utils";
 interface SaveListProps {
   hasStorage: boolean;
   isLoading: boolean;
-  saves: SaveEntry[];
-  draftNames: Record<string, string>;
-  editingSlot: string | null;
   isImporting: boolean;
-  inputRefs: MutableRefObject<Record<string, HTMLInputElement | null>>;
-  onDraftNameChange: (slot: string, value: string) => void;
-  onRename: (slot: string) => void;
-  onStartEditing: (slot: string) => void;
-  onCancelEditing: () => void;
+  saves: SaveEntry[];
+  onRename: (slot: string, nextName: string) => Promise<boolean>;
   onExport: (entry: SaveEntry) => void;
   onLoad: (entry: SaveEntry) => void;
   onDelete: (entry: SaveEntry) => void;
@@ -27,19 +21,50 @@ interface SaveListProps {
 export function SaveList({
   hasStorage,
   isLoading,
-  saves,
-  draftNames,
-  editingSlot,
   isImporting,
-  inputRefs,
-  onDraftNameChange,
+  saves,
   onRename,
-  onStartEditing,
-  onCancelEditing,
   onExport,
   onLoad,
   onDelete,
 }: SaveListProps) {
+  const [editingSlot, setEditingSlot] = useState<string | null>(null);
+  const [draftNames, setDraftNames] = useState<Record<string, string>>({});
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const activeEditingSlot = useRef<string | null>(null);
+
+  useEffect(() => {
+    activeEditingSlot.current = saves.some(
+      (entry) => entry.slot === editingSlot,
+    )
+      ? editingSlot
+      : null;
+  }, [editingSlot, saves]);
+
+  useEffect(() => {
+    if (activeEditingSlot.current) {
+      inputRefs.current[activeEditingSlot.current]?.focus();
+    }
+  }, [editingSlot]);
+
+  const handleRename = async (slot: string) => {
+    const draftValue = draftNames[slot] ?? slot;
+    const success = await onRename(slot, draftValue);
+    if (success) {
+      setEditingSlot(null);
+    }
+  };
+
+  const startEditing = (slot: string) => {
+    setDraftNames((prev) => ({ ...prev, [slot]: prev[slot] ?? slot }));
+    setEditingSlot(slot);
+  };
+
+  const cancelEditing = () => {
+    setEditingSlot(null);
+  };
+
   if (!hasStorage) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -79,17 +104,20 @@ export function SaveList({
                     }}
                     value={draftValue}
                     onChange={(event) =>
-                      onDraftNameChange(entry.slot, event.target.value)
+                      setDraftNames((prev) => ({
+                        ...prev,
+                        [entry.slot]: event.target.value,
+                      }))
                     }
                     className="h-8"
                     maxLength={MAX_SAVE_NAME_LENGTH}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        onRename(entry.slot);
+                        void handleRename(entry.slot);
                       }
                       if (event.key === "Escape") {
-                        onCancelEditing();
+                        cancelEditing();
                       }
                     }}
                     aria-label={`Rename ${entry.slot}`}
@@ -107,7 +135,7 @@ export function SaveList({
                     variant="default"
                     size="sm"
                     type="button"
-                    onClick={() => onRename(entry.slot)}
+                    onClick={() => void handleRename(entry.slot)}
                     disabled={isImporting}
                   >
                     <Check />
@@ -117,7 +145,7 @@ export function SaveList({
                     variant="outline"
                     size="sm"
                     type="button"
-                    onClick={() => onStartEditing(entry.slot)}
+                    onClick={() => startEditing(entry.slot)}
                     disabled={isImporting}
                   >
                     <Pencil />
