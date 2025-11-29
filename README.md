@@ -23,7 +23,7 @@ pnpm install
   ```bash
   pnpm --filter @gbemu/web dev
   ```
-  Use the landing page switch to choose DMG or CGB before loading a ROM.
+  ROMs auto-select DMG vs CGB based on the cartridge header flag at `$0143`.
 - Build the browser runtime package:
   ```bash
   pnpm --filter @gbemu/runtime build
@@ -34,6 +34,8 @@ pnpm install
   ```
 
 Open the Vite URL shown in the terminal, select a ROM file (`.gb`, `.gbc`, `.bin`), and the worker-backed runtime will boot the emulator in a worker.
+
+The web UI ships a PWA manifest + service worker so it can be installed on mobile/desktop browsers. Replace the placeholder icons in `apps/web/public/icons/` with branded assets and update `apps/web/public/manifest.webmanifest` if you change names/colors. Add the app to your home screen (iOS Safari/Chrome) or use the browser "Install app" prompt to pin it offline.
 
 ### Saves
 
