@@ -1,4 +1,4 @@
-import { RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Card,
@@ -20,6 +20,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useCurrentRom } from "@/hooks/use-current-rom";
+import { useEmulator } from "@/hooks/use-emulator";
+import { useSaveStorage } from "@/hooks/use-save-storage";
+import { createEmptyJoypadState } from "@gbemu/core";
 
 const DEFAULT_CANVAS_SCALE = 3;
 const MOBILE_RESERVED_VERTICAL_SPACE = 200;
@@ -39,12 +43,7 @@ type FullscreenDocument = Document & {
 
 interface DisplayCardProps {
   hidden: boolean;
-  canvasRef: RefObject<HTMLCanvasElement | null>;
   romName: string | null;
-  isDebugVisible: boolean;
-  onReturnToMenu: () => void;
-  onToggleDebug: () => void;
-  onManageSaves: () => void;
   disableSaveManager?: boolean;
   isMobileViewport: boolean;
   canvasDimensions: { width: number; height: number };
@@ -52,16 +51,14 @@ interface DisplayCardProps {
 
 export function DisplayCard({
   hidden,
-  canvasRef,
   romName,
-  isDebugVisible,
-  onReturnToMenu,
-  onToggleDebug,
-  onManageSaves,
   disableSaveManager,
   isMobileViewport,
   canvasDimensions,
 }: DisplayCardProps) {
+  const { canvasRef, runtime } = useEmulator();
+  const { setCurrentRom } = useCurrentRom();
+  const { openSaveManager } = useSaveStorage();
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const resolveFullscreenTarget = useCallback((): FullscreenElement | null => {
     if (typeof document === "undefined") {
@@ -116,6 +113,16 @@ export function DisplayCard({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
+
+  const handleReturnToMenu = useCallback(() => {
+    if (runtime) {
+      void runtime.pause();
+      runtime.renderer.clear("#000000");
+      void runtime.setInputState(createEmptyJoypadState());
+    }
+    setCurrentRom(null);
+    setShowReturnConfirm(false);
+  }, [runtime, setCurrentRom]);
 
   const updateCanvasScale = useCallback((): void => {
     setScaledCanvasSize(computeScaledSize(isMobileViewport));
@@ -315,15 +322,10 @@ export function DisplayCard({
             <Button
               type="button"
               variant="outline"
-              onClick={onManageSaves}
+              onClick={openSaveManager}
               disabled={disableSaveManager}
             >
               Saves
-            </Button>
-          </CardAction>
-          <CardAction className="hidden sm:block">
-            <Button type="button" variant="outline" onClick={onToggleDebug}>
-              {isDebugVisible ? "Hide Debug Panel" : "Show Debug Panel"}
             </Button>
           </CardAction>
           {isFullscreenSupported ? (
@@ -360,10 +362,7 @@ export function DisplayCard({
             </AlertDialogCancel>
             <AlertDialogAction
               className="border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60"
-              onClick={() => {
-                setShowReturnConfirm(false);
-                onReturnToMenu();
-              }}
+              onClick={handleReturnToMenu}
             >
               Return to Menu
             </AlertDialogAction>

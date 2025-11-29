@@ -7,11 +7,10 @@ import {
   useState,
 } from "react";
 import { FolderInput, Plus } from "lucide-react";
-import { SavePayload } from "@gbemu/core";
 import {
   DEFAULT_SAVE_SLOT,
-  SaveStorageAdapter,
   createSaveStorageKey,
+  deserializeSavePayload,
   normalizeSaveGameId,
   resolveSaveSlot,
 } from "@gbemu/runtime";
@@ -31,7 +30,6 @@ import { SaveList } from "./save-list";
 import {
   LoadTarget,
   SaveEntry,
-  applyLoadTarget,
   deriveImportSlotName,
   exportSaveEntry,
   importSaveFile,
@@ -40,23 +38,22 @@ import {
   validateSaveName,
 } from "./utils";
 
+import { useSaveStorage } from "@/hooks/use-save-storage";
+import { useEmulator } from "@/hooks/use-emulator";
+import { useCurrentRom } from "@/hooks/use-current-rom";
+
 interface ManageSavesDialogProps {
-  open: boolean;
-  romTitle: string | null;
-  saveStorage: SaveStorageAdapter | null;
-  onClose: () => void;
-  onLoadSave: (payload: SavePayload, slot: string) => Promise<void>;
-  onStartFresh: (slot: string) => Promise<void>;
 }
 
-export function ManageSavesDialog({
-  open,
-  romTitle,
-  saveStorage,
-  onClose,
-  onLoadSave,
-  onStartFresh,
-}: ManageSavesDialogProps) {
+export function ManageSavesDialog({}: ManageSavesDialogProps) {
+  const {
+    isSaveManagerOpen,
+    closeSaveManager,
+    saveStorage,
+    romTitle,
+  } = useSaveStorage();
+  const { rom } = useCurrentRom();
+  const { runtime } = useEmulator();
   const [saves, setSaves] = useState<SaveEntry[]>([]);
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -134,13 +131,13 @@ export function ManageSavesDialog({
   }, [romTitle, saveStorage]);
 
   useEffect(() => {
-    if (!open) {
+    if (!isSaveManagerOpen) {
       setLoadTarget(null);
       return;
     }
     setStatusMessage(null);
     void refreshSaves();
-  }, [open, refreshSaves, romTitle]);
+  }, [isSaveManagerOpen, refreshSaves, romTitle]);
 
   useEffect(() => {
     if (loadTarget?.type) {
@@ -283,16 +280,51 @@ export function ManageSavesDialog({
       return;
     }
     try {
-      const message = await applyLoadTarget(loadTarget, {
-        romTitle,
-        saveStorage,
-        onLoadSave,
-        onStartFresh,
-      });
-      setStatusMessage(message);
+      if (!runtime) {
+        throw new Error("No runtime is active to load a save.");
+      }
+      if (loadTarget.type === "load") {
+        const payload = deserializeSavePayload(loadTarget.entry.payload);
+        await runtime.pause();
+        await runtime.reset();
+        await runtime.loadSave(payload, {
+          slot: loadTarget.entry.slot,
+        });
+        await runtime.start();
+        setStatusMessage(`Loaded save “${loadTarget.entry.slot}”.`);
+      } else if (loadTarget.type === "start-new") {
+        if (!saveStorage) {
+          throw new Error("Save storage is unavailable.");
+        }
+        if (!rom?.data) {
+          throw new Error("No ROM is loaded to start a fresh save.");
+        }
+        const romInfo = await runtime.getRomInfo();
+        const title = romInfo?.title ?? romTitle;
+        if (!title) {
+          throw new Error("Unable to determine ROM title for save loading.");
+        }
+        const slot = loadTarget.slot || "default";
+        await runtime.pause();
+        await runtime.reset({ hard: true });
+        await runtime.loadRom(rom.data, {
+          skipPersistentLoad: true,
+        });
+        const serialized = await saveStorage.read(
+          createSaveStorageKey(title, slot),
+        );
+        if (serialized) {
+          const payload = deserializeSavePayload(serialized);
+          await runtime.loadSave(payload, { slot });
+          setStatusMessage(`Loaded autosave for slot “${slot}”.`);
+        } else {
+          setStatusMessage(`Started new save for slot “${slot}”.`);
+        }
+        await runtime.start();
+      }
       setLoadTarget(null);
       void refreshSaves();
-      onClose();
+      closeSaveManager();
     } catch (err) {
       console.error(err);
       setError(
@@ -302,18 +334,21 @@ export function ManageSavesDialog({
       );
     }
   }, [
+    closeSaveManager,
     loadTarget,
-    onClose,
-    onLoadSave,
-    onStartFresh,
+    rom,
     refreshSaves,
     romTitle,
+    runtime,
     saveStorage,
   ]);
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : null)}>
+      <Dialog
+        open={isSaveManagerOpen}
+        onOpenChange={(next) => (!next ? closeSaveManager() : null)}
+      >
         <DialogContent className="max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Manage Saves</DialogTitle>

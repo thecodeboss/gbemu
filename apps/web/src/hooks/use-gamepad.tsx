@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 
 import {
   JOYPAD_BUTTONS,
@@ -6,6 +6,7 @@ import {
   JoypadInputState,
   createEmptyJoypadState,
 } from "@gbemu/core";
+import { VirtualJoypad } from "@/components/virtual-joypad";
 
 type InputSink = (state: JoypadInputState) => Promise<void> | void;
 
@@ -134,17 +135,6 @@ function mapKeyboardKeyToButton(key: string): JoypadButton | null {
   }
 }
 
-function mergeInputState(
-  target: JoypadInputState,
-  partial: JoypadInputState,
-): JoypadInputState {
-  const merged = { ...target };
-  for (const button of JOYPAD_BUTTONS) {
-    merged[button] = merged[button] || partial[button];
-  }
-  return merged;
-}
-
 function mapGamepadToState(
   gamepad: Gamepad,
   profile: GamepadProfile,
@@ -184,23 +174,73 @@ function areStatesEqual(
   return JOYPAD_BUTTONS.every((button) => left[button] === right[button]);
 }
 
-export function useGamepad(options: {
-  enabled: boolean;
-  onInputState: InputSink;
-}): void {
-  const { enabled, onInputState } = options;
-  const callbackRef = useRef<InputSink>(onInputState);
+function mergeInputState(
+  target: JoypadInputState,
+  partial: JoypadInputState,
+): JoypadInputState {
+  const merged = { ...target };
+  for (const button of JOYPAD_BUTTONS) {
+    merged[button] = merged[button] || partial[button];
+  }
+  return merged;
+}
+
+type UseGamepadOptions = {
+  enableVirtual?: boolean;
+  onChange: InputSink;
+};
+
+export function useGamepad({
+  enableVirtual = false,
+  onChange,
+}: UseGamepadOptions): { virtualGamepad: ReactNode; getCurrentState: () => JoypadInputState } {
+  const onChangeRef = useRef<InputSink>(onChange);
   const frameRef = useRef<number | null>(null);
-  const lastStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
   const keyboardStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
+  const hardwareStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
+  const virtualStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
+  const mergedStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
 
   useEffect(() => {
-    callbackRef.current = onInputState;
-  }, [onInputState]);
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  const mergeInputStates = useCallback(
+    (hardware: JoypadInputState, virtual: JoypadInputState) =>
+      mergeInputState(hardware, virtual),
+    [],
+  );
+
+  const applyInputState = useCallback(
+    (partial: { hardware?: JoypadInputState; virtual?: JoypadInputState }) => {
+      if (partial.hardware) {
+        hardwareStateRef.current = partial.hardware;
+      }
+      if (partial.virtual) {
+        virtualStateRef.current = partial.virtual;
+      }
+      const merged = mergeInputStates(
+        hardwareStateRef.current,
+        virtualStateRef.current,
+      );
+      if (areStatesEqual(mergedStateRef.current, merged)) {
+        return;
+      }
+      mergedStateRef.current = merged;
+      void onChangeRef.current(merged);
+    },
+    [mergeInputStates],
+  );
+
+  const handleVirtualInputStateChange = useCallback(
+    (state: JoypadInputState) => {
+      applyInputState({ virtual: state });
+    },
+    [applyInputState],
+  );
 
   useEffect(() => {
     if (
-      !enabled ||
       typeof navigator === "undefined" ||
       typeof navigator.getGamepads !== "function"
     ) {
@@ -214,9 +254,8 @@ export function useGamepad(options: {
         collectInputSnapshot(),
         keyboardStateRef.current,
       );
-      if (!areStatesEqual(lastStateRef.current, snapshot)) {
-        lastStateRef.current = snapshot;
-        void callbackRef.current(snapshot);
+      if (!areStatesEqual(hardwareStateRef.current, snapshot)) {
+        applyInputState({ hardware: snapshot });
       }
 
       if (!cancelled) {
@@ -265,10 +304,20 @@ export function useGamepad(options: {
         frameRef.current = null;
       }
       const neutral = createEmptyJoypadState();
-      if (!areStatesEqual(lastStateRef.current, neutral)) {
-        lastStateRef.current = neutral;
-        void callbackRef.current(neutral);
-      }
+      applyInputState({ hardware: neutral, virtual: createEmptyJoypadState() });
     };
-  }, [enabled]);
+  }, [applyInputState]);
+
+  const virtualGamepad = useMemo(
+    () =>
+      enableVirtual ? (
+        <VirtualJoypad onChange={handleVirtualInputStateChange} />
+      ) : null,
+    [enableVirtual, handleVirtualInputStateChange],
+  );
+
+  return {
+    virtualGamepad,
+    getCurrentState: () => mergedStateRef.current,
+  };
 }
