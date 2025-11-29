@@ -3,7 +3,6 @@ import {
   SaveStorageKey,
   SerializedSavePayload,
   normalizeSaveGameId,
-  resolveSaveSlot,
 } from "./storage.js";
 
 export interface IndexedDbSaveAdapterOptions {
@@ -13,11 +12,11 @@ export interface IndexedDbSaveAdapterOptions {
 
 const DEFAULT_DB_NAME = "gbemu-saves";
 const DEFAULT_STORE_NAME = "saves";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 interface SaveRecord {
   gameId: string;
-  slot: string;
+  name: string;
   payload: SerializedSavePayload;
   createdAt: number;
   updatedAt: number;
@@ -38,12 +37,13 @@ export function createIndexedDbSaveAdapter(
       const request = indexedDB.open(databaseName, DB_VERSION);
       request.onupgradeneeded = () => {
         const db = request.result;
-        if (!db.objectStoreNames.contains(storeName)) {
-          const store = db.createObjectStore(storeName, {
-            keyPath: ["gameId", "slot"],
-          });
-          store.createIndex("byGame", "gameId", { unique: false });
+        if (db.objectStoreNames.contains(storeName)) {
+          db.deleteObjectStore(storeName);
         }
+        const store = db.createObjectStore(storeName, {
+          keyPath: ["gameId", "name"],
+        });
+        store.createIndex("byGame", "gameId", { unique: false });
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => {
@@ -89,15 +89,15 @@ export function createIndexedDbSaveAdapter(
   }
 
   function toKey(key: SaveStorageKey): [string, string] {
-    return [normalizeSaveGameId(key.gameId), resolveSaveSlot(key.slot)];
+    return [normalizeSaveGameId(key.gameId), key.name.trim()];
   }
 
   return {
     async read(key): Promise<SerializedSavePayload | null> {
-      const [gameId, slot] = toKey(key);
+      const [gameId, name] = toKey(key);
       const record = await withStore<SaveRecord | undefined>(
         "readonly",
-        (store) => store.get([gameId, slot]),
+        (store) => store.get([gameId, name]),
       );
       if (!record) {
         return null;
@@ -106,11 +106,11 @@ export function createIndexedDbSaveAdapter(
     },
 
     async write(key, payload: SerializedSavePayload): Promise<void> {
-      const [gameId, slot] = toKey(key);
+      const [gameId, name] = toKey(key);
       const timestamp = Date.now();
       const record: SaveRecord = {
         gameId,
-        slot,
+        name,
         payload,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -119,17 +119,17 @@ export function createIndexedDbSaveAdapter(
     },
 
     async clear(key): Promise<void> {
-      const [gameId, slot] = toKey(key);
-      await withStore("readwrite", (store) => store.delete([gameId, slot]));
+      const [gameId, name] = toKey(key);
+      await withStore("readwrite", (store) => store.delete([gameId, name]));
     },
 
-    async listSlots(gameId: string): Promise<string[]> {
+    async listNames(gameId: string): Promise<string[]> {
       const normalizedGameId = normalizeSaveGameId(gameId);
       const rows = await withStore<SaveRecord[]>("readonly", (store) => {
         const index = store.index("byGame");
         return index.getAll(IDBKeyRange.only(normalizedGameId));
       });
-      return rows.map((row) => row.slot);
+      return rows.map((row) => row.name);
     },
   };
 }

@@ -8,17 +8,17 @@ export interface SerializedSavePayload {
 
 export interface SaveStorageKey {
   gameId: string;
-  slot?: string;
+  name: string;
 }
 
 export interface SaveStorageAdapter {
   read(key: SaveStorageKey): Promise<SerializedSavePayload | null>;
   write(key: SaveStorageKey, payload: SerializedSavePayload): Promise<void>;
   clear(key: SaveStorageKey): Promise<void>;
-  listSlots?(gameId: string): Promise<string[]>;
+  listNames?(gameId: string): Promise<string[]>;
 }
 
-export const DEFAULT_SAVE_SLOT = "default";
+export const DEFAULT_SAVE_NAME = "Save 1";
 
 export function normalizeSaveGameId(title: string): string {
   const collapsed = title.trim().toLowerCase();
@@ -29,21 +29,13 @@ export function normalizeSaveGameId(title: string): string {
   return slug || "untitled";
 }
 
-export function resolveSaveSlot(slot?: string): string {
-  const trimmed = slot?.trim();
-  if (!trimmed) {
-    return DEFAULT_SAVE_SLOT;
-  }
-  return trimmed;
-}
-
 export function createSaveStorageKey(
   title: string,
-  slot?: string,
+  name?: string,
 ): SaveStorageKey {
   return {
     gameId: normalizeSaveGameId(title),
-    slot: resolveSaveSlot(slot),
+    name: (name ?? DEFAULT_SAVE_NAME).trim() || DEFAULT_SAVE_NAME,
   };
 }
 

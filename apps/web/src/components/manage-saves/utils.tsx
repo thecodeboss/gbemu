@@ -5,18 +5,17 @@ import {
   createSaveStorageKey,
   deserializeSavePayload,
   normalizeSaveGameId,
-  resolveSaveSlot,
   serializeSavePayload,
 } from "@gbemu/runtime";
 
 export interface SaveEntry {
-  slot: string;
+  name: string;
   payload: SerializedSavePayload;
 }
 
 export type LoadTarget =
   | { type: "load"; entry: SaveEntry }
-  | { type: "start-new"; slot: string }
+  | { type: "start-new"; name: string }
   | null;
 
 export const REQUIRED_BATTERY_SIZE = 32 * 1024;
@@ -26,7 +25,7 @@ export const NAME_TRUNCATION_SUFFIX = "...";
 export function sortSaves(saves: SaveEntry[]): SaveEntry[] {
   return [...saves].sort(
     (a, b) =>
-      b.payload.timestamp - a.payload.timestamp || a.slot.localeCompare(b.slot),
+      b.payload.timestamp - a.payload.timestamp || a.name.localeCompare(b.name),
   );
 }
 
@@ -47,43 +46,42 @@ export function truncateSaveName(name: string, suffix = ""): string {
 export function validateSaveName(
   name: string,
   saves: SaveEntry[],
-  currentSlot?: string,
+  currentName?: string,
 ): string | null {
-  const trimmed = resolveSaveSlot(name);
-  if (trimmed.length > MAX_SAVE_NAME_LENGTH) {
-    return `Name cannot exceed ${MAX_SAVE_NAME_LENGTH} characters.`;
-  }
+  const trimmed = name.trim();
   if (!trimmed) {
     return "Name cannot be empty.";
   }
-  const exists = saves.some(
-    (entry) =>
-      entry.slot.toLowerCase() === trimmed.toLowerCase() &&
-      entry.slot !== currentSlot,
-  );
+  if (trimmed.length > MAX_SAVE_NAME_LENGTH) {
+    return `Name cannot exceed ${MAX_SAVE_NAME_LENGTH} characters.`;
+  }
+  const targetId = trimmed.toLowerCase();
+  const currentId = currentName ? currentName.toLowerCase() : null;
+  const exists = saves.some((entry) => {
+    const entryId = entry.name.toLowerCase();
+    if (currentId && entryId === currentId) {
+      return false;
+    }
+    return entryId === targetId;
+  });
   if (exists) {
     return "Another save already uses that name.";
   }
   return null;
 }
 
-export function nextUntitledName(saves: SaveEntry[]): string {
-  const usedNames = new Set(
-    saves.map((entry) => entry.slot.toLowerCase().trim()),
-  );
+export function nextSaveName(saves: SaveEntry[]): string {
+  const usedNames = new Set(saves.map((entry) => entry.name.toLowerCase()));
   let index = 1;
-  while (usedNames.has(`untitled ${index}`)) {
+  while (usedNames.has(`save ${index}`)) {
     index += 1;
   }
-  return `Untitled ${index}`;
+  return `Save ${index}`;
 }
 
-export function deriveImportSlotName(
-  fileName: string,
-  saves: SaveEntry[],
-): string {
+export function deriveImportName(fileName: string, saves: SaveEntry[]): string {
   const baseName = fileName.replace(/\.sav$/i, "").trim();
-  const rawBase = resolveSaveSlot(baseName || nextUntitledName(saves));
+  const rawBase = baseName || nextSaveName(saves);
   const initial = truncateSaveName(rawBase);
   if (!validateSaveName(initial, saves)) {
     return initial;
@@ -119,28 +117,29 @@ export async function exportSaveEntry(
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   const safeTitle = romTitle ? normalizeSaveGameId(romTitle) : "gbemu";
+  const saveName = entry.name;
   anchor.href = url;
-  anchor.download = `${safeTitle}-${entry.slot}.sav`;
+  anchor.download = `${safeTitle}-${saveName}.sav`;
   anchor.click();
   URL.revokeObjectURL(url);
-  return `Exported ${entry.slot}.`;
+  return `Exported ${saveName}.`;
 }
 
 export async function importSaveFile(options: {
   file: File;
   romTitle: string;
   saveStorage: SaveStorageAdapter;
-  slot: string;
+  name: string;
 }): Promise<string> {
-  const { file, romTitle, saveStorage, slot } = options;
+  const { file, romTitle, saveStorage, name } = options;
   if (file.size !== REQUIRED_BATTERY_SIZE) {
     throw new Error("Save files must be exactly 32 KiB.");
   }
   const buffer = await file.arrayBuffer();
   const battery = new Uint8Array(buffer);
   const payload = serializeSavePayload({ battery });
-  await saveStorage.write(createSaveStorageKey(romTitle, slot), payload);
-  return `Imported save as “${slot}”.`;
+  await saveStorage.write(createSaveStorageKey(romTitle, name), payload);
+  return `Imported save as “${name}”.`;
 }
 
 export async function applyLoadTarget(
@@ -148,26 +147,16 @@ export async function applyLoadTarget(
   options: {
     romTitle: string | null;
     saveStorage: SaveStorageAdapter | null;
-    onLoadSave: (payload: SavePayload, slot: string) => Promise<void>;
-    onStartFresh: (slot: string) => Promise<void>;
+    onLoadSave: (payload: SavePayload, name: string) => Promise<void>;
+    onStartFresh: (name: string) => Promise<void>;
   },
 ): Promise<string> {
   if (loadTarget.type === "load") {
     const payload = deserializeSavePayload(loadTarget.entry.payload);
-    await options.onLoadSave(payload, loadTarget.entry.slot);
-    return `Loaded save “${loadTarget.entry.slot}”.`;
+    await options.onLoadSave(payload, loadTarget.entry.name);
+    return `Loaded save “${loadTarget.entry.name}”.`;
   }
 
-  if (!options.saveStorage || !options.romTitle) {
-    throw new Error("Save storage is unavailable.");
-  }
-
-  const battery = new Uint8Array(REQUIRED_BATTERY_SIZE);
-  const payload = serializeSavePayload({ battery });
-  await options.saveStorage.write(
-    createSaveStorageKey(options.romTitle, loadTarget.slot),
-    payload,
-  );
-  await options.onStartFresh(loadTarget.slot);
-  return `Started new save “${loadTarget.slot}”.`;
+  await options.onStartFresh(loadTarget.name);
+  return "The current running game has not created a save file yet.";
 }

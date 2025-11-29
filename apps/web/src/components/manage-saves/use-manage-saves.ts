@@ -7,11 +7,10 @@ import {
   useState,
 } from "react";
 import {
-  DEFAULT_SAVE_SLOT,
+  DEFAULT_SAVE_NAME,
   createSaveStorageKey,
   deserializeSavePayload,
   normalizeSaveGameId,
-  resolveSaveSlot,
 } from "@gbemu/runtime";
 
 import { useSaveStorage } from "@/hooks/use-save-storage";
@@ -21,10 +20,10 @@ import { useCurrentRom } from "@/hooks/use-current-rom";
 import {
   LoadTarget,
   SaveEntry,
-  deriveImportSlotName,
+  deriveImportName,
   exportSaveEntry,
   importSaveFile,
-  nextUntitledName,
+  nextSaveName,
   sortSaves,
   validateSaveName,
 } from "./utils";
@@ -41,7 +40,7 @@ interface SaveManagerActions {
   queueLoad: (entry: SaveEntry) => void;
   queueStartNew: () => void;
   importSave: (file?: File) => Promise<void>;
-  renameSave: (slot: string, nextName: string) => Promise<boolean>;
+  renameSave: (name: string, nextName: string) => Promise<boolean>;
   exportSave: (entry: SaveEntry) => Promise<void>;
   requestDelete: (entry: SaveEntry) => void;
   confirmDelete: () => Promise<void>;
@@ -95,26 +94,19 @@ export function useManageSaves(): SaveManagerContext {
     setError(null);
     try {
       const gameId = normalizeSaveGameId(romTitle);
-      const slots =
-        typeof saveStorage.listSlots === "function"
-          ? await saveStorage.listSlots(gameId)
-          : [];
-      const slotSet = new Set(slots.map((slot) => resolveSaveSlot(slot)));
-
-      const defaultPayload = await saveStorage.read(
-        createSaveStorageKey(romTitle, DEFAULT_SAVE_SLOT),
-      );
-      if (defaultPayload) {
-        slotSet.add(DEFAULT_SAVE_SLOT);
-      }
+      const names =
+        typeof saveStorage.listNames === "function"
+          ? await saveStorage.listNames(gameId)
+          : [DEFAULT_SAVE_NAME];
+      const nameSet = new Set(names);
 
       const entries: SaveEntry[] = [];
-      for (const slot of slotSet) {
+      for (const name of nameSet) {
         const payload = await saveStorage.read(
-          createSaveStorageKey(romTitle, slot),
+          createSaveStorageKey(romTitle, name),
         );
         if (payload) {
-          entries.push({ slot, payload });
+          entries.push({ name, payload });
         }
       }
 
@@ -149,27 +141,27 @@ export function useManageSaves(): SaveManagerContext {
   }, [loadTarget]);
 
   const renameSave = useCallback(
-    async (slot: string, nextName: string) => {
+    async (name: string, nextName: string) => {
       if (!saveStorage || !romTitle) {
         setError("Cannot rename saves without storage.");
         return false;
       }
       setError(null);
       setStatusMessage(null);
-      const trimmed = resolveSaveSlot(nextName || slot);
-      const validationError = validateSaveName(trimmed, saves, slot);
+      const trimmed = (nextName || name).trim();
+      const validationError = validateSaveName(trimmed, saves, name);
       if (validationError) {
         setError(validationError);
         return false;
       }
 
-      if (trimmed === slot) {
+      if (trimmed === name) {
         setStatusMessage("Name unchanged.");
         return true;
       }
 
       const existingPayload = await saveStorage.read(
-        createSaveStorageKey(romTitle, slot),
+        createSaveStorageKey(romTitle, name),
       );
       if (!existingPayload) {
         setError("Save payload could not be loaded for renaming.");
@@ -180,8 +172,8 @@ export function useManageSaves(): SaveManagerContext {
         createSaveStorageKey(romTitle, trimmed),
         existingPayload,
       );
-      await saveStorage.clear(createSaveStorageKey(romTitle, slot));
-      setStatusMessage(`Renamed "${slot}" to "${trimmed}".`);
+      await saveStorage.clear(createSaveStorageKey(romTitle, name));
+      setStatusMessage(`Renamed “${name}” to “${trimmed}”.`);
       void refreshSaves();
       return true;
     },
@@ -189,15 +181,15 @@ export function useManageSaves(): SaveManagerContext {
   );
 
   const deleteSave = useCallback(
-    async (slot: string) => {
+    async (name: string) => {
       if (!saveStorage || !romTitle) {
         setError("Cannot delete saves without storage.");
         return;
       }
       setError(null);
       setStatusMessage(null);
-      await saveStorage.clear(createSaveStorageKey(romTitle, slot));
-      setStatusMessage(`Deleted “${slot}”.`);
+      await saveStorage.clear(createSaveStorageKey(romTitle, name));
+      setStatusMessage(`Deleted “${name}”.`);
       void refreshSaves();
     },
     [refreshSaves, romTitle, saveStorage],
@@ -223,12 +215,12 @@ export function useManageSaves(): SaveManagerContext {
   const queueStartNew = useCallback(() => {
     setLoadTarget({
       type: "start-new",
-      slot: nextUntitledName(saves),
+      name: nextSaveName(saves),
     });
   }, [saves]);
 
-  const getImportSlotName = useCallback(
-    (fileName: string): string => deriveImportSlotName(fileName, saves),
+  const getImportName = useCallback(
+    (fileName: string): string => deriveImportName(fileName, saves),
     [saves],
   );
 
@@ -242,12 +234,12 @@ export function useManageSaves(): SaveManagerContext {
       setError(null);
       setStatusMessage(null);
       try {
-        const slot = getImportSlotName(file.name);
+        const name = getImportName(file.name);
         const message = await importSaveFile({
           file,
           romTitle,
           saveStorage,
-          slot,
+          name,
         });
         setStatusMessage(message);
         void refreshSaves();
@@ -262,7 +254,7 @@ export function useManageSaves(): SaveManagerContext {
         setIsImporting(false);
       }
     },
-    [getImportSlotName, refreshSaves, romTitle, saveStorage],
+    [getImportName, refreshSaves, romTitle, saveStorage],
   );
 
   const confirmLoad = useCallback(async () => {
@@ -278,38 +270,23 @@ export function useManageSaves(): SaveManagerContext {
         await runtime.pause();
         await runtime.reset();
         await runtime.loadSave(payload, {
-          slot: loadTarget.entry.slot,
+          name: loadTarget.entry.name,
         });
         await runtime.start();
-        setStatusMessage(`Loaded save “${loadTarget.entry.slot}”.`);
+        setStatusMessage(`Loaded save “${loadTarget.entry.name}”.`);
       } else if (loadTarget.type === "start-new") {
-        if (!saveStorage) {
-          throw new Error("Save storage is unavailable.");
-        }
         if (!rom?.data) {
           throw new Error("No ROM is loaded to start a fresh save.");
         }
-        const romInfo = await runtime.getRomInfo();
-        const title = romInfo?.title ?? romTitle;
-        if (!title) {
-          throw new Error("Unable to determine ROM title for save loading.");
-        }
-        const slot = loadTarget.slot || "default";
         await runtime.pause();
         await runtime.reset({ hard: true });
         await runtime.loadRom(rom.data, {
           skipPersistentLoad: true,
+          saveName: loadTarget.name,
         });
-        const serialized = await saveStorage.read(
-          createSaveStorageKey(title, slot),
+        setStatusMessage(
+          "The current running game has not created a save file yet.",
         );
-        if (serialized) {
-          const payload = deserializeSavePayload(serialized);
-          await runtime.loadSave(payload, { slot });
-          setStatusMessage(`Loaded autosave for slot “${slot}”.`);
-        } else {
-          setStatusMessage(`Started new save for slot “${slot}”.`);
-        }
         await runtime.start();
       }
       setLoadTarget(null);
@@ -323,15 +300,7 @@ export function useManageSaves(): SaveManagerContext {
           : "Failed to apply the requested save action.",
       );
     }
-  }, [
-    closeSaveManager,
-    loadTarget,
-    rom,
-    refreshSaves,
-    romTitle,
-    runtime,
-    saveStorage,
-  ]);
+  }, [closeSaveManager, loadTarget, rom, refreshSaves, runtime]);
 
   const cancelLoad = useCallback(() => setLoadTarget(null), []);
 
@@ -345,7 +314,7 @@ export function useManageSaves(): SaveManagerContext {
     if (!deleteTarget) {
       return;
     }
-    await deleteSave(deleteTarget.slot);
+    await deleteSave(deleteTarget.name);
     setDeleteTarget(null);
   }, [deleteSave, deleteTarget]);
 

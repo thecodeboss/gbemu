@@ -67,19 +67,19 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
 - Worker layer:
   - `src/worker/index.ts` exposes `initializeEmulatorWorker`, wiring Comlink.
   - `src/worker/host.ts` implements `EmulatorWorkerApi`, managing emulator lifecycle, forwarding events to the UI via `WorkerCallbacks`, and ensuring transferable payloads (ROMs, saves, frames, audio samples) copy across thread boundaries.
-- `createRuntimeClient.loadRom` accepts an optional `{ skipPersistentLoad?: boolean }` flag to reload a ROM without auto-hydrating IndexedDB saves (used by the web “Start New Save” flow). `loadSave` also accepts an optional `{ slot?: string }` to update the active save slot used for auto-persistence.
+- `createRuntimeClient.loadRom` accepts optional `{ skipPersistentLoad?: boolean, saveName?: string }` flags to reload a ROM without auto-hydrating IndexedDB saves and to set the active save name before the next battery write (used by the web “Start New Save” flow). `loadSave` also accepts an optional `{ name?: string }` to update the active save name used for auto-persistence.
 - The worker/client contract exposes `getCpuState` and `getMemorySnapshot`, mirroring the core helpers so front-ends can poll CPU registers/flags and the current memory image without stalling the worker.
 - `src/worker/emulator-worker.ts` is the worker entry and instantiates the core `createEmulator` factory.
 - Main thread client:
-  - `src/main/runtime-client.ts` provides `createRuntimeClient`, which instantiates the worker, sets up a `Canvas2DRenderer`, and initialises `createEmulatorAudioNode`. Save persistence now defaults on (`autoPersistSaves`), deriving a `SaveStorageKey` from the ROM header title + slot (`createSaveStorageKey`) and hydrating matching saves on load if a `SaveStorageAdapter` is supplied.
+  - `src/main/runtime-client.ts` provides `createRuntimeClient`, which instantiates the worker, sets up a `Canvas2DRenderer`, and initialises `createEmulatorAudioNode`. Save persistence now defaults on (`autoPersistSaves`), deriving a `SaveStorageKey` from the ROM header title + save name (`createSaveStorageKey`, default “Save 1”) and hydrating matching saves on load if a `SaveStorageAdapter` is supplied.
   - `createRuntimeClient.loadRom` inspects the CGB flag at $0143 (0x80/0xC0 → CGB, otherwise DMG) before telling the worker which hardware mode to use.
   - `createRuntimeClient` exposes a `setBreakpoints(offsets: number[])` method on the returned client and accepts an `onBreakpointHit` option so UIs can be notified when the worker halted on a breakpoint. It also forwards `setInputState(state: JoypadInputState)` calls to the worker, which push the state into P1 and trigger the joypad interrupt when lines drop low.
   - The `AudioContext.sampleRate` is forwarded to the emulator so the core mixer can resample its 44.1 kHz stream to the actual playback rate before the worklet consumes it.
 - Rendering/audio/persistence helpers:
   - `src/video/canvas2d-renderer.ts` wraps a `<canvas>` and handles resizing, drawing frames, and clearing.
   - `src/audio/node.ts` sets up an `AudioWorkletNode` (`worklet-processor.ts` implements the processor) and exposes a queue-based audio API.
-  - `src/save/storage.ts` serializes saves to base64 strings with timestamps and exposes helpers to normalize `SaveStorageKey` values (`createSaveStorageKey`, `normalizeSaveGameId`, default slot `default`).
-  - `src/save/indexeddb-adapter.ts` ships a default IndexedDB-backed adapter keyed by `{ gameId, slot }` so hosts can persist multiple save files per ROM title (supports `listSlots` for UI listings).
+  - `src/save/storage.ts` serializes saves to base64 strings with timestamps and exposes helpers to normalize `SaveStorageKey` values (`createSaveStorageKey`, `normalizeSaveGameId`).
+  - `src/save/indexeddb-adapter.ts` ships a default IndexedDB-backed adapter keyed by `{ gameId, name }` so hosts can persist multiple save files per ROM title (supports `listNames` for UI listings).
 - Shared constants live in `src/constants.ts`.
 - Build target: `pnpm --filter @gbemu/runtime build` (tsc emits type declarations and JS to `dist/`).
 
@@ -105,7 +105,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
 - The menu card shows a **Recently Played** table backed by IndexedDB (`src/lib/recently-played.ts`, UI in `src/components/recently-played-table.tsx` + `components/ui/table.tsx`). Loading any ROM stores its payload + filename so the menu can page through the last-played files (10 per page) and reload one with a row click.
 - The in-run display card “Menu” button now asks for confirmation (progress will be lost) and then clears the current ROM to return to the main menu.
 - ROM loads auto-select DMG vs CGB based on the cartridge header flag at $0143 (0x80/0xC0 → CGB, anything else → DMG); there is no manual toggle in the menu right now.
-- Saves auto-persist to IndexedDB via the runtime `createIndexedDbSaveAdapter`, keyed by the ROM header title + default slot so reloads pull the matching battery RAM without depending on the upload filename. The Manage Saves modal reads `runtime` directly to pause/reset/load saves or start fresh.
+- Saves auto-persist to IndexedDB via the runtime `createIndexedDbSaveAdapter`, keyed by the ROM header title + active save name (defaults to “Save 1”) so reloads pull the matching battery RAM without depending on the upload filename. The Manage Saves modal reads `runtime` directly to pause/reset/load saves or start fresh; “New Save” reloads without loading/persisting until the game writes battery data.
 - The disassembly view adds a leading BP column; clicking a cell toggles a red-circle breakpoint that propagates to the runtime and automatically pauses when the PC hits that offset.
 - The debug panel now polls `RuntimeClient.getCpuState()`/`getMemorySnapshot()` to render live CPU register + flag cards and a virtualized memory browser (type/offset/value columns with infinite scroll). Keep the polling cadence reasonable (currently ~750 ms) if runtime performance changes.
 - The VRAM Viewer card (next to ROM Debug) houses tabs for BG/Tiles/OAM/Palettes; the Tiles tab renders VRAM tiles for $8000–$97FF in three 16×8 sections (blocks at $8000, $8800, $9000), scaling tiles 2× with 1px grey gutters and a 4px separator between sections.
@@ -127,13 +127,13 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
    - The `AudioContext` sample rate is captured up front and forwarded to the worker so the core can resample and high-pass-filter audio before the worklet drains it.
 3. When the worker initialises, it wraps callbacks via Comlink and lazy-constructs the emulator implementation supplied by the factory.
 4. Emulator events (`onVideoFrame`, `onAudioSamples`, `onSaveData`) clone payloads before transferring them back to the main thread.
-5. Persisted saves are keyed by normalized ROM title + slot and will auto-reload when `autoPersistSaves` is enabled (default); `RuntimeClient.loadPersistentSave()` forces a refresh when persistence is disabled.
+5. Persisted saves are keyed by normalized ROM title + save name and will auto-reload when `autoPersistSaves` is enabled (default); `RuntimeClient.loadPersistentSave()` forces a refresh when persistence is disabled.
 
 ## Key Contracts & Extension Points
 
 - `Emulator` interface (`packages/core/src/emulator.ts`) defines the minimum functionality required by the runtime. Any real emulator must honour lifecycle methods (`initialize`, `loadRom`, `start`, `pause`, `stepFrame`, `dispose`) and support optional callbacks for logging/error reporting.
 - Worker protocol (`packages/core/src/runtime.ts`) enumerates every message type flowing between UI and worker. Keep this file in sync when adding commands/events.
-- Save storage adapters must implement `{ read(key), write(key, payload), clear(key) }` keyed by `{ gameId, slot }` (slot defaults to `default`); helpers in `packages/runtime/src/save/storage.ts` normalize keys from ROM titles.
+- Save storage adapters must implement `{ read(key), write(key, payload), clear(key) }` keyed by `{ gameId, name }`; helpers in `packages/runtime/src/save/storage.ts` normalize keys from ROM titles.
 - Audio pipeline expects interleaved stereo `Float32Array` frames at the sample rate specified by the emulator (`AudioBufferChunk.sampleRate`).
 - Canvas renderer requires RGBA8888 buffers sized to match `frame.width` × `frame.height`.
 

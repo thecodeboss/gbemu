@@ -15,6 +15,7 @@ import {
   SaveStorageKey,
   createSaveStorageKey,
   deserializeSavePayload,
+  DEFAULT_SAVE_NAME,
   serializeSavePayload,
 } from "../save/storage.js";
 import { EmulatorWorkerApi, WorkerCallbacks } from "../worker/index.js";
@@ -42,9 +43,9 @@ function detectModeFromRomHeader(rom: Uint8Array): EmulatorMode {
 export interface RuntimeClient {
   loadRom(
     rom: Uint8Array,
-    options?: { skipPersistentLoad?: boolean },
+    options?: { skipPersistentLoad?: boolean; saveName?: string },
   ): Promise<void>;
-  loadSave(payload: SavePayload, options?: { slot?: string }): Promise<void>;
+  loadSave(payload: SavePayload, options?: { name?: string }): Promise<void>;
   start(): Promise<void>;
   pause(): Promise<void>;
   reset(options?: { hard?: boolean }): Promise<void>;
@@ -136,7 +137,7 @@ export async function createRuntimeClient(
 
   async function loadRom(
     rom: Uint8Array,
-    options?: { skipPersistentLoad?: boolean },
+    options?: { skipPersistentLoad?: boolean; saveName?: string },
   ): Promise<void> {
     currentMode = detectModeFromRomHeader(rom);
     const romCopy = rom.slice();
@@ -146,7 +147,10 @@ export async function createRuntimeClient(
     );
     currentRomInfo = await workerEndpoint.getRomInfo();
     currentSaveKey = currentRomInfo
-      ? createSaveStorageKey(currentRomInfo.title)
+      ? createSaveStorageKey(
+          currentRomInfo.title,
+          options?.saveName ?? DEFAULT_SAVE_NAME,
+        )
       : null;
     if (autoPersistSaves && !options?.skipPersistentLoad) {
       await loadPersistentSave();
@@ -166,17 +170,18 @@ export async function createRuntimeClient(
     if (!currentSaveKey) {
       return;
     }
-    const serialized = await options.saveStorage.read(currentSaveKey);
+    const activeKey = currentSaveKey;
+    const serialized = await options.saveStorage.read(activeKey);
     if (!serialized) {
       return;
     }
     const payload = deserializeSavePayload(serialized);
-    await loadSave(payload);
+    await loadSave(payload, { name: activeKey.name });
   }
 
   async function loadSave(
     payload: SavePayload,
-    saveOptions?: { slot?: string },
+    saveOptions?: { name?: string },
   ): Promise<void> {
     const batteryCopy = payload.battery.slice();
     const rtcCopy = payload.rtc ? payload.rtc.slice() : undefined;
@@ -185,10 +190,10 @@ export async function createRuntimeClient(
       transferables.push(rtcCopy.buffer);
     }
 
-    if (options.saveStorage && currentRomInfo && saveOptions?.slot) {
+    if (options.saveStorage && currentRomInfo && saveOptions?.name) {
       currentSaveKey = createSaveStorageKey(
         currentRomInfo.title,
-        saveOptions.slot,
+        saveOptions.name,
       );
     }
 

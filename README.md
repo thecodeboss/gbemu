@@ -39,7 +39,7 @@ The web UI ships a PWA manifest + service worker so it can be installed on mobil
 
 ### Saves
 
-- Battery-backed RAM auto-persists to IndexedDB using the ROM header title (not the upload filename) and the default save slot. Reloading the same ROM title will restore the last saved RAM snapshot automatically.
+- Battery-backed RAM auto-persists to IndexedDB using the ROM header title (not the upload filename) and the default save name (“Save 1”). Reloading the same ROM title will restore the last saved RAM snapshot automatically.
 - The **Manage Saves** button below the emulator opens a modal to load or rename saves, delete entries, import/export `.sav` files (32 KiB sanity check), and start a new save (blank 32 KiB) via the footer button. Loading or starting a save shows a warning that the current in-game progress will be replaced.
 
 > Tip: The core package now carries Vitest-driven Mooneye acceptance ROM tests (DMG-only) under `packages/core/tests`; run them with `pnpm --filter @gbemu/core test` (each ROM gets ~10s to reach the LD B, B sentinel). Additional coverage alongside new functionality is still welcome.

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Download, Pencil, Play, Trash2 } from "lucide-react";
-import { DEFAULT_SAVE_SLOT } from "@gbemu/runtime";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,41 +13,44 @@ export function SaveList() {
     state: { hasStorage, isLoading, isImporting },
     actions: { renameSave, exportSave, queueLoad, requestDelete },
   } = useManageSavesContext();
-  const [editingSlot, setEditingSlot] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const activeEditingSlot = useRef<string | null>(null);
+  const activeEditingName = useRef<string | null>(null);
 
   useEffect(() => {
-    activeEditingSlot.current = saves.some(
-      (entry) => entry.slot === editingSlot,
+    activeEditingName.current = saves.some(
+      (entry) => entry.name === editingName,
     )
-      ? editingSlot
+      ? editingName
       : null;
-  }, [editingSlot, saves]);
+  }, [editingName, saves]);
 
   useEffect(() => {
-    if (activeEditingSlot.current) {
-      inputRefs.current[activeEditingSlot.current]?.focus();
+    if (activeEditingName.current) {
+      inputRefs.current[activeEditingName.current]?.focus();
     }
-  }, [editingSlot]);
+  }, [editingName]);
 
-  const handleRename = async (slot: string) => {
-    const draftValue = draftNames[slot] ?? slot;
-    const success = await renameSave(slot, draftValue);
+  const handleRename = async (name: string) => {
+    const draftValue = draftNames[name] ?? name;
+    const success = await renameSave(name, draftValue);
     if (success) {
-      setEditingSlot(null);
+      setEditingName(null);
     }
   };
 
-  const startEditing = (slot: string) => {
-    setDraftNames((prev) => ({ ...prev, [slot]: prev[slot] ?? slot }));
-    setEditingSlot(slot);
+  const startEditing = (name: string) => {
+    setDraftNames((prev) => ({
+      ...prev,
+      [name]: prev[name] ?? name,
+    }));
+    setEditingName(name);
   };
 
   const cancelEditing = () => {
-    setEditingSlot(null);
+    setEditingName(null);
   };
 
   if (!hasStorage) {
@@ -74,25 +76,24 @@ export function SaveList() {
   return (
     <div className="divide-y-[3px] divide-border border-[3px] border-border bg-secondary shadow-[6px_6px_0_var(--color-accent)]">
       {saves.map((entry) => {
-        const draftValue = draftNames[entry.slot] ?? entry.slot;
-        const isEditing = editingSlot === entry.slot;
-        const viewLabel =
-          entry.slot === DEFAULT_SAVE_SLOT ? "Autosave" : draftValue;
+        const displayName = entry.name;
+        const draftValue = draftNames[entry.name] ?? displayName;
+        const isEditing = editingName === entry.name;
         const preview = formatUpdatedAt(entry.payload.timestamp);
         return (
-          <div key={entry.slot} className="flex flex-col gap-1.5 px-3 py-3">
+          <div key={entry.name} className="flex flex-col gap-1.5 px-3 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div className="flex items-center gap-1.5">
                 {isEditing ? (
                   <Input
                     ref={(node) => {
-                      inputRefs.current[entry.slot] = node;
+                      inputRefs.current[entry.name] = node;
                     }}
                     value={draftValue}
                     onChange={(event) =>
                       setDraftNames((prev) => ({
                         ...prev,
-                        [entry.slot]: event.target.value,
+                        [entry.name]: event.target.value,
                       }))
                     }
                     className="h-8"
@@ -100,18 +101,18 @@ export function SaveList() {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        void handleRename(entry.slot);
+                        void handleRename(entry.name);
                       }
                       if (event.key === "Escape") {
                         cancelEditing();
                       }
                     }}
-                    aria-label={`Rename ${entry.slot}`}
+                    aria-label={`Rename ${entry.name}`}
                     disabled={isImporting}
                   />
                 ) : (
                   <p className="text-sm font-semibold uppercase tracking-wide">
-                    {viewLabel}
+                    {displayName}
                   </p>
                 )}
               </div>
@@ -121,7 +122,7 @@ export function SaveList() {
                     variant="default"
                     size="sm"
                     type="button"
-                    onClick={() => void handleRename(entry.slot)}
+                    onClick={() => void handleRename(entry.name)}
                     disabled={isImporting}
                   >
                     <Check />
@@ -131,7 +132,7 @@ export function SaveList() {
                     variant="outline"
                     size="sm"
                     type="button"
-                    onClick={() => startEditing(entry.slot)}
+                    onClick={() => startEditing(entry.name)}
                     disabled={isImporting}
                   >
                     <Pencil />
@@ -160,16 +161,13 @@ export function SaveList() {
                   type="button"
                   onClick={() => requestDelete(entry)}
                   disabled={isImporting}
-                  aria-label={`Delete ${viewLabel}`}
+                  aria-label={`Delete ${displayName}`}
                 >
                   <Trash2 />
                 </Button>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Updated {preview} ·{" "}
-              {entry.slot === DEFAULT_SAVE_SLOT ? "Autosave" : "Manual save"}
-            </p>
+            <p className="text-xs text-muted-foreground">Updated {preview}</p>
           </div>
         );
       })}
