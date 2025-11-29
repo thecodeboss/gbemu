@@ -96,7 +96,7 @@ const AlertDialogAction = React.forwardRef<
   <AlertDialogPrimitive.Action
     ref={ref}
     className={cn(
-      "inline-flex min-h-10 items-center justify-center border-[3px] border-foreground bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex min-h-10 items-center justify-center border-[3px] border-foreground bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 hover:-translate-y-px hover:-translate-x-px hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
     {...props}
@@ -111,7 +111,7 @@ const AlertDialogCancel = React.forwardRef<
   <AlertDialogPrimitive.Cancel
     ref={ref}
     className={cn(
-      "inline-flex min-h-10 items-center justify-center border-[3px] border-border bg-secondary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex min-h-10 items-center justify-center border-[3px] border-border bg-secondary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 hover:-translate-y-px hover:-translate-x-px hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
     {...props}

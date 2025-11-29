@@ -5,7 +5,7 @@ import { cva, VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap border-[3px] border-border bg-secondary text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-4 focus-visible:ring-ring/60 hover:-translate-y-[1px] hover:-translate-x-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--color-accent)] aria-invalid:border-destructive aria-invalid:shadow-[4px_4px_0_var(--color-destructive)]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap border-[3px] border-border bg-secondary text-[11px] font-semibold uppercase tracking-wide text-secondary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-4 focus-visible:ring-ring/60 hover:-translate-y-px hover:-translate-x-px active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_var(--color-accent)] aria-invalid:border-destructive aria-invalid:shadow-[4px_4px_0_var(--color-destructive)]",
   {
     variants: {
       variant: {

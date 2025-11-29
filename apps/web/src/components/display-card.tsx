@@ -264,7 +264,7 @@ export function DisplayCard({
         className={cn(
           "w-full sm:w-auto",
           isMobileViewport
-            ? "!gap-3 !border-none !px-0 !py-0 !shadow-none"
+            ? "gap-3! border-none! px-0! py-0! shadow-none!"
             : undefined,
         )}
         style={
@@ -372,7 +372,7 @@ export function DisplayCard({
               Stay Here
             </AlertDialogCancel>
             <AlertDialogAction
-              className="border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60"
+              className="border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:-translate-y-px hover:-translate-x-px hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60"
               onClick={handleReturnToMenu}
             >
               Return to Menu
