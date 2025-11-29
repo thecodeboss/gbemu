@@ -39,6 +39,7 @@ export function CurrentRomProvider({ children }: CurrentRomProviderProps) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCurrentRom(): CurrentRomContextValue {
   const context = useContext(CurrentRomContext);
   if (!context) {

@@ -25,9 +25,9 @@ const AUDIO_WORKLET_MODULE_URL = new URL(
 interface EmulatorContextValue {
   runtime: RuntimeClient | null;
   canvasRef: RefObject<HTMLCanvasElement | null>;
-  ensureRuntimeClient: (
-    options?: { autoPersistSaves?: boolean },
-  ) => Promise<RuntimeClient>;
+  ensureRuntimeClient: (options?: {
+    autoPersistSaves?: boolean;
+  }) => Promise<RuntimeClient>;
   isRomLoading: boolean;
   romLoadError: string | null;
 }
@@ -37,12 +37,13 @@ const EmulatorContext = createContext<EmulatorContextValue | undefined>(
 );
 
 export function EmulatorProvider({ children }: { children: ReactNode }) {
-  const { saveStorage, ensureSaveStorage } = useSaveStorage();
+  const { saveStorage, ensureSaveStorage, setRomTitle } = useSaveStorage();
   const { rom } = useCurrentRom();
   const [runtime, setRuntime] = useState<RuntimeClient | null>(null);
   const [isRomLoading, setIsRomLoading] = useState(false);
   const [romLoadError, setRomLoadError] = useState<string | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
+  const runtimePromiseRef = useRef<Promise<RuntimeClient> | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -66,13 +67,16 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return existing;
       }
+      if (runtimePromiseRef.current) {
+        return runtimePromiseRef.current;
+      }
 
       const canvas = canvasRef.current;
       if (!canvas) {
         throw new Error("Display surface has not been initialised.");
       }
 
-      const runtimeClient = await createRuntimeClient({
+      const runtimePromise = createRuntimeClient({
         createWorker: () =>
           new Worker(
             new URL(
@@ -87,6 +91,9 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
         saveStorage: saveStorage ?? ensureSaveStorage() ?? undefined,
         autoPersistSaves: options.autoPersistSaves ?? true,
       });
+      runtimePromiseRef.current = runtimePromise;
+      const runtimeClient = await runtimePromise;
+      runtimePromiseRef.current = null;
 
       runtimeRef.current = runtimeClient;
       setRuntime(runtimeClient);
@@ -141,6 +148,8 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
         await runtimeClient.pause();
         await runtimeClient.reset({ hard: true });
         await runtimeClient.loadRom(rom.data);
+        const info = await runtimeClient.getRomInfo();
+        setRomTitle(info?.title ?? null);
         await runtimeClient.setInputState(createEmptyJoypadState());
         await runtimeClient.start();
       } catch (err: unknown) {
@@ -150,7 +159,7 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
         setIsRomLoading(false);
       }
     })();
-  }, [ensureRuntimeClient, rom]);
+  }, [ensureRuntimeClient, rom, setRomTitle]);
 
   return (
     <EmulatorContext.Provider value={value}>
@@ -159,6 +168,7 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useEmulator(): EmulatorContextValue {
   const context = useContext(EmulatorContext);
   if (!context) {

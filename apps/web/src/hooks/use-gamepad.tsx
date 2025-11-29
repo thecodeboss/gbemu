@@ -193,7 +193,10 @@ type UseGamepadOptions = {
 export function useGamepad({
   enableVirtual = false,
   onChange,
-}: UseGamepadOptions): { virtualGamepad: ReactNode; getCurrentState: () => JoypadInputState } {
+}: UseGamepadOptions): {
+  virtualGamepad: ReactNode;
+  getCurrentState: () => JoypadInputState;
+} {
   const onChangeRef = useRef<InputSink>(onChange);
   const frameRef = useRef<number | null>(null);
   const keyboardStateRef = useRef<JoypadInputState>(createEmptyJoypadState());

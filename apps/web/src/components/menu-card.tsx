@@ -12,9 +12,7 @@ interface MenuCardProps {
   hidden: boolean;
 }
 
-export function MenuCard({
-  hidden,
-}: MenuCardProps) {
+export function MenuCard({ hidden }: MenuCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { setCurrentRom } = useCurrentRom();
   const [recentlyPlayedRevision, setRecentlyPlayedRevision] = useState(0);
@@ -85,7 +83,11 @@ export function MenuCard({
 
         <div className="space-y-3">
           <p>Load a Game Boy or Game Boy Color ROM.</p>
-          <Button type="button" variant="default" onClick={handleOpenFilePicker}>
+          <Button
+            type="button"
+            variant="default"
+            onClick={handleOpenFilePicker}
+          >
             Select ROM
           </Button>
         </div>

@@ -1,13 +1,13 @@
-import {
-  DEFAULT_CANVAS_HEIGHT,
-  DEFAULT_CANVAS_WIDTH,
-} from "@gbemu/runtime";
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from "@gbemu/runtime";
 import { JoypadInputState } from "@gbemu/core";
 import { DisplayCard } from "@/components/display-card";
 import { LoadingCard } from "@/components/loading-card";
 import { MenuCard } from "@/components/menu-card";
 import { useGamepad } from "@/hooks/use-gamepad";
-import { useIsMobileViewport, useViewportHeightVariable } from "@/hooks/viewport";
+import {
+  useIsMobileViewport,
+  useViewportHeightVariable,
+} from "@/hooks/viewport";
 import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
 import { cn } from "@/lib/utils";
 import { useCurrentRom } from "@/hooks/use-current-rom";
@@ -49,10 +49,7 @@ function App() {
     >
       <MenuCard hidden={phase !== "menu"} />
 
-      <LoadingCard
-        hidden={phase !== "loading"}
-        romName={rom?.name ?? null}
-      />
+      <LoadingCard hidden={phase !== "loading"} romName={rom?.name ?? null} />
 
       <DisplayCard
         hidden={phase !== "running"}

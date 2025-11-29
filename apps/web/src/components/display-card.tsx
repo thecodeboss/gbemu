@@ -115,13 +115,24 @@ export function DisplayCard({
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   const handleReturnToMenu = useCallback(() => {
-    if (runtime) {
-      void runtime.pause();
-      runtime.renderer.clear("#000000");
-      void runtime.setInputState(createEmptyJoypadState());
+    if (!runtime) {
+      setCurrentRom(null);
+      setShowReturnConfirm(false);
+      return;
     }
-    setCurrentRom(null);
-    setShowReturnConfirm(false);
+    void (async () => {
+      try {
+        await runtime.pause();
+        await runtime.reset({ hard: true });
+        runtime.renderer.clear("#000000");
+        await runtime.setInputState(createEmptyJoypadState());
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setCurrentRom(null);
+        setShowReturnConfirm(false);
+      }
+    })();
   }, [runtime, setCurrentRom]);
 
   const updateCanvasScale = useCallback((): void => {

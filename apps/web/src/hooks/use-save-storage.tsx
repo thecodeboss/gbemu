@@ -18,6 +18,7 @@ interface SaveStorageContextValue {
   openSaveManager: () => void;
   closeSaveManager: () => void;
   romTitle: string | null;
+  setRomTitle: (title: string | null) => void;
 }
 
 const SaveStorageContext = createContext<SaveStorageContextValue | undefined>(
@@ -50,7 +51,8 @@ export function SaveStorageProvider({ children }: { children: ReactNode }) {
   const openSaveManager = useCallback(() => {
     const adapter = ensureSaveStorage();
     setSaveStorage(adapter);
-    setRomTitle(rom?.name ?? null);
+    // Default to the current ROM title if the emulator set it; fall back to filename only when missing.
+    setRomTitle((prev) => prev ?? rom?.name ?? null);
     setIsSaveManagerOpen(true);
   }, [ensureSaveStorage, rom?.name]);
 
@@ -66,12 +68,14 @@ export function SaveStorageProvider({ children }: { children: ReactNode }) {
       openSaveManager,
       closeSaveManager,
       romTitle,
+      setRomTitle,
     }),
     [
       closeSaveManager,
       ensureSaveStorage,
       isSaveManagerOpen,
       openSaveManager,
+      setRomTitle,
       romTitle,
       saveStorage,
     ],
@@ -84,6 +88,7 @@ export function SaveStorageProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSaveStorage(): SaveStorageContextValue {
   const context = useContext(SaveStorageContext);
   if (!context) {

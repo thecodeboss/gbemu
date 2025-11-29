@@ -42,16 +42,9 @@ import { useSaveStorage } from "@/hooks/use-save-storage";
 import { useEmulator } from "@/hooks/use-emulator";
 import { useCurrentRom } from "@/hooks/use-current-rom";
 
-interface ManageSavesDialogProps {
-}
-
-export function ManageSavesDialog({}: ManageSavesDialogProps) {
-  const {
-    isSaveManagerOpen,
-    closeSaveManager,
-    saveStorage,
-    romTitle,
-  } = useSaveStorage();
+export function ManageSavesDialog() {
+  const { isSaveManagerOpen, closeSaveManager, saveStorage, romTitle } =
+    useSaveStorage();
   const { rom } = useCurrentRom();
   const { runtime } = useEmulator();
   const [saves, setSaves] = useState<SaveEntry[]>([]);
@@ -87,6 +80,7 @@ export function ManageSavesDialog({}: ManageSavesDialogProps) {
     setError(null);
     try {
       const gameId = normalizeSaveGameId(romTitle);
+      console.log("ROM Title:", romTitle, "Game ID:", gameId);
       const slots =
         typeof saveStorage.listSlots === "function"
           ? await saveStorage.listSlots(gameId)

@@ -29,10 +29,7 @@ export const useIsMobileDevice = (): boolean => {
     const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
     coarsePointerQuery.addEventListener("change", updateMobileDeviceFlag);
     return () => {
-      coarsePointerQuery.removeEventListener(
-        "change",
-        updateMobileDeviceFlag,
-      );
+      coarsePointerQuery.removeEventListener("change", updateMobileDeviceFlag);
     };
   }, []);
 
