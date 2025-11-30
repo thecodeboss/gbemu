@@ -4,15 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RecentlyPlayedTable } from "@/components/recently-played-table";
 import { useCurrentRom } from "@/hooks/use-current-rom";
+import { useAuth } from "@/hooks/use-auth";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
+import { supabase } from "@/lib/supabase/client";
 import { Link, useNavigate } from "react-router";
 
 export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { setCurrentRom } = useCurrentRom();
+  const { session } = useAuth();
   const [recentlyPlayedRevision, setRecentlyPlayedRevision] = useState(0);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleFileInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +53,7 @@ export function HomePage() {
   }, []);
 
   const navigate = useNavigate();
+  const isSignedIn = !!session;
 
   const handleSelectRecentRom = useCallback(
     async (rom: RecentRomRecord) => {
@@ -63,6 +68,17 @@ export function HomePage() {
     },
     [navigate, setCurrentRom],
   );
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      setIsSigningOut(true);
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSigningOut(false);
+    }
+  }, []);
 
   return (
     <Card className="w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-5">
@@ -88,9 +104,20 @@ export function HomePage() {
             >
               Select ROM
             </Button>
-            <Button asChild variant="secondary">
-              <Link to="/login">Sign in</Link>
-            </Button>
+            {isSignedIn ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? "Signing out..." : "Sign out"}
+              </Button>
+            ) : (
+              <Button asChild variant="secondary">
+                <Link to="/login">Sign in</Link>
+              </Button>
+            )}
           </div>
         </div>
 
