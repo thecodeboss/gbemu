@@ -110,6 +110,10 @@ export function EmulatorPage() {
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (!rom) navigate("/");
+  }, [navigate, rom]);
+
   const handleReturnToMenu = useCallback(() => {
     if (!runtime) {
       setCurrentRom(null);
