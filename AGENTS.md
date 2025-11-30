@@ -67,7 +67,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
 - Worker layer:
   - `src/worker/index.ts` exposes `initializeEmulatorWorker`, wiring Comlink.
   - `src/worker/host.ts` implements `EmulatorWorkerApi`, managing emulator lifecycle, forwarding events to the UI via `WorkerCallbacks`, and ensuring transferable payloads (ROMs, saves, frames, audio samples) copy across thread boundaries.
-- `createRuntimeClient.loadRom` accepts optional `{ skipPersistentLoad?: boolean, saveName?: string }` flags to reload a ROM without auto-hydrating IndexedDB saves and to set the active save name before the next battery write (used by the web “Start New Save” flow). `loadSave` also accepts an optional `{ name?: string }` to update the active save name used for auto-persistence.
+- `createRuntimeClient.loadRom` accepts optional `{ skipPersistentLoad?: boolean, saveName?: string }` flags to reload a ROM without auto-hydrating IndexedDB saves and to set the active save name before the next battery write (used by the web “Start New Save” flow). It remembers the last opened save per ROM (localStorage) and falls back to the most recently updated save payload before starting a fresh “Save 1”; `loadSave` also accepts an optional `{ name?: string }` to update the active save name used for auto-persistence.
 - The worker/client contract exposes `getCpuState` and `getMemorySnapshot`, mirroring the core helpers so front-ends can poll CPU registers/flags and the current memory image without stalling the worker.
 - `src/worker/emulator-worker.ts` is the worker entry and instantiates the core `createEmulator` factory.
 - Main thread client:

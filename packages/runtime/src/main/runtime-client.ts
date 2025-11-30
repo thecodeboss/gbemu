@@ -15,10 +15,14 @@ import {
   SaveStorageKey,
   createSaveStorageKey,
   deserializeSavePayload,
-  DEFAULT_SAVE_NAME,
   serializeSavePayload,
 } from "../save/storage.js";
 import { EmulatorWorkerApi, WorkerCallbacks } from "../worker/index.js";
+import {
+  fetchPreferredSavePayload,
+  rememberActiveSaveName,
+  resolveSaveKey,
+} from "./save-selection.js";
 
 export interface RuntimeClientOptions {
   createWorker(): Worker;
@@ -137,7 +141,7 @@ export async function createRuntimeClient(
 
   async function loadRom(
     rom: Uint8Array,
-    options?: { skipPersistentLoad?: boolean; saveName?: string },
+    loadOptions: { skipPersistentLoad?: boolean; saveName?: string } = {},
   ): Promise<void> {
     currentMode = detectModeFromRomHeader(rom);
     const romCopy = rom.slice();
@@ -146,13 +150,13 @@ export async function createRuntimeClient(
       Comlink.transfer({ rom: romCopy }, [romCopy.buffer]),
     );
     currentRomInfo = await workerEndpoint.getRomInfo();
-    currentSaveKey = currentRomInfo
-      ? createSaveStorageKey(
-          currentRomInfo.title,
-          options?.saveName ?? DEFAULT_SAVE_NAME,
-        )
-      : null;
-    if (autoPersistSaves && !options?.skipPersistentLoad) {
+    currentSaveKey = await resolveSaveKey({
+      romInfo: currentRomInfo,
+      requestedName: loadOptions.saveName,
+      saveStorage: options.saveStorage,
+    });
+    rememberActiveSaveName(currentSaveKey);
+    if (autoPersistSaves && !loadOptions.skipPersistentLoad) {
       await loadPersistentSave();
     }
   }
@@ -161,22 +165,24 @@ export async function createRuntimeClient(
     if (!options.saveStorage) {
       return;
     }
-    if (!currentSaveKey) {
+
+    if (!currentRomInfo) {
       currentRomInfo = await workerEndpoint.getRomInfo();
-      if (currentRomInfo) {
-        currentSaveKey = createSaveStorageKey(currentRomInfo.title);
-      }
     }
-    if (!currentSaveKey) {
+
+    const resolved = await fetchPreferredSavePayload({
+      saveStorage: options.saveStorage,
+      currentSaveKey,
+      romInfo: currentRomInfo,
+    });
+    if (!resolved) {
       return;
     }
-    const activeKey = currentSaveKey;
-    const serialized = await options.saveStorage.read(activeKey);
-    if (!serialized) {
-      return;
-    }
-    const payload = deserializeSavePayload(serialized);
-    await loadSave(payload, { name: activeKey.name });
+
+    currentSaveKey = resolved.key;
+    const payload = deserializeSavePayload(resolved.payload);
+    await loadSave(payload, { name: currentSaveKey.name });
+    rememberActiveSaveName(currentSaveKey);
   }
 
   async function loadSave(
@@ -208,6 +214,7 @@ export async function createRuntimeClient(
         transferables,
       ),
     );
+    rememberActiveSaveName(currentSaveKey);
   }
 
   async function dispose(): Promise<void> {

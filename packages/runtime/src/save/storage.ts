@@ -33,9 +33,10 @@ export function createSaveStorageKey(
   title: string,
   name?: string,
 ): SaveStorageKey {
+  const resolvedName = name ?? DEFAULT_SAVE_NAME;
   return {
     gameId: normalizeSaveGameId(title),
-    name: (name ?? DEFAULT_SAVE_NAME).trim() || DEFAULT_SAVE_NAME,
+    name: resolvedName || DEFAULT_SAVE_NAME,
   };
 }
 
