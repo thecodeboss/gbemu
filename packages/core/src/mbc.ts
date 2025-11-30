@@ -572,20 +572,32 @@ class Mbc3Controller extends Mbc {
       return null;
     }
     this.#updateRtc();
-    const buffer = new ArrayBuffer(16);
+    if (!this.#rtcLatched) {
+      this.#refreshLatchedFromRunning();
+    }
+
+    const buffer = new ArrayBuffer(48);
     const view = new DataView(buffer);
-    view.setUint8(0, this.#rtcSeconds & 0xff);
-    view.setUint8(1, this.#rtcMinutes & 0xff);
-    view.setUint8(2, this.#rtcHours & 0xff);
-    view.setUint8(3, this.#rtcDays & 0xff);
-    view.setUint8(
-      4,
+    let offset = 0;
+    offset = this.#writeRtcInt(view, offset, this.#rtcSeconds);
+    offset = this.#writeRtcInt(view, offset, this.#rtcMinutes);
+    offset = this.#writeRtcInt(view, offset, this.#rtcHours);
+    offset = this.#writeRtcInt(view, offset, this.#rtcDays);
+    offset = this.#writeRtcInt(
+      view,
+      offset,
       this.#composeDayHighFlags(this.#rtcDays, this.#rtcHalt, this.#rtcCarry),
     );
-    view.setUint8(5, 0x00);
-    view.setUint8(6, 0x00);
-    view.setUint8(7, 0x00);
-    view.setFloat64(8, this.#rtcLastUpdatedMs, true);
+    offset = this.#writeRtcInt(view, offset, this.#rtcLatchedSeconds);
+    offset = this.#writeRtcInt(view, offset, this.#rtcLatchedMinutes);
+    offset = this.#writeRtcInt(view, offset, this.#rtcLatchedHours);
+    offset = this.#writeRtcInt(view, offset, this.#rtcLatchedDays);
+    offset = this.#writeRtcInt(view, offset, this.#rtcLatchedDayHigh);
+    const lastUpdatedSeconds = Math.max(
+      0,
+      Math.floor(this.#rtcLastUpdatedMs / 1000),
+    );
+    view.setBigUint64(offset, BigInt(lastUpdatedSeconds), true);
     return new Uint8Array(buffer);
   }
 
@@ -598,6 +610,45 @@ class Mbc3Controller extends Mbc {
       payload.byteOffset,
       payload.byteLength,
     );
+
+    if (payload.length >= 48) {
+      const rawSeconds = view.getInt32(0, true);
+      const rawMinutes = view.getInt32(4, true);
+      const rawHours = view.getInt32(8, true);
+      const rawDays = view.getInt32(12, true);
+      const control = view.getInt32(16, true) & 0xff;
+
+      this.#rtcSeconds = Math.min(59, Math.max(0, rawSeconds));
+      this.#rtcMinutes = Math.min(59, Math.max(0, rawMinutes));
+      this.#rtcHours = Math.min(23, Math.max(0, rawHours));
+      const controlDayHigh = (control & 0x01) << 8;
+      this.#rtcDays = ((rawDays & 0x1ff) | controlDayHigh) % 512;
+      this.#rtcHalt = (control & 0x40) !== 0;
+      this.#rtcCarry = (control & 0x80) !== 0;
+      this.#rtcLatchedSeconds = Math.min(
+        59,
+        Math.max(0, view.getInt32(20, true)),
+      );
+      this.#rtcLatchedMinutes = Math.min(
+        59,
+        Math.max(0, view.getInt32(24, true)),
+      );
+      this.#rtcLatchedHours = Math.min(
+        23,
+        Math.max(0, view.getInt32(28, true)),
+      );
+      this.#rtcLatchedDays = view.getInt32(32, true) & 0x1ff;
+      this.#rtcLatchedDayHigh = view.getInt32(36, true) & 0xff;
+      const timestampSeconds = Number(view.getBigUint64(40, true));
+      this.#rtcLastUpdatedMs = Number.isFinite(timestampSeconds)
+        ? Math.max(0, timestampSeconds) * 1000
+        : this.#nowMs();
+      this.#rtcLatched = false;
+      this.#updateRtc();
+      this.#refreshLatchedFromRunning();
+      return;
+    }
+
     this.#rtcSeconds = Math.min(59, view.getUint8(0));
     this.#rtcMinutes = Math.min(59, view.getUint8(1));
     this.#rtcHours = Math.min(23, view.getUint8(2));
@@ -884,6 +935,11 @@ class Mbc3Controller extends Mbc {
       value |= 0x80;
     }
     return value & 0xff;
+  }
+
+  #writeRtcInt(view: DataView, offset: number, value: number): number {
+    view.setInt32(offset, value | 0, true);
+    return offset + 4;
   }
 
   #nowMs(): number {

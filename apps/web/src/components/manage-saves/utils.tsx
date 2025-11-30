@@ -19,6 +19,7 @@ export type LoadTarget =
   | null;
 
 export const REQUIRED_BATTERY_SIZE = 32 * 1024;
+export const VBA_RTC_TRAILER_SIZE = 48;
 export const MAX_SAVE_NAME_LENGTH = 24;
 export const NAME_TRUNCATION_SUFFIX = "...";
 
@@ -109,9 +110,13 @@ export async function exportSaveEntry(
   romTitle: string | null,
 ): Promise<string> {
   const payload = deserializeSavePayload(entry.payload);
-  const batteryCopy = new Uint8Array(payload.battery.length);
-  batteryCopy.set(payload.battery);
-  const blob = new Blob([batteryCopy.buffer], {
+  const batteryCopy = payload.battery.slice();
+  const rtcCopy = payload.rtc ? payload.rtc.slice() : null;
+  const blobParts: ArrayBuffer[] = [batteryCopy.buffer];
+  if (rtcCopy) {
+    blobParts.push(rtcCopy.buffer);
+  }
+  const blob = new Blob(blobParts, {
     type: "application/octet-stream",
   });
   const url = URL.createObjectURL(blob);
@@ -132,12 +137,23 @@ export async function importSaveFile(options: {
   name: string;
 }): Promise<string> {
   const { file, romTitle, saveStorage, name } = options;
-  if (file.size !== REQUIRED_BATTERY_SIZE) {
-    throw new Error("Save files must be exactly 32 KiB.");
+  const allowedSizes = [
+    REQUIRED_BATTERY_SIZE,
+    REQUIRED_BATTERY_SIZE + VBA_RTC_TRAILER_SIZE,
+  ];
+  if (!allowedSizes.includes(file.size)) {
+    throw new Error(
+      "Save files must be 32 KiB or 32 KiB + 48 bytes for RTC data.",
+    );
   }
   const buffer = await file.arrayBuffer();
-  const battery = new Uint8Array(buffer);
-  const payload = serializeSavePayload({ battery });
+  const bytes = new Uint8Array(buffer);
+  const hasRtc = file.size === REQUIRED_BATTERY_SIZE + VBA_RTC_TRAILER_SIZE;
+  const battery = bytes.subarray(0, REQUIRED_BATTERY_SIZE).slice();
+  const rtc = hasRtc
+    ? bytes.subarray(REQUIRED_BATTERY_SIZE).slice()
+    : undefined;
+  const payload = serializeSavePayload({ battery, rtc });
   await saveStorage.write(createSaveStorageKey(romTitle, name), payload);
   return `Imported save as “${name}”.`;
 }
