@@ -23,7 +23,12 @@ import { cn } from "@/lib/utils";
 import { useCurrentRom } from "@/hooks/use-current-rom";
 import { useEmulator } from "@/hooks/use-emulator";
 import { useSaveStorage } from "@/hooks/use-save-storage";
-import { createEmptyJoypadState } from "@gbemu/core";
+import { createEmptyJoypadState, JoypadInputState } from "@gbemu/core";
+import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
+import { useGamepad } from "@/hooks/use-gamepad";
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from "@gbemu/runtime";
+import { useIsMobileViewport } from "@/hooks/viewport";
+import { useNavigate } from "react-router";
 
 const DEFAULT_CANVAS_SCALE = 3;
 const MOBILE_RESERVED_VERTICAL_SPACE = 200;
@@ -41,23 +46,16 @@ type FullscreenDocument = Document & {
   msExitFullscreen?: () => Promise<void> | void;
 };
 
-interface DisplayCardProps {
-  hidden: boolean;
-  romName: string | null;
-  disableSaveManager?: boolean;
-  isMobileViewport: boolean;
-  canvasDimensions: { width: number; height: number };
-}
+const canvasDimensions = {
+  width: DEFAULT_CANVAS_WIDTH,
+  height: DEFAULT_CANVAS_HEIGHT,
+};
 
-export function DisplayCard({
-  hidden,
-  romName,
-  disableSaveManager,
-  isMobileViewport,
-  canvasDimensions,
-}: DisplayCardProps) {
+export function EmulatorPage() {
+  const isMobileViewport = useIsMobileViewport();
   const { canvasRef, runtime } = useEmulator();
-  const { setCurrentRom } = useCurrentRom();
+  const { rom, setCurrentRom } = useCurrentRom();
+  const romName = rom?.name ?? null;
   const { openSaveManager } = useSaveStorage();
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const resolveFullscreenTarget = useCallback((): FullscreenElement | null => {
@@ -70,42 +68,39 @@ export function DisplayCard({
       fullscreenContainerRef.current
     );
   }, []);
-  const computeScaledSize = useCallback(
-    (useMobileRules: boolean) => {
-      if (useMobileRules && typeof window !== "undefined") {
-        const availableWidth = Math.max(
-          canvasDimensions.width,
-          window.innerWidth - MOBILE_HORIZONTAL_BUFFER,
-        );
-        const availableHeight = Math.max(
-          canvasDimensions.height,
-          window.innerHeight - MOBILE_RESERVED_VERTICAL_SPACE,
-        );
-        const maxScaleByWidth = Math.max(
-          1,
-          Math.floor(availableWidth / canvasDimensions.width),
-        );
-        const maxScaleByHeight = Math.max(
-          1,
-          Math.floor(availableHeight / canvasDimensions.height),
-        );
-        const nextScale = Math.max(
-          1,
-          Math.min(maxScaleByWidth, maxScaleByHeight, DEFAULT_CANVAS_SCALE),
-        );
-        return {
-          width: canvasDimensions.width * nextScale,
-          height: canvasDimensions.height * nextScale,
-        };
-      }
-
+  const computeScaledSize = useCallback((useMobileRules: boolean) => {
+    if (useMobileRules && typeof window !== "undefined") {
+      const availableWidth = Math.max(
+        canvasDimensions.width,
+        window.innerWidth - MOBILE_HORIZONTAL_BUFFER,
+      );
+      const availableHeight = Math.max(
+        canvasDimensions.height,
+        window.innerHeight - MOBILE_RESERVED_VERTICAL_SPACE,
+      );
+      const maxScaleByWidth = Math.max(
+        1,
+        Math.floor(availableWidth / canvasDimensions.width),
+      );
+      const maxScaleByHeight = Math.max(
+        1,
+        Math.floor(availableHeight / canvasDimensions.height),
+      );
+      const nextScale = Math.max(
+        1,
+        Math.min(maxScaleByWidth, maxScaleByHeight, DEFAULT_CANVAS_SCALE),
+      );
       return {
-        width: canvasDimensions.width * DEFAULT_CANVAS_SCALE,
-        height: canvasDimensions.height * DEFAULT_CANVAS_SCALE,
+        width: canvasDimensions.width * nextScale,
+        height: canvasDimensions.height * nextScale,
       };
-    },
-    [canvasDimensions.height, canvasDimensions.width],
-  );
+    }
+
+    return {
+      width: canvasDimensions.width * DEFAULT_CANVAS_SCALE,
+      height: canvasDimensions.height * DEFAULT_CANVAS_SCALE,
+    };
+  }, []);
 
   const [scaledCanvasSize, setScaledCanvasSize] = useState(() =>
     computeScaledSize(isMobileViewport),
@@ -113,6 +108,7 @@ export function DisplayCard({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
+  const navigate = useNavigate();
 
   const handleReturnToMenu = useCallback(() => {
     if (!runtime) {
@@ -131,9 +127,10 @@ export function DisplayCard({
       } finally {
         setCurrentRom(null);
         setShowReturnConfirm(false);
+        navigate("/");
       }
     })();
-  }, [runtime, setCurrentRom]);
+  }, [navigate, runtime, setCurrentRom]);
 
   const updateCanvasScale = useCallback((): void => {
     setScaledCanvasSize(computeScaledSize(isMobileViewport));
@@ -257,10 +254,19 @@ export function DisplayCard({
     }
   }, [exitFullscreen, isFullscreen, requestFullscreen]);
 
+  const { virtualGamepad } = useGamepad({
+    enableVirtual: isMobileViewport,
+    onChange: (state: JoypadInputState) => {
+      if (!runtime) {
+        return;
+      }
+      return runtime.setInputState(state);
+    },
+  });
+
   return (
-    <div ref={fullscreenContainerRef} hidden={hidden}>
+    <div ref={fullscreenContainerRef}>
       <Card
-        hidden={hidden}
         className={cn(
           "w-full sm:w-auto",
           isMobileViewport
@@ -330,12 +336,7 @@ export function DisplayCard({
             </Button>
           </CardAction>
           <CardAction>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openSaveManager}
-              disabled={disableSaveManager}
-            >
+            <Button type="button" variant="outline" onClick={openSaveManager}>
               Saves
             </Button>
           </CardAction>
@@ -380,6 +381,9 @@ export function DisplayCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {virtualGamepad}
+      <ManageSavesDialog />
     </div>
   );
 }

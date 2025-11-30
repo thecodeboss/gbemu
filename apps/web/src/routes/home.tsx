@@ -7,12 +7,9 @@ import { useCurrentRom } from "@/hooks/use-current-rom";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
+import { useNavigate } from "react-router";
 
-interface MenuCardProps {
-  hidden: boolean;
-}
-
-export function MenuCard({ hidden }: MenuCardProps) {
+export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { setCurrentRom } = useCurrentRom();
   const [recentlyPlayedRevision, setRecentlyPlayedRevision] = useState(0);
@@ -51,8 +48,11 @@ export function MenuCard({ hidden }: MenuCardProps) {
     fileInputRef.current?.click();
   }, []);
 
+  const navigate = useNavigate();
+
   const handleSelectRecentRom = useCallback(
     async (rom: RecentRomRecord) => {
+      navigate("/emulator");
       setCurrentRom({
         id: rom.id,
         name: rom.name,
@@ -61,14 +61,11 @@ export function MenuCard({ hidden }: MenuCardProps) {
       });
       setRecentlyPlayedRevision((prev: number) => prev + 1);
     },
-    [setCurrentRom],
+    [navigate, setCurrentRom],
   );
 
   return (
-    <Card
-      hidden={hidden}
-      className="w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-5"
-    >
+    <Card className="w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-5">
       <CardHeader className="px-3 sm:px-4">
         <CardTitle>Game Boy Emulator</CardTitle>
       </CardHeader>
@@ -94,7 +91,6 @@ export function MenuCard({ hidden }: MenuCardProps) {
 
         <div className="border-t border-border/60 pt-4">
           <RecentlyPlayedTable
-            active={!hidden}
             refreshToken={recentlyPlayedRevision}
             onSelectRom={handleSelectRecentRom}
           />

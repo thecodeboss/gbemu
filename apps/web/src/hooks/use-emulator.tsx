@@ -1,6 +1,6 @@
 import {
   ReactNode,
-  RefObject,
+  Ref,
   createContext,
   useCallback,
   useContext,
@@ -24,7 +24,7 @@ const AUDIO_WORKLET_MODULE_URL = new URL(
 
 interface EmulatorContextValue {
   runtime: RuntimeClient | null;
-  canvasRef: RefObject<HTMLCanvasElement | null>;
+  canvasRef: Ref<HTMLCanvasElement>;
   ensureRuntimeClient: (options?: {
     autoPersistSaves?: boolean;
   }) => Promise<RuntimeClient>;
@@ -44,8 +44,30 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
   const [romLoadError, setRomLoadError] = useState<string | null>(null);
   const runtimeRef = useRef<RuntimeClient | null>(null);
   const runtimePromiseRef = useRef<Promise<RuntimeClient> | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const runtimeCreationIdRef = useRef(0);
+  const runtimeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasElementRef = useRef<HTMLCanvasElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
+  const canvasRef: Ref<HTMLCanvasElement> = useCallback(
+    (node: HTMLCanvasElement | null) => {
+      canvasElementRef.current = node;
+      setIsCanvasReady(Boolean(node));
+    },
+    [],
+  );
+
+  const destroyRuntime = useCallback(async () => {
+    runtimeCreationIdRef.current += 1;
+    const runtimeClient = runtimeRef.current;
+    runtimeRef.current = null;
+    runtimePromiseRef.current = null;
+    runtimeCanvasRef.current = null;
+    setRuntime(null);
+    if (runtimeClient) {
+      await runtimeClient.dispose();
+    }
+  }, []);
 
   const ensureAudioContext = useCallback(async (): Promise<AudioContext> => {
     let audioContext = audioContextRef.current;
@@ -63,18 +85,34 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
     async (
       options: { autoPersistSaves?: boolean } = {},
     ): Promise<RuntimeClient> => {
-      const existing = runtimeRef.current;
-      if (existing) {
-        return existing;
-      }
       if (runtimePromiseRef.current) {
         return runtimePromiseRef.current;
       }
 
-      const canvas = canvasRef.current;
+      const canvas = canvasElementRef.current;
       if (!canvas) {
         throw new Error("Display surface has not been initialised.");
       }
+
+      if (runtimePromiseRef.current) {
+        if (runtimeCanvasRef.current !== canvas) {
+          await destroyRuntime();
+        } else {
+          return runtimePromiseRef.current;
+        }
+      }
+
+      const existing = runtimeRef.current;
+      if (existing) {
+        if (existing.renderer.canvas === canvas) {
+          runtimeCanvasRef.current = canvas;
+          return existing;
+        }
+        await destroyRuntime();
+      }
+
+      const creationId = runtimeCreationIdRef.current + 1;
+      runtimeCreationIdRef.current = creationId;
 
       const runtimePromise = createRuntimeClient({
         createWorker: () =>
@@ -93,31 +131,34 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
       });
       runtimePromiseRef.current = runtimePromise;
       const runtimeClient = await runtimePromise;
+      if (runtimeCreationIdRef.current !== creationId) {
+        await runtimeClient.dispose();
+        runtimeCanvasRef.current = null;
+        throw new Error("Runtime initialisation was superseded.");
+      }
       runtimePromiseRef.current = null;
 
       runtimeRef.current = runtimeClient;
+      runtimeCanvasRef.current = canvas;
       setRuntime(runtimeClient);
       return runtimeClient;
     },
-    [ensureAudioContext, ensureSaveStorage, saveStorage],
+    [destroyRuntime, ensureAudioContext, ensureSaveStorage, saveStorage],
   );
 
   useEffect(() => {
     return () => {
-      const runtimeClient = runtimeRef.current;
-      runtimeRef.current = null;
-      setRuntime(null);
-      if (runtimeClient) {
-        void runtimeClient.dispose();
-      }
+      void (async () => {
+        await destroyRuntime();
 
-      const audio = audioContextRef.current;
-      audioContextRef.current = null;
-      if (audio) {
-        void audio.close();
-      }
+        const audio = audioContextRef.current;
+        audioContextRef.current = null;
+        if (audio) {
+          await audio.close();
+        }
+      })();
     };
-  }, []);
+  }, [destroyRuntime]);
 
   const value = useMemo<EmulatorContextValue>(
     () => ({
@@ -127,7 +168,7 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
       isRomLoading,
       romLoadError,
     }),
-    [ensureRuntimeClient, isRomLoading, romLoadError, runtime],
+    [canvasRef, ensureRuntimeClient, isRomLoading, romLoadError, runtime],
   );
 
   useEffect(() => {
@@ -139,6 +180,9 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
 
     setRomLoadError(null);
     setIsRomLoading(true);
+    if (!isCanvasReady) {
+      return;
+    }
 
     void (async () => {
       try {
@@ -159,7 +203,7 @@ export function EmulatorProvider({ children }: { children: ReactNode }) {
         setIsRomLoading(false);
       }
     })();
-  }, [ensureRuntimeClient, rom, setRomTitle]);
+  }, [ensureRuntimeClient, isCanvasReady, rom, setRomTitle]);
 
   return (
     <EmulatorContext.Provider value={value}>

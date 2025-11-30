@@ -21,7 +21,6 @@ interface RecentlyPlayedTableProps {
   onSelectRom: (rom: RecentRomRecord) => Promise<void> | void;
   refreshToken?: number;
   pageSize?: number;
-  active?: boolean;
   className?: string;
 }
 
@@ -58,7 +57,6 @@ export function RecentlyPlayedTable({
   onSelectRom,
   refreshToken = 0,
   pageSize = DEFAULT_PAGE_SIZE,
-  active = true,
   className,
 }: RecentlyPlayedTableProps) {
   const [page, setPage] = useState(1);
@@ -78,9 +76,6 @@ export function RecentlyPlayedTable({
   }, [refreshToken]);
 
   useEffect(() => {
-    if (!active) {
-      return;
-    }
     let cancelled = false;
     setIsLoading(true);
     setError(null);
@@ -116,7 +111,7 @@ export function RecentlyPlayedTable({
     return () => {
       cancelled = true;
     };
-  }, [active, page, pageSize, refreshToken]);
+  }, [page, pageSize, refreshToken]);
 
   const handleSelect = async (id: string) => {
     setLoadingId(id);
