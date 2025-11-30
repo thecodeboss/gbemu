@@ -1,6 +1,6 @@
 // src/lib/auth/AuthProvider.tsx
 import { createContext, useContext, useEffect, useState } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 
 type AuthContextValue = {
@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {

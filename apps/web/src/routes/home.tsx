@@ -7,7 +7,7 @@ import { useCurrentRom } from "@/hooks/use-current-rom";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -80,13 +80,18 @@ export function HomePage() {
 
         <div className="space-y-3">
           <p>Load a Game Boy or Game Boy Color ROM.</p>
-          <Button
-            type="button"
-            variant="default"
-            onClick={handleOpenFilePicker}
-          >
-            Select ROM
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleOpenFilePicker}
+            >
+              Select ROM
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/login">Sign in</Link>
+            </Button>
+          </div>
         </div>
 
         <div className="border-t border-border/60 pt-4">

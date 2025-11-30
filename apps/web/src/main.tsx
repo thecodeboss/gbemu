@@ -9,8 +9,8 @@ import { CurrentRomProvider } from "@/hooks/use-current-rom";
 import { EmulatorProvider } from "@/hooks/use-emulator";
 import { HomePage } from "@/routes/home";
 import { EmulatorPage } from "@/routes/emulator";
-import { LoginForm } from "@/components/login-form";
 import { AuthProvider } from "@/hooks/use-auth";
+import { LoginPage } from "@/routes/login";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -23,7 +23,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route element={<App />}>
                   <Route index element={<HomePage />} />
                   <Route path="/emulator" element={<EmulatorPage />} />
-                  <Route path="/login" element={<LoginForm />} />
+                  <Route path="/login" element={<LoginPage />} />
                 </Route>
               </Routes>
             </BrowserRouter>
