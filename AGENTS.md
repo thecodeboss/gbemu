@@ -79,8 +79,8 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
 - Rendering/audio/persistence helpers:
   - `src/video/canvas2d-renderer.ts` wraps a `<canvas>` and handles resizing, drawing frames, and clearing.
   - `src/audio/node.ts` sets up an `AudioWorkletNode` (`worklet-processor.ts` implements the processor) and exposes a queue-based audio API.
-  - `src/save/storage.ts` serializes saves to base64 strings with timestamps and exposes helpers to normalize `SaveStorageKey` values (`createSaveStorageKey`, `normalizeSaveGameId`).
-  - `src/save/indexeddb-adapter.ts` ships a default IndexedDB-backed adapter keyed by `{ gameId, name }` so hosts can persist multiple save files per ROM title (supports `listNames` for UI listings).
+  - `src/save/storage.ts` packs saves into a single binary payload (header encodes battery/RTC lengths) and exposes helpers to normalize `SaveStorageKey` values (keys now include optional UUID `id` plus `createSaveStorageKey`, `normalizeSaveGameId`).
+  - `src/save/indexeddb-adapter.ts` ships a default IndexedDB-backed adapter with a UUID `id` primary key and a `byGameName` index so hosts can persist multiple save files per ROM title (supports `listNames` for UI listings).
 - Shared constants live in `src/constants.ts`.
 - Build target: `pnpm --filter @gbemu/runtime build` (tsc emits type declarations and JS to `dist/`).
 

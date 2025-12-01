@@ -79,9 +79,9 @@ export function SaveList() {
         const displayName = entry.name;
         const draftValue = draftNames[entry.name] ?? displayName;
         const isEditing = editingName === entry.name;
-        const preview = formatUpdatedAt(entry.payload.timestamp);
+        const preview = formatUpdatedAt(entry.updatedAt);
         return (
-          <div key={entry.name} className="flex flex-col gap-1.5 px-3 py-3">
+          <div key={entry.id} className="flex flex-col gap-1.5 px-3 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div className="flex items-center gap-1.5">
                 {isEditing ? (

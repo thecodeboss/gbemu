@@ -1,19 +1,28 @@
 import { SavePayload } from "@gbemu/core";
 
-export interface SerializedSavePayload {
-  battery: string;
-  rtc?: string;
-  timestamp: number;
-}
+export type SerializedSavePayload = Uint8Array;
 
 export interface SaveStorageKey {
   gameId: string;
   name: string;
+  id?: string;
+}
+
+export interface SaveStorageRecord {
+  id: string;
+  gameId: string;
+  name: string;
+  payload: SerializedSavePayload;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface SaveStorageAdapter {
-  read(key: SaveStorageKey): Promise<SerializedSavePayload | null>;
-  write(key: SaveStorageKey, payload: SerializedSavePayload): Promise<void>;
+  read(key: SaveStorageKey): Promise<SaveStorageRecord | null>;
+  write(
+    key: SaveStorageKey,
+    payload: SerializedSavePayload,
+  ): Promise<SaveStorageRecord>;
   clear(key: SaveStorageKey): Promise<void>;
   listNames?(gameId: string): Promise<string[]>;
 }
@@ -32,48 +41,67 @@ export function normalizeSaveGameId(title: string): string {
 export function createSaveStorageKey(
   title: string,
   name?: string,
+  id?: string,
 ): SaveStorageKey {
   const resolvedName = name ?? DEFAULT_SAVE_NAME;
   return {
     gameId: normalizeSaveGameId(title),
     name: resolvedName || DEFAULT_SAVE_NAME,
+    id,
   };
 }
 
 export function serializeSavePayload(
   payload: SavePayload,
 ): SerializedSavePayload {
-  return {
-    battery: encodeBytes(payload.battery),
-    rtc: payload.rtc ? encodeBytes(payload.rtc) : undefined,
-    timestamp: Date.now(),
-  };
+  const batteryLength = payload.battery.byteLength;
+  const rtcLength = payload.rtc?.byteLength ?? 0;
+  const headerSize = 8;
+  const buffer = new Uint8Array(headerSize + batteryLength + rtcLength);
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength,
+  );
+
+  view.setUint32(0, batteryLength, true);
+  view.setUint32(4, rtcLength, true);
+
+  buffer.set(payload.battery, headerSize);
+  if (payload.rtc) {
+    buffer.set(payload.rtc, headerSize + batteryLength);
+  }
+
+  return buffer;
 }
 
 export function deserializeSavePayload(
   serialized: SerializedSavePayload,
 ): SavePayload {
-  return {
-    battery: decodeBytes(serialized.battery),
-    rtc: serialized.rtc ? decodeBytes(serialized.rtc) : undefined,
-  };
-}
-
-function encodeBytes(bytes: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+  if (serialized.byteLength < 8) {
+    throw new Error("Serialized save payload is too small to decode.");
   }
-  return btoa(binary);
-}
 
-function decodeBytes(source: string): Uint8Array {
-  const binary = atob(source);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
+  const view = new DataView(
+    serialized.buffer,
+    serialized.byteOffset,
+    serialized.byteLength,
+  );
+
+  const batteryLength = view.getUint32(0, true);
+  const rtcLength = view.getUint32(4, true);
+
+  const payloadStart = 8;
+  const payloadEnd = payloadStart + batteryLength + rtcLength;
+  if (payloadEnd > serialized.byteLength) {
+    throw new Error("Serialized save payload is truncated.");
   }
-  return bytes;
+
+  const battery = serialized.slice(payloadStart, payloadStart + batteryLength);
+  const rtc =
+    rtcLength > 0
+      ? serialized.slice(payloadStart + batteryLength, payloadEnd)
+      : undefined;
+
+  return { battery, rtc };
 }

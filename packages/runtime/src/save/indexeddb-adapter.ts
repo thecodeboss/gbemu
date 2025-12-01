@@ -2,6 +2,7 @@ import {
   SaveStorageAdapter,
   SaveStorageKey,
   SerializedSavePayload,
+  SaveStorageRecord,
   normalizeSaveGameId,
 } from "./storage.js";
 
@@ -12,15 +13,7 @@ export interface IndexedDbSaveAdapterOptions {
 
 const DEFAULT_DB_NAME = "gbemu-saves";
 const DEFAULT_STORE_NAME = "saves";
-const DB_VERSION = 2;
-
-interface SaveRecord {
-  gameId: string;
-  name: string;
-  payload: SerializedSavePayload;
-  createdAt: number;
-  updatedAt: number;
-}
+const DB_VERSION = 3;
 
 export function createIndexedDbSaveAdapter(
   options?: IndexedDbSaveAdapterOptions,
@@ -41,9 +34,10 @@ export function createIndexedDbSaveAdapter(
           db.deleteObjectStore(storeName);
         }
         const store = db.createObjectStore(storeName, {
-          keyPath: ["gameId", "name"],
+          keyPath: "id",
         });
         store.createIndex("byGame", "gameId", { unique: false });
+        store.createIndex("byGameName", ["gameId", "name"], { unique: true });
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => {
@@ -88,44 +82,156 @@ export function createIndexedDbSaveAdapter(
     });
   }
 
-  function toKey(key: SaveStorageKey): [string, string] {
-    return [normalizeSaveGameId(key.gameId), key.name.trim()];
+  function normalizeKey(key: SaveStorageKey): SaveStorageKey {
+    return {
+      id: key.id,
+      gameId: normalizeSaveGameId(key.gameId),
+      name: key.name.trim(),
+    };
   }
 
   return {
-    async read(key): Promise<SerializedSavePayload | null> {
-      const [gameId, name] = toKey(key);
-      const record = await withStore<SaveRecord | undefined>(
+    async read(key): Promise<SaveStorageRecord | null> {
+      const normalizedKey = normalizeKey(key);
+      const record = await withStore<SaveStorageRecord | undefined>(
         "readonly",
-        (store) => store.get([gameId, name]),
+        (store) =>
+          normalizedKey.id
+            ? store.get(normalizedKey.id)
+            : store
+                .index("byGameName")
+                .get([normalizedKey.gameId, normalizedKey.name]),
       );
       if (!record) {
         return null;
       }
-      return record.payload;
+      return record;
     },
 
-    async write(key, payload: SerializedSavePayload): Promise<void> {
-      const [gameId, name] = toKey(key);
+    async write(
+      key,
+      payload: SerializedSavePayload,
+    ): Promise<SaveStorageRecord> {
+      const normalizedKey = normalizeKey(key);
       const timestamp = Date.now();
-      const record: SaveRecord = {
-        gameId,
-        name,
-        payload,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      await withStore("readwrite", (store) => store.put(record));
+      const db = await openDatabase();
+
+      return await new Promise<SaveStorageRecord>((resolve, reject) => {
+        const tx = db.transaction(storeName, "readwrite");
+        const store = tx.objectStore(storeName);
+
+        const handleError = (error: unknown) => {
+          reject(
+            error instanceof Error
+              ? error
+              : new Error("Failed to write save payload."),
+          );
+        };
+
+        const upsert = (existing: SaveStorageRecord | undefined): void => {
+          const record: SaveStorageRecord = {
+            id: existing?.id ?? normalizedKey.id ?? crypto.randomUUID(),
+            gameId: normalizedKey.gameId,
+            name: normalizedKey.name,
+            payload: payload.slice(),
+            createdAt: existing?.createdAt ?? timestamp,
+            updatedAt: timestamp,
+          };
+
+          const putRequest = store.put(record);
+          putRequest.onsuccess = () => resolve(record);
+          putRequest.onerror = () =>
+            handleError(putRequest.error ?? new Error("Failed to write save."));
+        };
+
+        const lookupRequest = normalizedKey.id
+          ? store.get(normalizedKey.id)
+          : store
+              .index("byGameName")
+              .get([normalizedKey.gameId, normalizedKey.name]);
+
+        lookupRequest.onsuccess = () => {
+          const existing = lookupRequest.result as
+            | SaveStorageRecord
+            | undefined;
+          upsert(existing);
+        };
+        lookupRequest.onerror = () =>
+          handleError(
+            lookupRequest.error ?? new Error("Failed to read existing save."),
+          );
+
+        tx.oncomplete = () => {
+          db.close();
+        };
+        tx.onabort = () => {
+          const error =
+            tx.error ?? new Error("IndexedDB transaction was aborted.");
+          db.close();
+          reject(error);
+        };
+      });
     },
 
     async clear(key): Promise<void> {
-      const [gameId, name] = toKey(key);
-      await withStore("readwrite", (store) => store.delete([gameId, name]));
+      const normalizedKey = normalizeKey(key);
+      const db = await openDatabase();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(storeName, "readwrite");
+        const store = tx.objectStore(storeName);
+
+        const handleError = (error: unknown) => {
+          reject(
+            error instanceof Error
+              ? error
+              : new Error("Failed to delete save payload."),
+          );
+        };
+
+        const performDelete = (recordId: string): void => {
+          const deleteRequest = store.delete(recordId);
+          deleteRequest.onsuccess = () => resolve();
+          deleteRequest.onerror = () =>
+            handleError(
+              deleteRequest.error ?? new Error("Failed to delete save record."),
+            );
+        };
+
+        const lookupRequest = normalizedKey.id
+          ? store.get(normalizedKey.id)
+          : store
+              .index("byGameName")
+              .get([normalizedKey.gameId, normalizedKey.name]);
+
+        lookupRequest.onsuccess = () => {
+          const record = lookupRequest.result as SaveStorageRecord | undefined;
+          if (!record) {
+            resolve();
+            return;
+          }
+          performDelete(record.id);
+        };
+
+        lookupRequest.onerror = () =>
+          handleError(
+            lookupRequest.error ?? new Error("Failed to read existing save."),
+          );
+
+        tx.oncomplete = () => {
+          db.close();
+        };
+        tx.onabort = () => {
+          const error =
+            tx.error ?? new Error("IndexedDB transaction was aborted.");
+          db.close();
+          reject(error);
+        };
+      });
     },
 
     async listNames(gameId: string): Promise<string[]> {
       const normalizedGameId = normalizeSaveGameId(gameId);
-      const rows = await withStore<SaveRecord[]>("readonly", (store) => {
+      const rows = await withStore<SaveStorageRecord[]>("readonly", (store) => {
         const index = store.index("byGame");
         return index.getAll(IDBKeyRange.only(normalizedGameId));
       });

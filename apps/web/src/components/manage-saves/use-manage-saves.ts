@@ -102,11 +102,16 @@ export function useManageSaves(): SaveManagerContext {
 
       const entries: SaveEntry[] = [];
       for (const name of nameSet) {
-        const payload = await saveStorage.read(
+        const record = await saveStorage.read(
           createSaveStorageKey(romTitle, name),
         );
-        if (payload) {
-          entries.push({ name, payload });
+        if (record) {
+          entries.push({
+            id: record.id,
+            name: record.name,
+            payload: record.payload,
+            updatedAt: record.updatedAt,
+          });
         }
       }
 
@@ -160,19 +165,18 @@ export function useManageSaves(): SaveManagerContext {
         return true;
       }
 
-      const existingPayload = await saveStorage.read(
+      const existing = await saveStorage.read(
         createSaveStorageKey(romTitle, name),
       );
-      if (!existingPayload) {
+      if (!existing) {
         setError("Save payload could not be loaded for renaming.");
         return false;
       }
 
       await saveStorage.write(
-        createSaveStorageKey(romTitle, trimmed),
-        existingPayload,
+        createSaveStorageKey(romTitle, trimmed, existing.id),
+        existing.payload,
       );
-      await saveStorage.clear(createSaveStorageKey(romTitle, name));
       setStatusMessage(`Renamed “${name}” to “${trimmed}”.`);
       void refreshSaves();
       return true;
@@ -181,32 +185,31 @@ export function useManageSaves(): SaveManagerContext {
   );
 
   const deleteSave = useCallback(
-    async (name: string) => {
+    async (entry: SaveEntry) => {
       if (!saveStorage || !romTitle) {
         setError("Cannot delete saves without storage.");
         return;
       }
       setError(null);
       setStatusMessage(null);
-      await saveStorage.clear(createSaveStorageKey(romTitle, name));
-      setStatusMessage(`Deleted “${name}”.`);
+      await saveStorage.clear(
+        createSaveStorageKey(romTitle, entry.name, entry.id),
+      );
+      setStatusMessage(`Deleted “${entry.name}”.`);
       void refreshSaves();
     },
     [refreshSaves, romTitle, saveStorage],
   );
 
-  const exportSave = useCallback(
-    async (entry: SaveEntry) => {
-      try {
-        const message = await exportSaveEntry(entry, romTitle);
-        setStatusMessage(message);
-      } catch (err) {
-        console.error(err);
-        setError("Export failed. Please try again.");
-      }
-    },
-    [romTitle],
-  );
+  const exportSave = useCallback(async (entry: SaveEntry) => {
+    try {
+      const message = await exportSaveEntry(entry);
+      setStatusMessage(message);
+    } catch (err) {
+      console.error(err);
+      setError("Export failed. Please try again.");
+    }
+  }, []);
 
   const queueLoad = useCallback((entry: SaveEntry) => {
     setLoadTarget({ type: "load", entry });
@@ -271,6 +274,7 @@ export function useManageSaves(): SaveManagerContext {
         await runtime.reset();
         await runtime.loadSave(payload, {
           name: loadTarget.entry.name,
+          id: loadTarget.entry.id,
         });
         await runtime.start();
         setStatusMessage(`Loaded save “${loadTarget.entry.name}”.`);
@@ -314,7 +318,7 @@ export function useManageSaves(): SaveManagerContext {
     if (!deleteTarget) {
       return;
     }
-    await deleteSave(deleteTarget.name);
+    await deleteSave(deleteTarget);
     setDeleteTarget(null);
   }, [deleteSave, deleteTarget]);
 

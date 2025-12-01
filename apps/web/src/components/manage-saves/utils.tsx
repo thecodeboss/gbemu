@@ -8,8 +8,10 @@ import {
 } from "@gbemu/runtime";
 
 export interface SaveEntry {
+  id: string;
   name: string;
   payload: SerializedSavePayload;
+  updatedAt: number;
 }
 
 export type LoadTarget =
@@ -24,8 +26,7 @@ export const NAME_TRUNCATION_SUFFIX = "...";
 
 export function sortSaves(saves: SaveEntry[]): SaveEntry[] {
   return [...saves].sort(
-    (a, b) =>
-      b.payload.timestamp - a.payload.timestamp || a.name.localeCompare(b.name),
+    (a, b) => b.updatedAt - a.updatedAt || a.name.localeCompare(b.name),
   );
 }
 
@@ -104,10 +105,7 @@ export function formatUpdatedAt(timestamp: number): string {
   }).format(new Date(timestamp));
 }
 
-export async function exportSaveEntry(
-  entry: SaveEntry,
-  romTitle: string | null,
-): Promise<string> {
+export async function exportSaveEntry(entry: SaveEntry): Promise<string> {
   const payload = deserializeSavePayload(entry.payload);
   const batteryCopy = payload.battery.slice();
   const rtcCopy = payload.rtc ? payload.rtc.slice() : null;

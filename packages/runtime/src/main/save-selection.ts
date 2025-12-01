@@ -5,6 +5,7 @@ import {
   SaveStorageAdapter,
   SaveStorageKey,
   SerializedSavePayload,
+  SaveStorageRecord,
   createSaveStorageKey,
   normalizeSaveGameId,
 } from "../save/storage.js";
@@ -44,25 +45,28 @@ async function listAvailableSaveNames(
   return [DEFAULT_SAVE_NAME];
 }
 
-async function findMostRecentSaveName(
+async function findMostRecentSave(
   saveStorage: SaveStorageAdapter | undefined,
   gameId: string,
   names: string[],
-): Promise<string | null> {
+): Promise<SaveStorageRecord | null> {
   if (!saveStorage || names.length === 0) {
     return null;
   }
-  let latest: { name: string; timestamp: number } | null = null;
+  let latest: SaveStorageRecord | null = null;
+  let latestTimestamp = -Infinity;
   for (const name of names) {
-    const payload = await saveStorage.read({ gameId, name });
-    if (!payload) {
+    const record = await saveStorage.read({ gameId, name });
+    if (!record) {
       continue;
     }
-    if (!latest || payload.timestamp > latest.timestamp) {
-      latest = { name, timestamp: payload.timestamp };
+    const recordTimestamp = record.updatedAt ?? record.createdAt ?? 0;
+    if (!latest || recordTimestamp > latestTimestamp) {
+      latest = record;
+      latestTimestamp = recordTimestamp;
     }
   }
-  return latest?.name ?? null;
+  return latest;
 }
 
 export async function resolveSaveKey(params: {
@@ -82,34 +86,45 @@ export async function resolveSaveKey(params: {
   const gameId = normalizeSaveGameId(romInfo.title);
   const preferredName = requestedName;
 
+  const toKey = (name: string, record?: SaveStorageRecord | null) =>
+    record
+      ? { gameId: record.gameId, name: record.name, id: record.id }
+      : createSaveStorageKey(romInfo.title, name);
+
   if (preferredName) {
-    return createSaveStorageKey(romInfo.title, preferredName);
+    const record = await saveStorage.read({ gameId, name: preferredName });
+    return toKey(preferredName, record);
   }
 
   const availableNames = await listAvailableSaveNames(saveStorage, gameId);
 
   const rememberedName = readActiveSaveName(gameId);
   if (rememberedName && availableNames.includes(rememberedName)) {
-    const payload = await saveStorage.read({
+    const record = await saveStorage.read({
       gameId,
       name: rememberedName,
     });
-    if (payload) {
-      return createSaveStorageKey(romInfo.title, rememberedName);
+    if (record) {
+      return toKey(rememberedName, record);
     }
   }
 
-  const latestName = await findMostRecentSaveName(
+  const latestRecord = await findMostRecentSave(
     saveStorage,
     gameId,
     availableNames,
   );
-  if (latestName) {
-    return createSaveStorageKey(romInfo.title, latestName);
+  if (latestRecord) {
+    return toKey(latestRecord.name, latestRecord);
   }
 
   if (availableNames.length > 0) {
-    return createSaveStorageKey(romInfo.title, availableNames[0]);
+    const fallbackName = availableNames[0];
+    const record = await saveStorage.read({
+      gameId,
+      name: fallbackName,
+    });
+    return toKey(fallbackName, record);
   }
 
   clearActiveSaveName(gameId);
@@ -135,22 +150,29 @@ export async function fetchPreferredSavePayload(params: {
     return null;
   }
 
-  let payload = await saveStorage.read(saveKey);
-  if (!payload && romInfo) {
+  let record = await saveStorage.read(saveKey);
+  if (!record && romInfo) {
     const fallbackKey = await resolveSaveKey({ romInfo, saveStorage });
     if (
       fallbackKey &&
       (fallbackKey.gameId !== saveKey.gameId ||
-        fallbackKey.name !== saveKey.name)
+        fallbackKey.name !== saveKey.name ||
+        fallbackKey.id !== saveKey.id)
     ) {
       saveKey = fallbackKey;
-      payload = await saveStorage.read(saveKey);
+      record = await saveStorage.read(saveKey);
     }
   }
 
-  if (!payload) {
+  if (!record) {
     return null;
   }
 
-  return { key: saveKey, payload };
+  const resolvedKey: SaveStorageKey = {
+    gameId: record.gameId,
+    name: record.name,
+    id: record.id,
+  };
+
+  return { key: resolvedKey, payload: record.payload };
 }

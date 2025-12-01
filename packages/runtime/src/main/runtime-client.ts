@@ -49,7 +49,10 @@ export interface RuntimeClient {
     rom: Uint8Array,
     options?: { skipPersistentLoad?: boolean; saveName?: string },
   ): Promise<void>;
-  loadSave(payload: SavePayload, options?: { name?: string }): Promise<void>;
+  loadSave(
+    payload: SavePayload,
+    options?: { name?: string; id?: string },
+  ): Promise<void>;
   start(): Promise<void>;
   pause(): Promise<void>;
   reset(options?: { hard?: boolean }): Promise<void>;
@@ -181,13 +184,16 @@ export async function createRuntimeClient(
 
     currentSaveKey = resolved.key;
     const payload = deserializeSavePayload(resolved.payload);
-    await loadSave(payload, { name: currentSaveKey.name });
+    await loadSave(payload, {
+      name: currentSaveKey.name,
+      id: currentSaveKey.id,
+    });
     rememberActiveSaveName(currentSaveKey);
   }
 
   async function loadSave(
     payload: SavePayload,
-    saveOptions?: { name?: string },
+    saveOptions?: { name?: string; id?: string },
   ): Promise<void> {
     const batteryCopy = payload.battery.slice();
     const rtcCopy = payload.rtc ? payload.rtc.slice() : undefined;
@@ -197,9 +203,15 @@ export async function createRuntimeClient(
     }
 
     if (options.saveStorage && currentRomInfo && saveOptions?.name) {
+      const resolvedId =
+        saveOptions.id ??
+        (currentSaveKey?.name === saveOptions.name
+          ? currentSaveKey?.id
+          : undefined);
       currentSaveKey = createSaveStorageKey(
         currentRomInfo.title,
         saveOptions.name,
+        resolvedId,
       );
     }
 
