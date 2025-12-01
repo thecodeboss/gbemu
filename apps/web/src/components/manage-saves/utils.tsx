@@ -4,7 +4,6 @@ import {
   SerializedSavePayload,
   createSaveStorageKey,
   deserializeSavePayload,
-  normalizeSaveGameId,
   serializeSavePayload,
 } from "@gbemu/runtime";
 
@@ -121,10 +120,9 @@ export async function exportSaveEntry(
   });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  const safeTitle = romTitle ? normalizeSaveGameId(romTitle) : "gbemu";
   const saveName = entry.name;
   anchor.href = url;
-  anchor.download = `${safeTitle}-${saveName}.sav`;
+  anchor.download = `${saveName}.sav`;
   anchor.click();
   URL.revokeObjectURL(url);
   return `Exported ${saveName}.`;
