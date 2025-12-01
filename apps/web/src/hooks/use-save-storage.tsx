@@ -3,22 +3,33 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import { SaveStorageAdapter, createIndexedDbSaveAdapter } from "@gbemu/runtime";
 
+import {
+  SupabaseSyncedSaveStorage,
+  SaveSyncState,
+  createSupabaseSaveAdapter,
+} from "@/lib/save-sync";
+import { supabase } from "@/lib/supabase/client";
 import { useCurrentRom } from "@/hooks/use-current-rom";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SaveStorageContextValue {
   saveStorage: SaveStorageAdapter | null;
   ensureSaveStorage: () => SaveStorageAdapter | null;
+  refreshRemoteSaves: () => Promise<void>;
   isSaveManagerOpen: boolean;
   openSaveManager: () => void;
   closeSaveManager: () => void;
   romTitle: string | null;
   setRomTitle: (title: string | null) => void;
+  syncStateById: Record<string, SaveSyncState>;
 }
 
 const SaveStorageContext = createContext<SaveStorageContextValue | undefined>(
@@ -26,19 +37,44 @@ const SaveStorageContext = createContext<SaveStorageContextValue | undefined>(
 );
 
 export function SaveStorageProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const { rom } = useCurrentRom();
+  const adapterRef = useRef<SupabaseSyncedSaveStorage | null>(null);
+  const [syncStateById, setSyncStateById] = useState<
+    Record<string, SaveSyncState>
+  >({});
   const [saveStorage, setSaveStorage] = useState<SaveStorageAdapter | null>(
-    null,
+    () => {
+      try {
+        const baseAdapter = createIndexedDbSaveAdapter();
+        return createSupabaseSaveAdapter({
+          baseAdapter,
+          onStatusChange: setSyncStateById,
+        });
+      } catch (err) {
+        console.error(err);
+        return null;
+      }
+    },
   );
   const [isSaveManagerOpen, setIsSaveManagerOpen] = useState(false);
   const [romTitle, setRomTitle] = useState<string | null>(null);
 
   const ensureSaveStorage = useCallback((): SaveStorageAdapter | null => {
+    if (adapterRef.current) {
+      return adapterRef.current;
+    }
     if (saveStorage) {
+      adapterRef.current = saveStorage as SupabaseSyncedSaveStorage;
       return saveStorage;
     }
     try {
-      const adapter = createIndexedDbSaveAdapter();
+      const baseAdapter = createIndexedDbSaveAdapter();
+      const adapter = createSupabaseSaveAdapter({
+        baseAdapter,
+        onStatusChange: setSyncStateById,
+      });
+      adapterRef.current = adapter;
       setSaveStorage(adapter);
       return adapter;
     } catch (err) {
@@ -46,7 +82,7 @@ export function SaveStorageProvider({ children }: { children: ReactNode }) {
       setSaveStorage(null);
       return null;
     }
-  }, [saveStorage]);
+  }, [saveStorage, setSyncStateById]);
 
   const openSaveManager = useCallback(() => {
     const adapter = ensureSaveStorage();
@@ -60,15 +96,39 @@ export function SaveStorageProvider({ children }: { children: ReactNode }) {
     setIsSaveManagerOpen(false);
   }, []);
 
+  const refreshRemoteSaves = useCallback(async () => {
+    const adapter = ensureSaveStorage() as SupabaseSyncedSaveStorage | null;
+    if (!adapter) {
+      return;
+    }
+    await adapter.syncFromSupabase();
+    await adapter.flushQueue();
+    setSyncStateById(adapter.getSyncStateMap());
+  }, [ensureSaveStorage]);
+
+  useEffect(() => {
+    adapterRef.current = saveStorage as SupabaseSyncedSaveStorage | null;
+  }, [saveStorage]);
+
+  useEffect(() => {
+    const adapter = adapterRef.current as SupabaseSyncedSaveStorage | null;
+    if (!adapter) {
+      return;
+    }
+    void adapter.setRemote(user ? supabase : null, user ? user.id : null);
+  }, [user]);
+
   const value = useMemo(
     () => ({
       saveStorage,
       ensureSaveStorage,
+      refreshRemoteSaves,
       isSaveManagerOpen,
       openSaveManager,
       closeSaveManager,
       romTitle,
       setRomTitle,
+      syncStateById,
     }),
     [
       closeSaveManager,
@@ -78,6 +138,8 @@ export function SaveStorageProvider({ children }: { children: ReactNode }) {
       setRomTitle,
       romTitle,
       saveStorage,
+      refreshRemoteSaves,
+      syncStateById,
     ],
   );
 

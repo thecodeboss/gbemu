@@ -17,14 +17,26 @@ export interface SaveStorageRecord {
   updatedAt: number;
 }
 
+export interface SaveWriteOptions {
+  createdAt?: number;
+  updatedAt?: number;
+  /**
+   * Optional hint for higher-level adapters to skip cross-system sync.
+   * Local adapters can ignore this flag safely.
+   */
+  skipSync?: boolean;
+}
+
 export interface SaveStorageAdapter {
   read(key: SaveStorageKey): Promise<SaveStorageRecord | null>;
   write(
     key: SaveStorageKey,
     payload: SerializedSavePayload,
+    options?: SaveWriteOptions,
   ): Promise<SaveStorageRecord>;
   clear(key: SaveStorageKey): Promise<void>;
   listNames?(gameId: string): Promise<string[]>;
+  listAll?(): Promise<SaveStorageRecord[]>;
 }
 
 export const DEFAULT_SAVE_NAME = "Save 1";

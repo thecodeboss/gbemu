@@ -4,6 +4,7 @@ import {
   SerializedSavePayload,
   SaveStorageRecord,
   normalizeSaveGameId,
+  SaveWriteOptions,
 } from "./storage.js";
 
 export interface IndexedDbSaveAdapterOptions {
@@ -111,9 +112,10 @@ export function createIndexedDbSaveAdapter(
     async write(
       key,
       payload: SerializedSavePayload,
+      options?: SaveWriteOptions,
     ): Promise<SaveStorageRecord> {
       const normalizedKey = normalizeKey(key);
-      const timestamp = Date.now();
+      const timestamp = options?.updatedAt ?? Date.now();
       const db = await openDatabase();
 
       return await new Promise<SaveStorageRecord>((resolve, reject) => {
@@ -134,8 +136,8 @@ export function createIndexedDbSaveAdapter(
             gameId: normalizedKey.gameId,
             name: normalizedKey.name,
             payload: payload.slice(),
-            createdAt: existing?.createdAt ?? timestamp,
-            updatedAt: timestamp,
+            createdAt: options?.createdAt ?? existing?.createdAt ?? timestamp,
+            updatedAt: options?.updatedAt ?? timestamp,
           };
 
           const putRequest = store.put(record);
@@ -236,6 +238,12 @@ export function createIndexedDbSaveAdapter(
         return index.getAll(IDBKeyRange.only(normalizedGameId));
       });
       return rows.map((row) => row.name);
+    },
+
+    async listAll(): Promise<SaveStorageRecord[]> {
+      return withStore<SaveStorageRecord[]>("readonly", (store) =>
+        store.getAll(),
+      );
     },
   };
 }

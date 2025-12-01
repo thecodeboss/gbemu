@@ -16,6 +16,7 @@ import {
 import { useSaveStorage } from "@/hooks/use-save-storage";
 import { useEmulator } from "@/hooks/use-emulator";
 import { useCurrentRom } from "@/hooks/use-current-rom";
+import { SaveSyncState } from "@/lib/save-sync";
 
 import {
   LoadTarget,
@@ -56,13 +57,19 @@ export interface SaveManagerContext {
   loadTarget: LoadTarget;
   deleteTarget: SaveEntry | null;
   confirmationType: "load" | "start-new";
+  syncStateById: Record<string, SaveSyncState>;
   state: SaveManagerState;
   actions: SaveManagerActions;
 }
 
 export function useManageSaves(): SaveManagerContext {
-  const { isSaveManagerOpen, closeSaveManager, saveStorage, romTitle } =
-    useSaveStorage();
+  const {
+    isSaveManagerOpen,
+    closeSaveManager,
+    saveStorage,
+    romTitle,
+    syncStateById,
+  } = useSaveStorage();
   const { rom } = useCurrentRom();
   const { runtime } = useEmulator();
 
@@ -329,6 +336,7 @@ export function useManageSaves(): SaveManagerContext {
     loadTarget,
     deleteTarget,
     confirmationType: loadTarget?.type ?? lastConfirmationType,
+    syncStateById,
     state: {
       statusMessage,
       error,
