@@ -1,3 +1,4 @@
+import { Apu } from "./apu.js";
 import { decodeCgbColor } from "./colors.js";
 import { InterruptType } from "./cpu-instructions/constants.js";
 import { JoypadInputState, createEmptyJoypadState } from "./input.js";
@@ -159,6 +160,7 @@ export class SystemBus {
   #ticksPerCpuCycle = 4;
   #pendingInterrupts = new Set<InterruptType>();
   #mbc: Mbc | null = null;
+  #apu: Apu | null = null;
   #fixedRomView: Uint8Array = new Uint8Array(0);
   #switchableRomView: Uint8Array = new Uint8Array(0);
   #externalRamMirrorDirty = false;
@@ -205,6 +207,10 @@ export class SystemBus {
     this.#doubleSpeed = false;
     this.#speedSwitchRequested = false;
     this.#ticksPerCpuCycle = 4;
+  }
+
+  attachApu(apu: Apu | null): void {
+    this.#apu = apu;
   }
 
   getTicksPerCpuCycle(): number {
@@ -356,6 +362,13 @@ export class SystemBus {
       return 0xff;
     }
 
+    if (this.#apu && mappedAddress >= 0xff10 && mappedAddress <= 0xff3f) {
+      const value = this.#apu.readRegister(mappedAddress);
+      if (value !== null && value !== undefined) {
+        return this.#applyForcedOnes(mappedAddress, value & 0xff);
+      }
+    }
+
     if (this.#mbc) {
       const value = this.#mbc.read(mappedAddress);
       if (value !== null && value !== undefined) {
@@ -431,6 +444,16 @@ export class SystemBus {
     }
 
     if (this.#isUnmappedIoRegister(mappedAddress)) {
+      return;
+    }
+
+    if (this.#apu && mappedAddress >= 0xff10 && mappedAddress <= 0xff3f) {
+      const normalized = this.#applyForcedOnes(mappedAddress, byteValue);
+      this.#memory[mappedAddress] = normalized;
+      this.#apu.writeRegister(mappedAddress, normalized);
+      if (!suppressCallbacks) {
+        this.#emitIoWrite(mappedAddress, normalized);
+      }
       return;
     }
 
@@ -966,8 +989,10 @@ export class SystemBus {
       this.#memory[RP_REGISTER_ADDRESS] ?? 0x00;
     handlers[OPRI_REGISTER_ADDRESS - 0xff4c] = () =>
       this.#memory[OPRI_REGISTER_ADDRESS] ?? 0x01;
-    handlers[PCM12_REGISTER_ADDRESS - 0xff4c] = () => 0x00;
-    handlers[PCM34_REGISTER_ADDRESS - 0xff4c] = () => 0x00;
+    handlers[PCM12_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#apu?.readPcm12() ?? 0x00;
+    handlers[PCM34_REGISTER_ADDRESS - 0xff4c] = () =>
+      this.#apu?.readPcm34() ?? 0x00;
 
     this.#cgbRegisterHandlers = handlers;
   }
