@@ -1152,9 +1152,17 @@ export class SystemBus {
   }
 
   #writeDivider(): void {
-    this.#updateTimerSignalOnCounterChange(this.#dividerCounter, 0);
+    const previousCounter = this.#dividerCounter;
+    const divApuMask = this.#doubleSpeed ? 1 << 13 : 1 << 12;
+    const divApuBitHigh = (previousCounter & divApuMask) !== 0;
+
+    this.#updateTimerSignalOnCounterChange(previousCounter, 0);
     this.#dividerCounter = 0;
     this.#memory[DIVIDER_REGISTER_ADDRESS] = 0;
+
+    if (this.#apu) {
+      this.#apu.handleDividerReset(divApuBitHigh);
+    }
   }
 
   #writeTima(value: number): void {

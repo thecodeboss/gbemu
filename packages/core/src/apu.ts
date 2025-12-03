@@ -10,6 +10,9 @@ const CYCLES_512HZ = 8192;
 const MAX_SAMPLE_VALUE = 0x7f;
 const DEFAULT_SAMPLE_RATE = 48_000;
 const MAX_BUFFER_SECONDS = 2;
+const MASTER_CLOCK_HZ = 4_194_304;
+const HIGH_PASS_BASE_DMG = 0.999958;
+const HIGH_PASS_BASE_CGB = 0.998943;
 
 function clamp(value: number, min: number, max: number): number {
   if (value < min) return min;
@@ -573,6 +576,9 @@ export class Apu {
   #nextFrameSequencerCycle = CYCLES_512HZ;
   #frameSequencerStep = 0;
   #cycleCounter = 0;
+  #highPassLeftCap = 0;
+  #highPassRightCap = 0;
+  #highPassCharge = 0.996;
 
   #nr50 = 0x77;
   #nr51 = 0xf3;
@@ -601,6 +607,8 @@ export class Apu {
     this.#nextFrameSequencerCycle = CYCLES_512HZ;
     this.#frameSequencerStep = 0;
     this.#sampleQueue.length = 0;
+    this.#highPassLeftCap = 0;
+    this.#highPassRightCap = 0;
 
     this.#nr50 = 0x77;
     this.#nr51 = 0xf3;
@@ -622,6 +630,7 @@ export class Apu {
     const samplesPerFrame = Math.max(1, Math.floor(this.#sampleRate / 60));
     this.#cyclesPerSample = Clock.FRAME_CYCLES / samplesPerFrame;
     this.#nextSampleCycle = this.#cycleCounter + this.#cyclesPerSample;
+    this.#highPassCharge = this.#computeHighPassCharge();
     this.clearAudioBuffers();
   }
 
@@ -910,6 +919,7 @@ export class Apu {
     let left = 0;
     let right = 0;
 
+    const dacsEnabled = this.#dacsEnabled();
     if (this.#powerOn) {
       if (this.#leftEnable.sweep) {
         left += this.#sweepChannel.sample();
@@ -947,7 +957,17 @@ export class Apu {
     const leftSample = normalizeMixedSample(leftClamped) * (leftLevel / 8);
     const rightSample = normalizeMixedSample(rightClamped) * (rightLevel / 8);
 
-    this.#pushSample(leftSample, rightSample);
+    const filteredLeft = this.#applyHighPass(leftSample, dacsEnabled, "left");
+    const filteredRight = this.#applyHighPass(
+      rightSample,
+      dacsEnabled,
+      "right",
+    );
+
+    this.#pushSample(
+      clamp(filteredLeft, -1, 1),
+      clamp(filteredRight, -1, 1),
+    );
   }
 
   #pushSample(left: number, right: number): void {
@@ -983,11 +1003,66 @@ export class Apu {
     this.#toneChannel.reset();
     this.#waveChannel.reset();
     this.#noiseChannel.reset();
+    this.#highPassLeftCap = 0;
+    this.#highPassRightCap = 0;
   }
 
   #resetFrameSequencerTiming(): void {
     this.#frameSequencerStep = 0;
     this.#nextFrameSequencerCycle = this.#cycleCounter + CYCLES_512HZ;
+  }
+
+  handleDividerReset(divApuBitWasHigh: boolean): void {
+    if (divApuBitWasHigh) {
+      this.#runFrameSequencer();
+    }
+    this.#resetFrameSequencerTiming();
+  }
+
+  #dacsEnabled(): boolean {
+    const sweepDac =
+      this.#sweepChannel.envelopeVolume > 0 ||
+      this.#sweepChannel.envelopeDirection !== 0;
+    const toneDac =
+      this.#toneChannel.envelopeVolume > 0 ||
+      this.#toneChannel.envelopeDirection !== 0;
+    const waveDac = this.#waveChannel.dacPower !== 0;
+    const noiseDac =
+      this.#noiseChannel.envelopeVolume > 0 ||
+      this.#noiseChannel.envelopeDirection !== 0;
+    return sweepDac || toneDac || waveDac || noiseDac;
+  }
+
+  #applyHighPass(
+    input: number,
+    dacsEnabled: boolean,
+    channel: "left" | "right",
+  ): number {
+    if (!dacsEnabled) {
+      if (channel === "left") {
+        this.#highPassLeftCap = 0;
+      } else {
+        this.#highPassRightCap = 0;
+      }
+      return 0;
+    }
+
+    if (channel === "left") {
+      const out = input - this.#highPassLeftCap;
+      this.#highPassLeftCap = input - out * this.#highPassCharge;
+      return out;
+    }
+
+    const out = input - this.#highPassRightCap;
+    this.#highPassRightCap = input - out * this.#highPassCharge;
+    return out;
+  }
+
+  #computeHighPassCharge(): number {
+    const base = this.#bus.isCgbHardware()
+      ? HIGH_PASS_BASE_CGB
+      : HIGH_PASS_BASE_DMG;
+    return Math.pow(base, MASTER_CLOCK_HZ / this.#sampleRate);
   }
 }
 
