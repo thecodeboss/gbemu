@@ -60,7 +60,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
 - `src/rom/` groups all ROM helpers: `info.ts` parses cartridge metadata (`parseRomInfo`), `sizes.ts` handles ROM/RAM sizing helpers, `disassemble.ts` produces structured `Instruction` objects, and `format.ts` renders them via `formatDisassembledRom`; `index.ts` re-exports the public surface for consumers.
 - A shared DMG palette (`palette.ts`) is exported and used by both the PPU framebuffer and UI tooling (Tile Viewer) so debug tools and on-screen output use the same hues.
 - Export surface collected in `src/index.ts`; package compiles to `dist/` via `pnpm --filter @gbemu/core build`.
-- Tests: Vitest-based Mooneye acceptance ROMs and emulator-only MBC suites live in `packages/core/tests` (hardware mode inferred from ROM name: `cgb` → CGB, `dmg` → DMG); run them with `pnpm --filter @gbemu/core test` (each ROM has a ~10s window to hit the LD B, B sentinel).
+- Tests: Vitest-based Mooneye acceptance ROMs and emulator-only MBC suites live in `packages/core/tests` (hardware mode inferred from ROM name: `cgb` → CGB, `dmg` → DMG); run them with `pnpm --filter @gbemu/core test` (each ROM has a ~10s window to hit the LD B, B sentinel). Blargg gb-test-roms suites are also covered in `packages/core/tests/gb-test-roms.test.ts`, using either serial output ("Passed") or the $A000 text-out signature (A001-A003 = DE B0 61, running marker $80 at A000, log at A004) for pass/fail; only the individual ROMs are included (bulk runners are skipped per the readmes).
 
 ### `@gbemu/runtime` (`packages/runtime`)
 
