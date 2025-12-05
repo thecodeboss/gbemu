@@ -22,7 +22,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function normalizeMixedSample(value: number): number {
-  const centered = value / (MAX_SAMPLE_VALUE / 2) - 1;
+  const centered = value / (MAX_SAMPLE_VALUE / 2);
   return clamp(centered, -1, 1);
 }
 
@@ -984,10 +984,7 @@ export class Apu {
       "right",
     );
 
-    this.#pushSample(
-      clamp(filteredLeft, -1, 1),
-      clamp(filteredRight, -1, 1),
-    );
+    this.#pushSample(clamp(filteredLeft, -1, 1), clamp(filteredRight, -1, 1));
   }
 
   #pushSample(left: number, right: number): void {
@@ -1029,10 +1026,10 @@ export class Apu {
 
   #resetFrameSequencerTiming(): void {
     const divCounter = this.#bus.getDividerCounter();
-    const framePeriod =
-      CYCLES_512HZ << (this.#bus.isDoubleSpeed() ? 1 : 0); // DIV bit 4 (bit 5 in double-speed) falling edge
+    const framePeriod = CYCLES_512HZ << (this.#bus.isDoubleSpeed() ? 1 : 0); // DIV bit 4 (bit 5 in double-speed) falling edge
     const remainder = divCounter % framePeriod;
-    const cyclesUntilEdge = remainder === 0 ? framePeriod : framePeriod - remainder;
+    const cyclesUntilEdge =
+      remainder === 0 ? framePeriod : framePeriod - remainder;
     this.#frameSequencerStep = 0;
     this.#nextFrameSequencerCycle = this.#cycleCounter + cyclesUntilEdge;
   }
