@@ -72,7 +72,7 @@ class ToneChannel {
       case 0:
         return 0;
       case 1:
-        return (this.waveDuty << 6) & 0xc0;
+        return (this.waveDuty << 6) | 0x3f;
       case 2:
         return (
           ((this.envelopeVolume & 0x0f) << 4) |
@@ -80,9 +80,9 @@ class ToneChannel {
           (this.envelopePace & 0x07)
         );
       case 3:
-        return 0;
+        return 0xff;
       case 4:
-        return (this.lengthEnable & 0x01) << 6;
+        return 0xbf | ((this.lengthEnable & 0x01) << 6);
       default:
         return 0xff;
     }
@@ -176,7 +176,7 @@ class ToneChannel {
     this.periodTimer = this.period;
     this.envelopeTimer = this.envelopePace;
     this.volume = this.envelopeVolume;
-    if (this.envelopePace === 0 && this.envelopeVolume === 0) {
+    if (this.envelopeVolume === 0 && this.envelopeDirection === 0) {
       this.enable = 0;
     }
   }
@@ -285,7 +285,22 @@ class WaveChannel {
   volumeShift = 0;
 
   reset(): void {
+    this.waveFrame = 0;
+    this.periodTimer = 0;
+    this.period = 4;
+    this.lengthTimer = 256;
+    this.volumeShift = 0;
+    this.enable = 0;
+    this.lengthEnable = 0;
+    this.soundPeriod = 0;
+    this.initLengthTimer = 0;
+    this.volReg = 0;
+    this.dacPower = 0;
     this.wavetable.fill(0xff);
+  }
+
+  powerOff(): void {
+    // Preserve wave RAM contents when the APU is powered off.
     this.dacPower = 0;
     this.initLengthTimer = 0;
     this.volReg = 0;
@@ -561,7 +576,7 @@ class NoiseChannel {
     this.envelopeTimer = this.envelopePace;
     this.volume = this.envelopeVolume;
     this.shiftRegister = 0x7fff;
-    if (this.envelopePace === 0 && this.envelopeVolume === 0) {
+    if (this.envelopeVolume === 0 && this.envelopeDirection === 0) {
       this.enable = 0;
     }
   }
@@ -604,8 +619,6 @@ export class Apu {
   reset(): void {
     this.#cycleCounter = 0;
     this.#nextSampleCycle = this.#cyclesPerSample;
-    this.#nextFrameSequencerCycle = CYCLES_512HZ;
-    this.#frameSequencerStep = 0;
     this.#sampleQueue.length = 0;
     this.#highPassLeftCap = 0;
     this.#highPassRightCap = 0;
@@ -619,6 +632,8 @@ export class Apu {
     this.#toneChannel.reset();
     this.#waveChannel.reset();
     this.#noiseChannel.reset();
+
+    this.#resetFrameSequencerTiming();
   }
 
   setOutputSampleRate(rate: number): void {
@@ -759,7 +774,7 @@ export class Apu {
     const cgbHardware = this.#bus.isCgbHardware();
 
     if (offset < 20) {
-      if (this.#powerOn || (!cgbHardware && offset % 5 === 1)) {
+      if (this.#powerOn) {
         const channelIndex = Math.floor(offset / 5);
         const reg = offset % 5;
         switch (channelIndex) {
@@ -894,25 +909,26 @@ export class Apu {
   }
 
   #runFrameSequencer(): void {
-    this.#frameSequencerStep = (this.#frameSequencerStep + 1) & 0x07;
     const step = this.#frameSequencerStep;
 
-    if (step % 2 === 0) {
+    if (step === 0 || step === 2 || step === 4 || step === 6) {
       this.#sweepChannel.tickLength();
       this.#toneChannel.tickLength();
       this.#waveChannel.tickLength();
       this.#noiseChannel.tickLength();
     }
 
-    if (step % 4 === 0) {
+    if (step === 2 || step === 6) {
       this.#sweepChannel.tickSweep();
     }
 
-    if (step % 8 === 0) {
+    if (step === 7) {
       this.#sweepChannel.tickEnvelope();
       this.#toneChannel.tickEnvelope();
       this.#noiseChannel.tickEnvelope();
     }
+
+    this.#frameSequencerStep = (step + 1) & 0x07;
   }
 
   #mixSample(): void {
@@ -1001,22 +1017,61 @@ export class Apu {
     this.#applyStereoPanning(0);
     this.#sweepChannel.reset();
     this.#toneChannel.reset();
-    this.#waveChannel.reset();
+    this.#waveChannel.powerOff();
     this.#noiseChannel.reset();
     this.#highPassLeftCap = 0;
     this.#highPassRightCap = 0;
   }
 
   #resetFrameSequencerTiming(): void {
+    const divCounter = this.#bus.getDividerCounter();
+    const framePeriod =
+      CYCLES_512HZ << (this.#bus.isDoubleSpeed() ? 1 : 0); // DIV bit 4 falling edge
+    const remainder = divCounter % framePeriod;
+    const cyclesUntilEdge = remainder === 0 ? framePeriod : framePeriod - remainder;
     this.#frameSequencerStep = 0;
-    this.#nextFrameSequencerCycle = this.#cycleCounter + CYCLES_512HZ;
+    this.#nextFrameSequencerCycle = this.#cycleCounter + cyclesUntilEdge;
   }
 
   handleDividerReset(divApuBitWasHigh: boolean): void {
     if (divApuBitWasHigh) {
       this.#runFrameSequencer();
     }
+    const previousStep = this.#frameSequencerStep;
     this.#resetFrameSequencerTiming();
+    this.#frameSequencerStep = previousStep;
+  }
+
+  debugGetChannelState(): {
+    frameSequencerStep: number;
+    sweep: { enable: number; lengthTimer: number; lengthEnable: number };
+    tone: { enable: number; lengthTimer: number; lengthEnable: number };
+    wave: { enable: number; lengthTimer: number; lengthEnable: number };
+    noise: { enable: number; lengthTimer: number; lengthEnable: number };
+  } {
+    return {
+      frameSequencerStep: this.#frameSequencerStep,
+      sweep: {
+        enable: this.#sweepChannel.enable,
+        lengthTimer: this.#sweepChannel.lengthTimer,
+        lengthEnable: this.#sweepChannel.lengthEnable,
+      },
+      tone: {
+        enable: this.#toneChannel.enable,
+        lengthTimer: this.#toneChannel.lengthTimer,
+        lengthEnable: this.#toneChannel.lengthEnable,
+      },
+      wave: {
+        enable: this.#waveChannel.enable,
+        lengthTimer: this.#waveChannel.lengthTimer,
+        lengthEnable: this.#waveChannel.lengthEnable,
+      },
+      noise: {
+        enable: this.#noiseChannel.enable,
+        lengthTimer: this.#noiseChannel.lengthTimer,
+        lengthEnable: this.#noiseChannel.lengthEnable,
+      },
+    };
   }
 
   #dacsEnabled(): boolean {

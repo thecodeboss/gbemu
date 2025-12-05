@@ -217,6 +217,10 @@ export class SystemBus {
     return this.#ticksPerCpuCycle;
   }
 
+  getDividerCounter(): number {
+    return this.#dividerCounter;
+  }
+
   isDoubleSpeed(): boolean {
     return this.#doubleSpeed;
   }

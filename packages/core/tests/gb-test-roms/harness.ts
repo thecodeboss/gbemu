@@ -195,6 +195,7 @@ export async function runMemoryBackedRomTest(
   const emulator = createTestEmulator(testCase.mode);
   const { readText: readSerial, restore } = tapSerialOutput(emulator);
   let signatureSeen = false;
+  let runningSeen = false;
   let steps = 0;
   let passSeen = false;
 
@@ -217,23 +218,41 @@ export async function runMemoryBackedRomTest(
       const lowerText = textOut.toLowerCase();
 
       if (lowerText.includes("failed")) {
+        const apuState = emulator.apu.debugGetChannelState();
         throw new Error(
-          `ROM reported failure via text output; log="${truncateSerialOutput(textOut)}" (steps=${steps})`,
+          `ROM reported failure via text output; log="${truncateSerialOutput(textOut)}" (steps=${steps}, apu=${JSON.stringify(apuState)})`,
         );
       }
       passSeen = passSeen || lowerText.includes("passed");
 
       const signatureMatches = MEMORY_SIGNATURE.every(
         (byte, index) =>
-          (emulator.bus.readByte(MEMORY_SIGNATURE_ADDRESS + index) & 0xff) === byte,
+        (emulator.bus.readByte(MEMORY_SIGNATURE_ADDRESS + index) & 0xff) === byte,
       );
       signatureSeen = signatureSeen || signatureMatches;
 
       const status = emulator.bus.readByte(MEMORY_RESULT_ADDRESS) & 0xff;
-      if (signatureSeen && status !== MEMORY_RUNNING_VALUE) {
+      runningSeen = runningSeen || (signatureSeen && status === MEMORY_RUNNING_VALUE);
+
+      if (runningSeen && status !== MEMORY_RUNNING_VALUE) {
         if (status === 0 && !passSeen) {
+          const textBytes = Array.from({ length: 32 }, (_, idx) =>
+            emulator.bus.readByte(MEMORY_TEXT_ADDRESS + idx) & 0xff,
+          );
+          const textPointerLo = emulator.bus.readByte(0xd883) & 0xff;
+          const textPointerHi = emulator.bus.readByte(0xd884) & 0xff;
+          const testCode = emulator.bus.readByte(0xd880) & 0xff;
+          const testNameLo = emulator.bus.readByte(0xd881) & 0xff;
+          const testNameHi = emulator.bus.readByte(0xd882) & 0xff;
+          const pc = emulator.cpu.state.registers.pc & 0xffff;
           throw new Error(
-            `ROM stopped with status 0 but without reporting pass; text="${truncateSerialOutput(textOut)}", serial="${truncateSerialOutput(serialLog)}" (steps=${steps})`,
+            `ROM stopped with status 0 but without reporting pass; text="${truncateSerialOutput(textOut)}", serial="${truncateSerialOutput(serialLog)}", rawText=${textBytes
+              .map((v) => v.toString(16).padStart(2, "0"))
+              .join(" ")}, textPtr=0x${textPointerHi.toString(16).padStart(2, "0")}${textPointerLo.toString(16).padStart(2, "0")}, testCode=0x${testCode
+              .toString(16)
+              .padStart(2, "0")}, testName=0x${testNameHi
+              .toString(16)
+              .padStart(2, "0")}${testNameLo.toString(16).padStart(2, "0")}, pc=0x${pc.toString(16).padStart(4, "0")} (steps=${steps})`,
           );
         }
         if (status !== 0) {
