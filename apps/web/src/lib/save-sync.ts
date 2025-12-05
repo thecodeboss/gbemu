@@ -118,6 +118,21 @@ function decodeSupabasePayload(value: unknown): Uint8Array | null {
   return null;
 }
 
+function parseSupabaseTimestamp(value: unknown): number {
+  if (value === null || value === undefined) {
+    return NaN;
+  }
+  const timestamp = String(value).trim();
+  if (timestamp === "") {
+    return NaN;
+  }
+
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(timestamp);
+  const normalized = hasTimezone ? timestamp : `${timestamp}Z`;
+
+  return Date.parse(normalized);
+}
+
 function serializeQueue(queue: QueueOperation[]): PersistedQueueOperation[] {
   return queue.map((operation) =>
     operation.type === "delete"
@@ -219,8 +234,8 @@ function toSaveStorageRecord(row: {
   if (!payload) {
     return null;
   }
-  const createdAt = row.createdAt ? Date.parse(String(row.createdAt)) : NaN;
-  const updatedAt = row.updatedAt ? Date.parse(String(row.updatedAt)) : NaN;
+  const createdAt = parseSupabaseTimestamp(row.createdAt);
+  const updatedAt = parseSupabaseTimestamp(row.updatedAt);
   const createdMs = Number.isNaN(createdAt) ? Date.now() : createdAt;
   const updatedMs = Number.isNaN(updatedAt) ? createdMs : updatedAt;
 
