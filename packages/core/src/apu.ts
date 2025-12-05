@@ -775,7 +775,6 @@ export class Apu {
     }
     const offset = address - SOUND_REGISTER_START;
     const byteValue = value & 0xff;
-    const cgbHardware = this.#bus.isCgbHardware();
 
     if (offset < 20) {
       if (this.#powerOn) {

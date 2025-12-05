@@ -60,12 +60,42 @@ const interruptTimeRom = makeTestCase(
 );
 
 const suites = [
-  { name: "cpu_instrs individual ROMs", roms: cpuInstrRoms, runner: runSerialRomTest, timeout: LONG_SERIAL_TIMEOUT_MS },
-  { name: "mem_timing individual ROMs", roms: memTimingRoms, runner: runSerialRomTest, timeout: SERIAL_TIMEOUT_MS },
-  { name: "mem_timing-2 ROM singles", roms: memTiming2Roms, runner: runMemoryBackedRomTest, timeout: MEMORY_TIMEOUT_MS },
-  { name: "dmg_sound ROM singles", roms: dmgSoundRoms, runner: runMemoryBackedRomTest, timeout: MEMORY_TIMEOUT_MS },
-  { name: "cgb_sound ROM singles", roms: cgbSoundRoms, runner: runMemoryBackedRomTest, timeout: MEMORY_TIMEOUT_MS },
-  { name: "oam_bug ROM singles", roms: oamBugRoms, runner: runMemoryBackedRomTest, timeout: MEMORY_TIMEOUT_MS },
+  {
+    name: "cpu_instrs individual ROMs",
+    roms: cpuInstrRoms,
+    runner: runSerialRomTest,
+    timeout: LONG_SERIAL_TIMEOUT_MS,
+  },
+  {
+    name: "mem_timing individual ROMs",
+    roms: memTimingRoms,
+    runner: runSerialRomTest,
+    timeout: SERIAL_TIMEOUT_MS,
+  },
+  {
+    name: "mem_timing-2 ROM singles",
+    roms: memTiming2Roms,
+    runner: runMemoryBackedRomTest,
+    timeout: MEMORY_TIMEOUT_MS,
+  },
+  {
+    name: "dmg_sound ROM singles",
+    roms: dmgSoundRoms,
+    runner: runMemoryBackedRomTest,
+    timeout: MEMORY_TIMEOUT_MS,
+  },
+  {
+    name: "cgb_sound ROM singles",
+    roms: cgbSoundRoms,
+    runner: runMemoryBackedRomTest,
+    timeout: MEMORY_TIMEOUT_MS,
+  },
+  {
+    name: "oam_bug ROM singles",
+    roms: oamBugRoms,
+    runner: runMemoryBackedRomTest,
+    timeout: MEMORY_TIMEOUT_MS,
+  },
 ];
 
 for (const suite of suites) {
