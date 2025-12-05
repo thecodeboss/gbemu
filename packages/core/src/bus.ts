@@ -409,7 +409,13 @@ export class SystemBus {
     }
 
     if (this.#isCgbRegister(mappedAddress) && !this.#cgbMode) {
-      return;
+      // Allow KEY1 writes on CGB hardware even in compatibility mode so
+      // double-speed requests issued before switching modes can still be honored.
+      const allowKey1Write =
+        this.#hardwareMode === "cgb" && mappedAddress === KEY1_REGISTER_ADDRESS;
+      if (!allowKey1Write) {
+        return;
+      }
     }
 
     if (mappedAddress >= 0x8000 && mappedAddress < 0xa000) {
@@ -567,6 +573,7 @@ export class SystemBus {
       return;
     }
 
+    const increment = this.#doubleSpeed ? 2 : 1;
     let remainingTicks = cycles * this.#ticksPerCpuCycle;
     const skipOamDma = this.#suppressOamDmaStep;
     if (skipOamDma) {
@@ -578,9 +585,14 @@ export class SystemBus {
         this.#stepOamDma();
       }
       this.#stepTimaReload();
-      const nextCounter = (this.#dividerCounter + 1) & 0xffff;
-      this.#updateTimerSignalOnCounterChange(this.#dividerCounter, nextCounter);
-      this.#dividerCounter = nextCounter;
+      for (let i = 0; i < increment; i += 1) {
+        const nextCounter = (this.#dividerCounter + 1) & 0xffff;
+        this.#updateTimerSignalOnCounterChange(
+          this.#dividerCounter,
+          nextCounter,
+        );
+        this.#dividerCounter = nextCounter;
+      }
       remainingTicks -= 1;
     }
 
@@ -1002,7 +1014,7 @@ export class SystemBus {
   }
 
   handleStop(): boolean {
-    if (!this.#cgbMode || !this.#speedSwitchRequested) {
+    if (this.#hardwareMode !== "cgb" || !this.#speedSwitchRequested) {
       return false;
     }
     this.#doubleSpeed = !this.#doubleSpeed;

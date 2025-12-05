@@ -11,6 +11,7 @@ const MAX_SAMPLE_VALUE = 0x7f;
 const DEFAULT_SAMPLE_RATE = 48_000;
 const MAX_BUFFER_SECONDS = 2;
 const MASTER_CLOCK_HZ = 4_194_304;
+const FRAME_RATE_HZ = MASTER_CLOCK_HZ / Clock.FRAME_CYCLES;
 const HIGH_PASS_BASE_DMG = 0.999958;
 const HIGH_PASS_BASE_CGB = 0.998943;
 
@@ -642,7 +643,10 @@ export class Apu {
         ? Math.floor(rate)
         : DEFAULT_SAMPLE_RATE;
     this.#sampleRate = nextRate;
-    const samplesPerFrame = Math.max(1, Math.floor(this.#sampleRate / 60));
+    const samplesPerFrame = Math.max(
+      1,
+      Math.floor(this.#sampleRate / FRAME_RATE_HZ),
+    );
     this.#cyclesPerSample = Clock.FRAME_CYCLES / samplesPerFrame;
     this.#nextSampleCycle = this.#cycleCounter + this.#cyclesPerSample;
     this.#highPassCharge = this.#computeHighPassCharge();
@@ -1026,7 +1030,7 @@ export class Apu {
   #resetFrameSequencerTiming(): void {
     const divCounter = this.#bus.getDividerCounter();
     const framePeriod =
-      CYCLES_512HZ << (this.#bus.isDoubleSpeed() ? 1 : 0); // DIV bit 4 falling edge
+      CYCLES_512HZ << (this.#bus.isDoubleSpeed() ? 1 : 0); // DIV bit 4 (bit 5 in double-speed) falling edge
     const remainder = divCounter % framePeriod;
     const cyclesUntilEdge = remainder === 0 ? framePeriod : framePeriod - remainder;
     this.#frameSequencerStep = 0;

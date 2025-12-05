@@ -103,7 +103,6 @@ function createDefaultCpuState(isCgb: boolean): CpuState {
 
 export class Cpu {
   state: CpuState = createDefaultCpuState(false);
-  #doubleSpeed = false;
   #bus: CpuBusPort;
   #instructionView = new Uint8Array(constants.MEMORY_SIZE);
   #pendingExtraCycles = 0;
@@ -137,7 +136,6 @@ export class Cpu {
     this.state.halted = false;
     this.state.stopped = false;
     this.state.cycles = 0;
-    this.#doubleSpeed = false;
     this.imeEnableDelay = 0;
     if (this.#instructionView.length !== constants.MEMORY_SIZE) {
       this.#instructionView = new Uint8Array(constants.MEMORY_SIZE);
@@ -159,7 +157,6 @@ export class Cpu {
   handleStop(nextPc: number): void {
     const switched = this.#bus.handleStop();
     if (switched) {
-      this.setDoubleSpeedMode(this.#bus.isDoubleSpeed());
       this.state.stopped = false;
       this.state.halted = false;
       this.setProgramCounter(nextPc);
@@ -191,10 +188,6 @@ export class Cpu {
     const consumed = this.#consumeCycles(cycles);
     this.#advanceImeEnableDelay();
     return consumed;
-  }
-
-  setDoubleSpeedMode(enabled: boolean): void {
-    this.#doubleSpeed = enabled;
   }
 
   #serviceInterruptIfNeeded(bus: CpuBusPort): number {
@@ -659,7 +652,7 @@ export class Cpu {
   }
 
   #consumeCycles(cycles: number): number {
-    const adjusted = this.#doubleSpeed ? cycles * 2 : cycles;
+    const adjusted = Math.max(1, cycles);
     this.state.cycles += adjusted;
     return adjusted;
   }
