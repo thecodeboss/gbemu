@@ -23,7 +23,7 @@
     "@gbemu/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/audioworklet": "0.0.91",
+    "@types/audioworklet": "0.0.92",
     "typescript": "catalog:"
   }
 }
