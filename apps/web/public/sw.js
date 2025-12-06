@@ -50,20 +50,20 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
+    const indexPath = new URL("./index.html", scopeUrl).pathname;
     event.respondWith(
-      caches.match(new URL("./index.html", scopeUrl).pathname).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            const copy = response.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) =>
-                cache.put(new URL("./index.html", scopeUrl).pathname, copy),
-              );
-            return response;
-          }),
-      ),
+      (async () => {
+        try {
+          const response = await fetch(request);
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(indexPath, copy));
+          return response;
+        } catch {
+          const cached = await caches.match(indexPath);
+          if (cached) return cached;
+          return Response.error();
+        }
+      })(),
     );
     return;
   }
