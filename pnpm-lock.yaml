@@ -136,6 +136,9 @@ importers:
       vite:
         specifier: npm:rolldown-vite@7.2.10
         version: rolldown-vite@7.2.10(@types/node@24.10.1)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1)
+      vite-bundle-analyzer:
+        specifier: 1.2.4
+        version: 1.2.4
 
   packages/core:
     devDependencies:
@@ -5407,6 +5410,13 @@ packages:
       }
     engines: { node: ">= 0.8" }
 
+  vite-bundle-analyzer@1.2.4:
+    resolution:
+      {
+        integrity: sha512-bpWLEBlYxmajiCmjPrQQi1Kfh9NadyFKPSgz24RHnYf3sgaSxrIau5wYMPsmSC/JTfoMhfoTIV+/mH//alUxOA==,
+      }
+    hasBin: true
+
   vite@7.2.4:
     resolution:
       {
@@ -8946,6 +8956,8 @@ snapshots:
       "@types/react": 19.2.7
 
   vary@1.1.2: {}
+
+  vite-bundle-analyzer@1.2.4: {}
 
   vite@7.2.4(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1):
     dependencies:

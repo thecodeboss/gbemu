@@ -3,6 +3,7 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+// import { analyzer, unstableRolldownAdapter } from "vite-bundle-analyzer";
 
 // https://vite.dev/config/
 const runtimeRoot = fileURLToPath(
@@ -20,6 +21,7 @@ export default defineConfig({
         plugins: [["babel-plugin-react-compiler"]],
       },
     }),
+    // unstableRolldownAdapter(analyzer()),
   ],
   resolve: {
     alias: [
