@@ -178,7 +178,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
   }, [releaseDpadPointer]);
 
   return (
-    <div className="flex flex-col h-full grow justify-center">
+    <div className="flex flex-col h-full grow justify-around">
       <div className="flex flex-col pointer-events-none sm:hidden">
         {/* Top half of joypad */}
         <div className="flex justify-between mx-4 mb-10">
@@ -337,6 +337,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
           </Button>
         </div>
       </div>
+      <div className="" />
     </div>
   );
 }
