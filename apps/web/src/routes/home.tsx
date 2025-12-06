@@ -81,11 +81,11 @@ export function HomePage() {
   }, []);
 
   return (
-    <Card className="w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-5">
-      <CardHeader className="px-3 sm:px-4">
+    <Card className="min-h-dvh sm:min-h-0">
+      <CardHeader>
         <CardTitle>Game Boy Emulator</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-6 px-3 sm:px-4">
+      <CardContent className="flex flex-col gap-6 px-1 sm:px-5">
         <input
           ref={fileInputRef}
           type="file"

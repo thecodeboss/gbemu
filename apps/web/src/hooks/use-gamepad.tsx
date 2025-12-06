@@ -186,14 +186,10 @@ function mergeInputState(
 }
 
 type UseGamepadOptions = {
-  enableVirtual?: boolean;
   onChange: InputSink;
 };
 
-export function useGamepad({
-  enableVirtual = false,
-  onChange,
-}: UseGamepadOptions): {
+export function useGamepad({ onChange }: UseGamepadOptions): {
   virtualGamepad: ReactNode;
   getCurrentState: () => JoypadInputState;
 } {
@@ -312,11 +308,8 @@ export function useGamepad({
   }, [applyInputState]);
 
   const virtualGamepad = useMemo(
-    () =>
-      enableVirtual ? (
-        <VirtualJoypad onChange={handleVirtualInputStateChange} />
-      ) : null,
-    [enableVirtual, handleVirtualInputStateChange],
+    () => <VirtualJoypad onChange={handleVirtualInputStateChange} />,
+    [handleVirtualInputStateChange],
   );
 
   return {

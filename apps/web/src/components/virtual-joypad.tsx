@@ -9,7 +9,6 @@ import {
 import { Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface VirtualJoypadProps {
   onChange: (state: JoypadInputState) => void;
@@ -49,57 +48,6 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
   const dpadButtonSize = 52;
   const dpadGap = 0;
   const dpadContainer = dpadButtonSize * 3 + dpadGap * 2;
-
-  const computeControlOffset = useCallback((): string => {
-    if (typeof window === "undefined") {
-      return "clamp(3rem, 8vh, 5rem)";
-    }
-
-    const fallbackViewportHeight =
-      Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          "--app-viewport-height",
-        ),
-      ) || 0;
-    const viewportHeight =
-      window.visualViewport?.height ??
-      window.innerHeight ??
-      fallbackViewportHeight;
-
-    if (viewportHeight >= 900) {
-      return "clamp(4.5rem, 14vh, 7.5rem)";
-    }
-    if (viewportHeight >= 780) {
-      return "clamp(3.75rem, 12vh, 6.25rem)";
-    }
-    return "clamp(3rem, 8vh, 5rem)";
-  }, []);
-
-  const [controlOffset, setControlOffset] = useState<string>(() =>
-    computeControlOffset(),
-  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handleResize = () => {
-      setControlOffset(computeControlOffset());
-    };
-
-    const viewport = window.visualViewport;
-
-    viewport?.addEventListener("resize", handleResize);
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", handleResize);
-
-    return () => {
-      viewport?.removeEventListener("resize", handleResize);
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
-    };
-  }, [computeControlOffset]);
 
   const setButtonState = useCallback(
     (button: JoypadButton, pressed: boolean) => {
@@ -230,20 +178,13 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
   }, [releaseDpadPointer]);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 sm:hidden">
-      <div
-        className="relative mx-auto max-w-5xl px-4 pb-4"
-        style={{
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
-        }}
-      >
-        <div
-          className="pointer-events-auto absolute left-4 flex justify-end"
-          style={{ bottom: controlOffset }}
-        >
+    <div className="flex flex-col h-full grow justify-center">
+      <div className="flex flex-col pointer-events-none sm:hidden">
+        {/* Top half of joypad */}
+        <div className="flex justify-between mx-4 mb-10">
           <div
             ref={dpadRef}
-            className="grid -translate-y-6 touch-none"
+            className="grid touch-none pointer-events-auto"
             onPointerDown={handleDpadPointerDown}
             onPointerMove={handleDpadPointerMove}
             onPointerUp={handleDpadPointerUp}
@@ -346,31 +287,25 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
             </Button>
             <div />
           </div>
-        </div>
 
-        <div
-          className="pointer-events-auto absolute right-8 flex justify-start touch-none"
-          style={{ bottom: controlOffset }}
-        >
-          <div className="relative h-32 w-32 -translate-y-8 translate-x-4">
+          <div className="flex gap-6 pointer-events-auto touch-none mr-10 mt-6">
+            <div className="translate-y-6">
+              <Button
+                type="button"
+                variant="default"
+                size="icon-lg"
+                className="text-sm rounded-full"
+                aria-label="B"
+                {...bHandlers}
+              >
+                B
+              </Button>
+            </div>
             <Button
               type="button"
               variant="default"
               size="icon-lg"
-              className="absolute bottom-3 left-2 text-sm rounded-full"
-              aria-label="B"
-              {...bHandlers}
-            >
-              B
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              size="icon-lg"
-              className={cn(
-                "absolute right-2 text-sm rounded-full",
-                "top-2 translate-x-2",
-              )}
+              className="text-sm rounded-full"
               aria-label="A"
               {...aHandlers}
             >
@@ -379,7 +314,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
           </div>
         </div>
 
-        <div className="pointer-events-auto flex justify-center gap-3 pb-2 touch-none">
+        <div className="pointer-events-auto flex justify-center gap-3 touch-none">
           <Button
             type="button"
             variant="outline"

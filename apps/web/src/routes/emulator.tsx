@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useCurrentRom } from "@/hooks/use-current-rom";
 import { useEmulator } from "@/hooks/use-emulator";
 import { useSaveStorage } from "@/hooks/use-save-storage";
@@ -18,12 +17,7 @@ import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog
 import { ReturnToMenuDialog } from "@/components/return-to-menu-dialog";
 import { useGamepad } from "@/hooks/use-gamepad";
 import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from "@gbemu/runtime";
-import { useIsMobileViewport } from "@/hooks/viewport";
 import { useNavigate } from "react-router";
-
-const DEFAULT_CANVAS_SCALE = 3;
-const MOBILE_RESERVED_VERTICAL_SPACE = 200;
-const MOBILE_HORIZONTAL_BUFFER = 16;
 
 type FullscreenElement = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
@@ -43,7 +37,6 @@ const canvasDimensions = {
 };
 
 export function EmulatorPage() {
-  const isMobileViewport = useIsMobileViewport();
   const { canvasRef, runtime } = useEmulator();
   const { rom, setCurrentRom } = useCurrentRom();
   const romName = rom?.name ?? null;
@@ -59,43 +52,7 @@ export function EmulatorPage() {
       fullscreenContainerRef.current
     );
   }, []);
-  const computeScaledSize = useCallback((useMobileRules: boolean) => {
-    if (useMobileRules && typeof window !== "undefined") {
-      const availableWidth = Math.max(
-        canvasDimensions.width,
-        window.innerWidth - MOBILE_HORIZONTAL_BUFFER,
-      );
-      const availableHeight = Math.max(
-        canvasDimensions.height,
-        window.innerHeight - MOBILE_RESERVED_VERTICAL_SPACE,
-      );
-      const maxScaleByWidth = Math.max(
-        1,
-        Math.floor(availableWidth / canvasDimensions.width),
-      );
-      const maxScaleByHeight = Math.max(
-        1,
-        Math.floor(availableHeight / canvasDimensions.height),
-      );
-      const nextScale = Math.max(
-        1,
-        Math.min(maxScaleByWidth, maxScaleByHeight, DEFAULT_CANVAS_SCALE),
-      );
-      return {
-        width: canvasDimensions.width * nextScale,
-        height: canvasDimensions.height * nextScale,
-      };
-    }
 
-    return {
-      width: canvasDimensions.width * DEFAULT_CANVAS_SCALE,
-      height: canvasDimensions.height * DEFAULT_CANVAS_SCALE,
-    };
-  }, []);
-
-  const [scaledCanvasSize, setScaledCanvasSize] = useState(() =>
-    computeScaledSize(isMobileViewport),
-  );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
@@ -126,23 +83,6 @@ export function EmulatorPage() {
       }
     })();
   }, [navigate, runtime, setCurrentRom]);
-
-  const updateCanvasScale = useCallback((): void => {
-    setScaledCanvasSize(computeScaledSize(isMobileViewport));
-  }, [computeScaledSize, isMobileViewport]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.addEventListener("resize", updateCanvasScale);
-    window.addEventListener("orientationchange", updateCanvasScale);
-    return () => {
-      window.removeEventListener("resize", updateCanvasScale);
-      window.removeEventListener("orientationchange", updateCanvasScale);
-    };
-  }, [updateCanvasScale]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -177,7 +117,6 @@ export function EmulatorPage() {
           activeElement === container ||
           activeElement === document.documentElement);
       setIsFullscreen(isTargetFullscreen);
-      updateCanvasScale();
     };
 
     detectSupport();
@@ -197,7 +136,7 @@ export function EmulatorPage() {
         handleFullscreenChange,
       );
     };
-  }, [resolveFullscreenTarget, updateCanvasScale]);
+  }, [resolveFullscreenTarget]);
 
   const requestFullscreen = useCallback(async () => {
     const target = resolveFullscreenTarget();
@@ -250,7 +189,6 @@ export function EmulatorPage() {
   }, [exitFullscreen, isFullscreen, requestFullscreen]);
 
   const { virtualGamepad } = useGamepad({
-    enableVirtual: isMobileViewport,
     onChange: (state: JoypadInputState) => {
       if (!runtime) {
         return;
@@ -261,66 +199,19 @@ export function EmulatorPage() {
 
   return (
     <div ref={fullscreenContainerRef}>
-      <Card
-        className={cn(
-          "w-full sm:w-auto",
-          isMobileViewport
-            ? "gap-3! border-none! px-0! py-0! shadow-none!"
-            : undefined,
-        )}
-        style={
-          isMobileViewport
-            ? {
-                minHeight: "var(--app-viewport-height, 100vh)",
-                paddingTop: 0,
-                paddingBottom: 0,
-                paddingLeft: 0,
-                paddingRight: 0,
-                gap: "0.75rem",
-              }
-            : undefined
-        }
-      >
-        <CardHeader
-          className={cn(isMobileViewport ? "px-4 pb-1" : undefined)}
-          style={
-            isMobileViewport
-              ? {
-                  paddingTop: "calc(env(safe-area-inset-top, 0px) + 4px)",
-                }
-              : undefined
-          }
-        >
+      <Card className="min-h-dvh sm:min-h-0 px-0 py-0 sm:px-5 sm:py-6 gap-2 sm:gap-6">
+        <CardHeader className="hidden sm:block">
           <CardTitle>{romName?.replace(/.gbc?/gi, "") ?? "Untitled"}</CardTitle>
         </CardHeader>
-        <CardContent
-          className={cn(
-            "flex justify-center",
-            isMobileViewport ? "px-0" : undefined,
-          )}
-        >
+        <CardContent className="px-0 sm:px-5">
           <canvas
             ref={canvasRef}
-            className={cn(
-              "mx-auto block border-4 border-foreground bg-black [image-rendering:pixelated]",
-              isMobileViewport
-                ? "max-w-full shadow-none"
-                : "shadow-[8px_8px_0_var(--color-accent)]",
-            )}
-            style={{
-              width: `${scaledCanvasSize.width}px`,
-              height: `${scaledCanvasSize.height}px`,
-            }}
+            className="mx-auto block sm:border-4 border-foreground bg-black [image-rendering:pixelated] aspect-square w-full sm:w-120"
             width={canvasDimensions.width}
             height={canvasDimensions.height}
           />
         </CardContent>
-        <CardFooter
-          className={cn(
-            "gap-2",
-            isMobileViewport ? "flex-wrap justify-center px-4 pb-2" : undefined,
-          )}
-        >
+        <CardFooter className="gap-2">
           <CardAction>
             <Button
               type="button"
@@ -347,6 +238,7 @@ export function EmulatorPage() {
             </div>
           ) : null}
         </CardFooter>
+        {virtualGamepad}
       </Card>
 
       <ReturnToMenuDialog
@@ -355,7 +247,6 @@ export function EmulatorPage() {
         onConfirm={handleReturnToMenu}
       />
 
-      {virtualGamepad}
       <ManageSavesDialog />
     </div>
   );

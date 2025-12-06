@@ -2,8 +2,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --radius-sm: 0;
   --radius-md: 0;
@@ -91,11 +89,12 @@
     overscroll-behavior: none;
   }
   #root {
-    min-height: var(--app-viewport-height, 100vh);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
   body {
     margin: 0;
-    min-height: var(--app-viewport-height, 100vh);
     font-family: "Press Start 2P", "VT323", monospace;
     letter-spacing: 0.02em;
     @apply bg-background text-foreground;
