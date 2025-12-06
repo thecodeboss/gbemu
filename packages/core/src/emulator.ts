@@ -4,12 +4,8 @@ import { SystemBus } from "./bus.js";
 import { Mbc, MbcFactory } from "./mbc.js";
 import { Clock } from "./clock.js";
 import { EmulatorRomInfo } from "./rom/index.js";
-import {
-  disassembleRom as disassembleBuffer,
-  formatDisassembledRom,
-  parseRomInfo,
-} from "./rom/index.js";
-import { Cpu, CpuFlags, CpuRegisters } from "./cpu.js";
+import { parseRomInfo } from "./rom/index.js";
+import { Cpu, CpuRegisters } from "./cpu.js";
 import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 
 export type { EmulatorRomInfo } from "./rom/index.js";
@@ -36,7 +32,6 @@ export interface EmulatorCallbacks {
   onSaveData(payload: SavePayload): void;
   onLog?(message: string): void;
   onError?(error: unknown): void;
-  onBreakpointHit?(offset: number): void;
 }
 
 export interface EmulatorOptions {
@@ -62,15 +57,6 @@ export interface EmulatorStateSnapshot {
 }
 
 export type EmulatorMode = "dmg" | "cgb";
-
-export interface EmulatorCpuDebugState {
-  registers: CpuRegisters;
-  flags: CpuFlags;
-  ime: boolean;
-  halted: boolean;
-  stopped: boolean;
-  cycles: number;
-}
 
 interface EmulatorDependencies {
   clock: Clock;
@@ -146,7 +132,6 @@ export class Emulator {
   #audioBufferSize = DEFAULT_AUDIO_BUFFER_FRAMES;
   #mode: EmulatorMode = "dmg";
   #romInfo: EmulatorRomInfo | null = null;
-  #romData: Uint8Array | null = null;
   #saveData: SavePayload | null = null;
   #frameTimer: number | null = null;
   #nextFrameTimestamp: number | null = null;
@@ -154,8 +139,6 @@ export class Emulator {
   #mbcFactory: MbcFactory;
   #mbc: Mbc;
   #running = false;
-  #breakpoints = new Set<number>();
-  #lastBreakpointHit: number | null = null;
   #inputState: JoypadInputState = createEmptyJoypadState();
   #audioSampleRate = DEFAULT_OUTPUT_SAMPLE_RATE;
   #audioRemainder = 0;
@@ -192,7 +175,6 @@ export class Emulator {
     this.#flushPendingSave();
     this.#resetSaveTracking();
     this.#saveData = null;
-    this.#romData = rom.slice();
     this.#romInfo = parseRomInfo(rom);
     const cartridgeConfig = this.#mbcFactory.describeCartridge(rom, {
       cartridgeType: this.#romInfo?.cartridgeType,
@@ -240,7 +222,6 @@ export class Emulator {
     this.#nextFrameTimestamp = null;
     this.clock.setSpeed(1);
     this.cpu.state.registers.pc = 0x0100;
-    this.#lastBreakpointHit = null;
     this.#frameCount = 0;
     this.#inputState = createEmptyJoypadState();
     this.#callbacks?.onLog?.(
@@ -284,12 +265,10 @@ export class Emulator {
     this.#nextFrameTimestamp = null;
     this.clock.step();
     this.#frameCount = 0;
-    this.#lastBreakpointHit = null;
     this.#inputState = createEmptyJoypadState();
     this.bus.setJoypadState(this.#inputState);
     if (hard) {
       this.#resetSaveTracking();
-      this.#romData = null;
       this.#romInfo = null;
       this.#saveData = null;
     }
@@ -325,64 +304,12 @@ export class Emulator {
     this.#callbacks?.onLog?.("Emulator paused.");
   }
 
-  stepFrame(): void {
-    this.#runFrame();
-  }
-
-  stepInstruction(): void {
-    if (this.#running) {
-      this.pause();
-    }
-    const cycles = this.cpu.step();
-    this.#tickSubsystems(cycles);
-    this.#emitVideoFrame();
-    this.#refreshBreakpointLatch();
-  }
-
   isRunning(): boolean {
     return this.#running;
   }
 
   getRomInfo(): EmulatorRomInfo | null {
     return this.#romInfo ? { ...this.#romInfo } : null;
-  }
-
-  disassembleRom(): Record<number, string> | null {
-    if (!this.#romData) {
-      return null;
-    }
-    const memory = this.bus.dumpMemory();
-    const instructions = disassembleBuffer(memory);
-    return formatDisassembledRom(instructions);
-  }
-
-  getProgramCounter(): number | null {
-    return this.cpu.state?.registers?.pc ?? null;
-  }
-
-  getCpuState(): EmulatorCpuDebugState {
-    return {
-      registers: { ...this.cpu.state.registers },
-      flags: { ...this.cpu.state.flags },
-      ime: this.cpu.state.ime,
-      halted: this.cpu.state.halted,
-      stopped: this.cpu.state.stopped,
-      cycles: this.cpu.state.cycles,
-    };
-  }
-
-  getMemorySnapshot(): Uint8Array {
-    return this.bus.dumpMemory();
-  }
-
-  setBreakpoints(offsets: Iterable<number>): void {
-    this.#breakpoints.clear();
-    for (const value of offsets) {
-      if (Number.isFinite(value)) {
-        this.#breakpoints.add((Number(value) >>> 0) & 0xffff);
-      }
-    }
-    this.#lastBreakpointHit = null;
   }
 
   setInputState(state: JoypadInputState): void {
@@ -414,7 +341,6 @@ export class Emulator {
     this.pause();
     this.#resetSaveTracking();
     this.#callbacks = null;
-    this.#romData = null;
   }
 
   #runFrame(): void {
@@ -424,9 +350,6 @@ export class Emulator {
     let accumulatedCycles = 0;
 
     while (this.#frameCount < targetFrame) {
-      if (this.#shouldPauseForBreakpoint()) {
-        return;
-      }
       const stepCycles = this.cpu.step();
       this.#tickSubsystems(stepCycles);
       accumulatedCycles += stepCycles;
@@ -477,38 +400,12 @@ export class Emulator {
     ) as unknown as number;
   }
 
-  #shouldPauseForBreakpoint(): boolean {
-    if (!this.#running || this.#breakpoints.size === 0) {
-      return false;
-    }
-
-    this.#refreshBreakpointLatch();
-    const pc = this.cpu.state.registers.pc;
-    if (!this.#breakpoints.has(pc) || this.#lastBreakpointHit === pc) {
-      return false;
-    }
-
-    this.#lastBreakpointHit = pc;
-    this.pause();
-    this.#callbacks?.onBreakpointHit?.(pc);
-    return true;
-  }
-
   #cpuCyclesPerFrame(): number {
     const ticksPerCpu = this.bus.getTicksPerCpuCycle();
     if (ticksPerCpu <= 0) {
       return Clock.FRAME_CYCLES / 4;
     }
     return Clock.FRAME_CYCLES / ticksPerCpu;
-  }
-
-  #refreshBreakpointLatch(): void {
-    if (
-      this.#lastBreakpointHit !== null &&
-      this.cpu.state.registers.pc !== this.#lastBreakpointHit
-    ) {
-      this.#lastBreakpointHit = null;
-    }
   }
 
   #tickSubsystems(cycles: number): void {

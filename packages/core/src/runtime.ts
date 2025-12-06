@@ -1,4 +1,9 @@
-import { AudioBufferChunk, SavePayload, VideoFrame } from "./emulator.js";
+import {
+  AudioBufferChunk,
+  EmulatorMode,
+  SavePayload,
+  VideoFrame,
+} from "./emulator.js";
 import { JoypadInputState } from "./input.js";
 
 export interface EmulatorWorkerRequestMap {
@@ -7,17 +12,11 @@ export interface EmulatorWorkerRequestMap {
   start: undefined;
   pause: undefined;
   reset: { hard?: boolean } | undefined;
-  stepFrame: undefined;
-  stepInstruction: undefined;
-  setBreakpoints: { offsets: number[] };
+  setMode: { mode: EmulatorMode };
   setInputState: { state: JoypadInputState };
   dispose: undefined;
   getRomInfo: undefined;
   getSave: undefined;
-  disassembleRom: undefined;
-  getProgramCounter: undefined;
-  getCpuState: undefined;
-  getMemorySnapshot: undefined;
 }
 
 export interface EmulatorWorkerEventMap {
@@ -26,24 +25,4 @@ export interface EmulatorWorkerEventMap {
   saveData: SavePayload;
   log: string;
   error: unknown;
-  breakpointHit: number;
-}
-
-export interface EmulatorWorkerPort {
-  postMessage<T extends keyof EmulatorWorkerRequestMap>(
-    type: T,
-    payload: EmulatorWorkerRequestMap[T],
-  ): void;
-  terminate(): void;
-}
-
-export interface EmulatorWorkerClient {
-  onMessage<T extends keyof EmulatorWorkerEventMap>(
-    type: T,
-    handler: (payload: EmulatorWorkerEventMap[T]) => void,
-  ): void;
-  offMessage<T extends keyof EmulatorWorkerEventMap>(
-    type: T,
-    handler: (payload: EmulatorWorkerEventMap[T]) => void,
-  ): void;
 }

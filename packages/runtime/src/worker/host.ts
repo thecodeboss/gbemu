@@ -2,7 +2,6 @@ import {
   AudioBufferChunk,
   Emulator,
   EmulatorCallbacks,
-  EmulatorCpuDebugState,
   EmulatorRomInfo,
   SavePayload,
   VideoFrame,
@@ -18,7 +17,6 @@ export interface WorkerCallbacks {
   handleSaveData(payload: SavePayload): Promise<void> | void;
   handleLog?(message: string): Promise<void> | void;
   handleError?(error: unknown): Promise<void> | void;
-  handleBreakpointHit?(offset: number): Promise<void> | void;
 }
 
 export interface WorkerInitializeOptions {
@@ -46,18 +44,11 @@ export interface EmulatorWorkerApi {
   start(): Promise<void>;
   pause(): Promise<void>;
   reset(options?: { hard?: boolean }): Promise<void>;
-  stepFrame(): Promise<void>;
-  stepInstruction(): Promise<void>;
-  setBreakpoints(message: { offsets: number[] }): Promise<void>;
   setInputState(message: { state: JoypadInputState }): Promise<void>;
   setMode(message: { mode: EmulatorMode }): Promise<void>;
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
-  disassembleRom(): Promise<Record<number, string> | null>;
-  getProgramCounter(): Promise<number | null>;
-  getCpuState(): Promise<EmulatorCpuDebugState>;
-  getMemorySnapshot(): Promise<Uint8Array>;
 }
 
 export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
@@ -128,21 +119,6 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
       system.reset(options?.hard);
     },
 
-    async stepFrame(): Promise<void> {
-      const system = await ensureEmulator();
-      system.stepFrame();
-    },
-
-    async stepInstruction(): Promise<void> {
-      const system = await ensureEmulator();
-      system.stepInstruction();
-    },
-
-    async setBreakpoints(message: { offsets: number[] }): Promise<void> {
-      const system = await ensureEmulator();
-      system.setBreakpoints(message.offsets ?? []);
-    },
-
     async setInputState(message: { state: JoypadInputState }): Promise<void> {
       const system = await ensureEmulator();
       system.setInputState(message.state);
@@ -192,36 +168,6 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
         },
         transferables,
       );
-    },
-
-    async disassembleRom(): Promise<Record<number, string> | null> {
-      const system = await ensureEmulator();
-      return system.disassembleRom();
-    },
-
-    async getProgramCounter(): Promise<number | null> {
-      const system = await ensureEmulator();
-      return system.getProgramCounter();
-    },
-
-    async getCpuState(): Promise<EmulatorCpuDebugState> {
-      const system = await ensureEmulator();
-      const snapshot = system.getCpuState();
-      return {
-        registers: { ...snapshot.registers },
-        flags: { ...snapshot.flags },
-        ime: snapshot.ime,
-        halted: snapshot.halted,
-        stopped: snapshot.stopped,
-        cycles: snapshot.cycles,
-      };
-    },
-
-    async getMemorySnapshot(): Promise<Uint8Array> {
-      const system = await ensureEmulator();
-      const snapshot = system.getMemorySnapshot();
-      const copy = snapshot.slice();
-      return Comlink.transfer(copy, [copy.buffer]);
     },
   };
 }
@@ -285,12 +231,6 @@ function createEmulatorCallbacks(
         return;
       }
       console.error("[gbemu/runtime]", error);
-    },
-    onBreakpointHit(offset: number) {
-      const handler = callbacks.handleBreakpointHit;
-      if (typeof handler === "function") {
-        void handler(offset);
-      }
     },
   };
 }

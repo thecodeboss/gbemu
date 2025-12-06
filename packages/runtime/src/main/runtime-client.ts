@@ -1,5 +1,4 @@
 import {
-  EmulatorCpuDebugState,
   EmulatorRomInfo,
   SavePayload,
   JoypadInputState,
@@ -36,7 +35,6 @@ export interface RuntimeClientOptions {
   mode?: EmulatorMode;
   onLog?(message: string): void;
   onError?(error: unknown): void;
-  onBreakpointHit?(offset: number): void;
 }
 
 function detectModeFromRomHeader(rom: Uint8Array): EmulatorMode {
@@ -56,16 +54,9 @@ export interface RuntimeClient {
   start(): Promise<void>;
   pause(): Promise<void>;
   reset(options?: { hard?: boolean }): Promise<void>;
-  stepFrame(): Promise<void>;
-  stepInstruction(): Promise<void>;
-  setBreakpoints(breakpoints: number[]): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
   loadPersistentSave(): Promise<void>;
-  disassembleRom(): Promise<Record<number, string> | null>;
-  getProgramCounter(): Promise<number | null>;
-  getCpuState(): Promise<EmulatorCpuDebugState>;
-  getMemorySnapshot(): Promise<Uint8Array>;
   dispose(): Promise<void>;
   setInputState(state: JoypadInputState): Promise<void>;
   setMode(mode: EmulatorMode): Promise<void>;
@@ -120,9 +111,6 @@ export async function createRuntimeClient(
       } else {
         console.error("[gbemu/runtime]", error);
       }
-    },
-    handleBreakpointHit(offset: number) {
-      options.onBreakpointHit?.(offset);
     },
   };
 
@@ -249,10 +237,6 @@ export async function createRuntimeClient(
         currentSaveKey = null;
       }
     },
-    stepFrame: () => workerEndpoint.stepFrame(),
-    stepInstruction: () => workerEndpoint.stepInstruction(),
-    setBreakpoints: (breakpoints) =>
-      workerEndpoint.setBreakpoints({ offsets: breakpoints }),
     setInputState: (state) => workerEndpoint.setInputState({ state }),
     async setMode(mode) {
       currentMode = mode;
@@ -281,10 +265,6 @@ export async function createRuntimeClient(
       return payload;
     },
     loadPersistentSave,
-    disassembleRom: () => workerEndpoint.disassembleRom(),
-    getProgramCounter: () => workerEndpoint.getProgramCounter(),
-    getCpuState: () => workerEndpoint.getCpuState(),
-    getMemorySnapshot: () => workerEndpoint.getMemorySnapshot(),
     dispose,
     renderer,
     audio: audioNode,
