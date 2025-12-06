@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { Link, useNavigate } from "react-router";
 
 export function HomePage() {

@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase";
 import googleLogo from "@/assets/google.svg";
 import discordLogo from "@/assets/discord.svg";
 import { cn } from "@/lib/utils";

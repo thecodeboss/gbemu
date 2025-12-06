@@ -16,7 +16,7 @@ import {
   SaveSyncState,
   createSupabaseSaveAdapter,
 } from "@/lib/save-sync";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useCurrentRom } from "@/hooks/use-current-rom";
 import { useAuth } from "@/hooks/use-auth";
 

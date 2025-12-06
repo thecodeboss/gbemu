@@ -206,7 +206,7 @@ export function EmulatorPage() {
         <CardContent className="px-0 sm:px-5">
           <canvas
             ref={canvasRef}
-            className="mx-auto box-content block sm:border-4 border-foreground bg-black [image-rendering:pixelated] aspect-160/144 w-full sm:w-120 lg:w-160 xl:w-192"
+            className="mx-auto box-content block sm:border-4 border-foreground bg-black [image-rendering:pixelated] aspect-160/144 w-full sm:w-120 lg:w-160 xl:w-3xl"
             width={canvasDimensions.width}
             height={canvasDimensions.height}
           />
