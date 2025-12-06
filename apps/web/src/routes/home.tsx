@@ -57,11 +57,17 @@ export function HomePage() {
 
   const handleSelectRecentRom = useCallback(
     async (rom: RecentRomRecord) => {
+      const lastPlayed = Date.now();
       navigate("/emulator");
       setCurrentRom({
         id: rom.id,
         name: rom.name,
-        lastPlayed: rom.lastPlayed,
+        lastPlayed,
+        data: rom.data,
+      });
+      await storeRecentRom({
+        id: rom.id,
+        name: rom.name,
         data: rom.data,
       });
       setRecentlyPlayedRevision((prev: number) => prev + 1);
