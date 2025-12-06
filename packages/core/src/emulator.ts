@@ -449,7 +449,11 @@ export class Emulator {
     this.#audioRemainder = expectedSamples - sampleCount;
 
     if (sampleCount <= 0) {
-      sampleCount = Math.max(1, Math.floor(this.#audioBufferSize / 4));
+      // Zero elapsed time (catch-up tick) – trickle a tiny buffer to avoid overfilling.
+      sampleCount = Math.min(
+        32,
+        Math.max(1, Math.floor(this.#audioBufferSize / 16)),
+      );
     }
 
     const maxSamples = this.#audioBufferSize * 2;

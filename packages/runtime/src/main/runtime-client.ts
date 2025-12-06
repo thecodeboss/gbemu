@@ -229,13 +229,17 @@ export async function createRuntimeClient(
     loadRom,
     loadSave,
     start: () => workerEndpoint.start(),
-    pause: () => workerEndpoint.pause(),
+    pause: async () => {
+      await workerEndpoint.pause();
+      audioNode.flush();
+    },
     reset: async (opts) => {
       await workerEndpoint.reset(opts);
       if (opts?.hard) {
         currentRomInfo = null;
         currentSaveKey = null;
       }
+      audioNode.flush();
     },
     setInputState: (state) => workerEndpoint.setInputState({ state }),
     async setMode(mode) {
