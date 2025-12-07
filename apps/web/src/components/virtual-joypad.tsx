@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PointerEvent } from "react";
 
-import {
-  JoypadButton,
-  JoypadInputState,
-  createEmptyJoypadState,
-} from "@gbemu/core";
+import { createEmptyJoypadState } from "@gbemu/core/input";
+import { JoypadButton, JoypadInputState } from "@gbemu/core/input";
 import { Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,7 +48,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
 
   const setButtonState = useCallback(
     (button: JoypadButton, pressed: boolean) => {
-      setState((prev) => {
+      setState((prev: JoypadInputState) => {
         if (prev[button] === pressed) {
           return prev;
         }
@@ -80,7 +77,7 @@ export function VirtualJoypad({ onChange }: VirtualJoypadProps) {
   const bHandlers = usePressHandlers((pressed) => setButtonState("b", pressed));
 
   const setActiveDirection = useCallback((direction: DpadDirection | null) => {
-    setState((prev) => {
+    setState((prev: JoypadInputState) => {
       const nextState = { ...prev };
       const directions: DpadDirection[] = ["up", "down", "left", "right"];
       let changed = false;

@@ -26,8 +26,12 @@
     "paths": {
       "@/*": ["./src/*"],
       "@gbemu/runtime": ["../packages/runtime/src/index.ts"],
+      "@gbemu/runtime/src/*": ["../packages/runtime/src/*"],
       "@gbemu/runtime/*": ["../packages/runtime/src/*"],
       "@gbemu/core": ["../packages/core/src/index.ts"],
+      "@gbemu/core/input": ["../packages/core/src/input.ts"],
+      "@gbemu/core/emulator": ["../packages/core/src/emulator.ts"],
+      "@gbemu/core/src/*": ["../packages/core/src/*"],
       "@gbemu/core/*": ["../packages/core/src/*"],
       "react": ["./node_modules/preact/compat/"],
       "react/jsx-runtime": ["./node_modules/preact/jsx-runtime"],

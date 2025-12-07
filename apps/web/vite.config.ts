@@ -3,9 +3,8 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
-// import { analyzer, unstableRolldownAdapter } from "vite-bundle-analyzer";
+import { analyzer } from "vite-bundle-analyzer";
 
-// https://vite.dev/config/
 const runtimeRoot = fileURLToPath(
   new URL("../../packages/runtime/", import.meta.url),
 );
@@ -14,11 +13,7 @@ const coreRoot = fileURLToPath(
 );
 
 export default defineConfig({
-  plugins: [
-    tailwindcss(),
-    preact(),
-    // unstableRolldownAdapter(analyzer()),
-  ],
+  plugins: [tailwindcss(), preact(), analyzer({ analyzerMode: "static" })],
   resolve: {
     alias: [
       {
@@ -35,7 +30,7 @@ export default defineConfig({
       },
       {
         find: /^@gbemu\/core\/(.+)$/,
-        replacement: `${coreRoot}$1`,
+        replacement: `${coreRoot}src/$1`,
       },
       {
         find: "@",

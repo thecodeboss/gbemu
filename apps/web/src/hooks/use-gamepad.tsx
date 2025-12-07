@@ -1,11 +1,7 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 
-import {
-  JOYPAD_BUTTONS,
-  JoypadButton,
-  JoypadInputState,
-  createEmptyJoypadState,
-} from "@gbemu/core";
+import { JOYPAD_BUTTONS, createEmptyJoypadState } from "@gbemu/core/input";
+import { JoypadButton, JoypadInputState } from "@gbemu/core/input";
 import { VirtualJoypad } from "@/components/virtual-joypad";
 
 type InputSink = (state: JoypadInputState) => Promise<void> | void;
@@ -171,7 +167,9 @@ function areStatesEqual(
   left: JoypadInputState,
   right: JoypadInputState,
 ): boolean {
-  return JOYPAD_BUTTONS.every((button) => left[button] === right[button]);
+  return JOYPAD_BUTTONS.every(
+    (button: JoypadButton) => left[button] === right[button],
+  );
 }
 
 function mergeInputState(

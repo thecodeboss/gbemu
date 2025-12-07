@@ -15,7 +15,7 @@ import audioWorkletModuleUrl from "@gbemu/runtime/src/audio/worklet-processor.ts
 
 import { useSaveStorage } from "@/hooks/use-save-storage";
 import { useCurrentRom } from "@/hooks/use-current-rom";
-import { createEmptyJoypadState } from "@gbemu/core";
+import { createEmptyJoypadState } from "@gbemu/core/input";
 
 const AUDIO_WORKLET_MODULE_URL = new URL(
   audioWorkletModuleUrl,

@@ -1,4 +1,4 @@
-import { SavePayload } from "@gbemu/core";
+import { SavePayload } from "@gbemu/core/emulator";
 import {
   SaveStorageAdapter,
   SerializedSavePayload,

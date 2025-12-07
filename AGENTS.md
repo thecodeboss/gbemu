@@ -39,7 +39,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
 
 ### `@gbemu/core` (`packages/core`)
 
-- Platform-agnostic emulator implementation (DMG defaults) exposing CPU, PPU, APU, system bus, clock, cartridge controllers (`mbc.ts`), ROM helpers, and the `Emulator` contract (`emulator.ts`). `createEmulator` wires a shared `Clock`, `SystemBus`, `Cpu`, `Ppu`, `Apu`, and `MbcFactory`.
+- Platform-agnostic emulator implementation (DMG defaults) exposing CPU, PPU, APU, system bus, clock, cartridge controllers (`src/mbc/*`), ROM helpers, and the `Emulator` contract (`emulator.ts`). `createEmulator` wires a shared `Clock`, `SystemBus`, `Cpu`, `Ppu`, `Apu`, and `MbcFactory`.
 - `Cpu`, `Ppu`, and `Apu` require a `SystemBus` in their constructors; there is no separate connect step.
 - `runtime.ts` defines the message protocol shared between workers and the host (`EmulatorWorkerRequestMap`, `EmulatorWorkerEventMap`).
 - `input.ts` houses joypad primitives (`JoypadInputState`, `JoypadButton`, helpers); `Emulator#setInputState` writes the active state into P1 ($FF00) via the system bus and raises the joypad interrupt on high→low transitions of P10–P13.
@@ -54,7 +54,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
   - `Ppu` runs the LCD mode state machine (OAM → XFER → HBLANK/VBLANK), renders BG/window per pixel with live SCX/SCY sampling, draws up to 10 sprites per scanline, and emits a blank frame when LCDC disables the display. Tile map fetches go through the direct VRAM accessor and XFER batches hoist LCDC/scroll/window registers per chunk to reduce bus traffic.
   - CGB palette decoding uses a startup LUT (0x8000 entries) so `decodeCgbColor` is a constant-time table lookup instead of recomputing gamma-corrected colors per call.
   - `Apu` emulates all four channels (square 1 with sweep, square 2, wave, noise) with length/envelope/sweep/LFSR, mixes at 48 kHz, high-pass-filters DC, resamples to the host AudioContext sample rate, caps pending samples to ~50 ms, and only trickles tiny buffers when wall-clock elapsed time is zero to avoid overfilling during catch-up.
-- `MbcFactory` detects cartridge type and builds ROM-only, MBC1, or MBC3 controllers (others default to ROM-only). MBC3 now implements RTC latching/halt/day-carry behavior; RTC state is persisted via `SavePayload.rtc` (even when no external RAM) alongside debounced RAM flushes (~200 ms) before emitting `callbacks.onSaveData`. Loading a save hydrates the active MBC and mirrors it into the bus via `SystemBus#refreshExternalRamWindow`.
+- `MbcFactory` detects cartridge type and builds ROM-only, MBC1, MBC2, MBC3, or MBC5 controllers (others default to ROM-only). MBC3 now implements RTC latching/halt/day-carry behavior; RTC state is persisted via `SavePayload.rtc` (even when no external RAM) alongside debounced RAM flushes (~200 ms) before emitting `callbacks.onSaveData`. Loading a save hydrates the active MBC and mirrors it into the bus via `SystemBus#refreshExternalRamWindow`.
 - MBC3 RTC snapshots now emit a VBA/BGB-compatible 48-byte trailer (secs/mins/hours/days/control/latched registers + `time_t` seconds) so exported `.sav` files append RTC data (32 KiB + 48 B for carts with RTC). Legacy 16-byte RTC payloads still hydrate correctly when loading older saves.
 - Frame pacing targets 59.73 Hz (70224 master cycles) using wall-clock scheduling; audio chunk sizes derive from elapsed wall time.
 - `src/rom/` groups ROM helpers: `info.ts` parses cartridge metadata (`parseRomInfo`) and `sizes.ts` handles ROM/RAM sizing helpers; `index.ts` re-exports the public surface for consumers.
@@ -88,6 +88,7 @@ pnpm test     # runs the @gbemu/core Vitest suite (Mooneye acceptance + emulator
 - Vite + React front-end (`vite.config.ts` aliases `@gbemu/runtime` to the source tree for hot development).
 - `apps/web/tsconfig.app.json` sets `baseUrl` + paths so imports like `@gbemu/core`/`@gbemu/runtime` resolve to source during dev without needing a build.
 - `apps/web` declares `@gbemu/core` as a workspace dependency; rebuild core (`pnpm --filter @gbemu/core build`) after changing its exports so editors pick up fresh types.
+- When touching the web app, keep core imports lean: use `import type` for core-only types and grab joypad helpers from `@gbemu/core/input` instead of the package index so the main bundle does not pull worker-only modules like `apu.ts` (subpath exports for `input`/`emulator` are available).
 - Shadcn UI components (Tailwind + Radix) provide most primitives; follow https://ui.shadcn.com/docs when touching `apps/web/src/components` so generated styles stay consistent. `components.json` now also registers the Supabase UI registry (`@supabase`). The unused Radix tab/switch UI wrappers were deleted along with the old debug tooling.
 - The `cn` helper in `apps/web/src/lib/utils.ts` now wraps `clsx` only (tailwind-merge removed); keep component class strings conflict-free so overrides stay predictable without runtime merging.
 - Radix-powered modals live in `src/components/ui/dialog.tsx` + `alert-dialog.tsx`, with a simple `Input` primitive in `ui/input.tsx` for inline edits.
