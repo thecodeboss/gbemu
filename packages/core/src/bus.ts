@@ -1,6 +1,6 @@
 import { Apu } from "./apu.js";
 import { decodeCgbColor } from "./colors.js";
-import { InterruptType } from "./cpu-instructions/constants.js";
+import { InterruptType } from "./cpu/instructions/constants.js";
 import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 import { Mbc } from "./mbc.js";
 

@@ -1,4 +1,4 @@
-import { InterruptType } from "./cpu-instructions/constants.js";
+import { InterruptType } from "./cpu/instructions/constants.js";
 import { SystemBus } from "./bus.js";
 import { DMG_PALETTE } from "./palette.js";
 

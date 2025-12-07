@@ -1,5 +1,5 @@
 import { Cpu } from "../cpu.js";
-import { OpcodeInstruction } from "../rom/types.js";
+import { OpcodeInstruction } from "../../rom/types.js";
 
 export function executeDi(
   cpu: Cpu,

@@ -1,5 +1,5 @@
 import { Cpu } from "../cpu.js";
-import { OpcodeInstruction } from "../rom/types.js";
+import { OpcodeInstruction } from "../../rom/types.js";
 import * as arithmetic from "./arithmetic.js";
 import * as bitwise from "./bitwise.js";
 import * as control from "./control.js";

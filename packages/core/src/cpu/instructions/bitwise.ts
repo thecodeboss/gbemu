@@ -1,5 +1,5 @@
 import { Cpu } from "../cpu.js";
-import { InstructionOperand, OpcodeInstruction } from "../rom/types.js";
+import { InstructionOperand, OpcodeInstruction } from "../../rom/types.js";
 import { assertAccumulatorDestination } from "./utils.js";
 
 export function executeAnd(

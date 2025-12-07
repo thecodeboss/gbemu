@@ -1,5 +1,5 @@
 import { Cpu } from "../cpu.js";
-import { OpcodeInstruction } from "../rom/types.js";
+import { OpcodeInstruction } from "../../rom/types.js";
 import { loadHlWithSpOffset } from "./sp-offset.js";
 import {
   is16BitRegisterOperand,

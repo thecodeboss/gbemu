@@ -1,5 +1,5 @@
 import { Cpu } from "../cpu.js";
-import { InstructionOperand, OpcodeInstruction } from "../rom/types.js";
+import { InstructionOperand, OpcodeInstruction } from "../../rom/types.js";
 import { readImmediateOperand } from "./utils.js";
 
 export function executeCall(

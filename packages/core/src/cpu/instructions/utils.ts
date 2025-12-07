@@ -1,4 +1,4 @@
-import { InstructionOperand } from "../rom/types.js";
+import { InstructionOperand } from "../../rom/types.js";
 import { EIGHT_BIT_REGISTERS, SIXTEEN_BIT_REGISTERS } from "./constants.js";
 
 export function assertAccumulatorDestination(

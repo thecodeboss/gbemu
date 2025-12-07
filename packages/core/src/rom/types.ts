@@ -1,4 +1,4 @@
-import { OpcodeMeta, OpcodeOperandMeta } from "../opcode-tables.js";
+import { OpcodeMeta, OpcodeOperandMeta } from "../cpu/opcodes.js";
 
 export interface EmulatorRomInfo {
   readonly title: string;

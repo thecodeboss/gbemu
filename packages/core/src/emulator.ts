@@ -5,7 +5,7 @@ import { Mbc, MbcFactory } from "./mbc.js";
 import { Clock } from "./clock.js";
 import { EmulatorRomInfo } from "./rom/index.js";
 import { parseRomInfo } from "./rom/index.js";
-import { Cpu, CpuRegisters } from "./cpu.js";
+import { Cpu, CpuRegisters } from "./cpu/cpu.js";
 import { JoypadInputState, createEmptyJoypadState } from "./input.js";
 
 export type { EmulatorRomInfo } from "./rom/index.js";

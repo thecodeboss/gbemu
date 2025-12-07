@@ -2,11 +2,11 @@ import {
   getCbPrefixedOpcodeMeta,
   getUnprefixedOpcodeMeta,
   OpcodeMeta,
-} from "./opcode-tables.js";
-import { InstructionOperand, OpcodeInstruction } from "./rom/types.js";
-import { executeFns } from "./cpu-instructions/index.js";
-import * as constants from "./cpu-instructions/constants.js";
-import { isMemoryOperand } from "./cpu-instructions/utils.js";
+} from "./opcodes.js";
+import { InstructionOperand, OpcodeInstruction } from "../rom/types.js";
+import { executeFns } from "./instructions/index.js";
+import * as constants from "./instructions/constants.js";
+import { isMemoryOperand } from "./instructions/utils.js";
 
 export type CpuFlag = "Z" | "N" | "H" | "C";
 
