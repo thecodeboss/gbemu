@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   Card,
@@ -14,11 +21,29 @@ import { useEmulator } from "@/hooks/use-emulator";
 import { useSaveStorage } from "@/hooks/use-save-storage";
 import { createEmptyJoypadState } from "@gbemu/core/input";
 import { JoypadInputState } from "@gbemu/core/input";
-import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog";
-import { ReturnToMenuDialog } from "@/components/return-to-menu-dialog";
 import { useGamepad } from "@/hooks/use-gamepad";
 import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from "@gbemu/runtime";
 import { useLocation } from "preact-iso";
+
+const ManageSavesDialog = lazy(() =>
+  import("@/components/manage-saves/manage-saves-dialog").then((module) => ({
+    default: module.ManageSavesDialog,
+  })),
+);
+
+const ReturnToMenuDialog = lazy(() =>
+  import("@/components/return-to-menu-dialog").then((module) => ({
+    default: module.ReturnToMenuDialog,
+  })),
+);
+
+const preloadManageSavesDialog = (): void => {
+  void import("@/components/manage-saves/manage-saves-dialog");
+};
+
+const preloadReturnToMenuDialog = (): void => {
+  void import("@/components/return-to-menu-dialog");
+};
 
 type FullscreenElement = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
@@ -41,7 +66,7 @@ export function EmulatorPage() {
   const { canvasRef, runtime } = useEmulator();
   const { rom, setCurrentRom } = useCurrentRom();
   const romName = rom?.name ?? null;
-  const { openSaveManager } = useSaveStorage();
+  const { isSaveManagerOpen, openSaveManager } = useSaveStorage();
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const resolveFullscreenTarget = useCallback((): FullscreenElement | null => {
     if (typeof document === "undefined") {
@@ -58,6 +83,36 @@ export function EmulatorPage() {
   const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const { route } = useLocation();
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadDialogs = (): void => {
+      if (cancelled) return;
+      preloadManageSavesDialog();
+      preloadReturnToMenuDialog();
+    };
+
+    if ("requestIdleCallback" in window) {
+      const idleId = (
+        window as Window & {
+          requestIdleCallback?: (cb: IdleRequestCallback) => number;
+          cancelIdleCallback?: (id: number) => void;
+        }
+      ).requestIdleCallback?.(() => loadDialogs());
+      return () => {
+        cancelled = true;
+        (
+          window as Window & { cancelIdleCallback?: (id: number) => void }
+        ).cancelIdleCallback?.(idleId as number);
+      };
+    }
+
+    const timeoutId = (window as Window).setTimeout(loadDialogs, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!rom) route("/");
@@ -217,12 +272,20 @@ export function EmulatorPage() {
               type="button"
               variant="outline"
               onClick={() => setShowReturnConfirm(true)}
+              onMouseEnter={preloadReturnToMenuDialog}
+              onFocus={preloadReturnToMenuDialog}
             >
               Menu
             </Button>
           </CardAction>
           <CardAction>
-            <Button type="button" variant="outline" onClick={openSaveManager}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openSaveManager}
+              onMouseEnter={preloadManageSavesDialog}
+              onFocus={preloadManageSavesDialog}
+            >
               Saves
             </Button>
           </CardAction>
@@ -241,13 +304,21 @@ export function EmulatorPage() {
         {virtualGamepad}
       </Card>
 
-      <ReturnToMenuDialog
-        open={showReturnConfirm}
-        onOpenChange={(next) => setShowReturnConfirm(next)}
-        onConfirm={handleReturnToMenu}
-      />
+      {showReturnConfirm ? (
+        <Suspense fallback={null}>
+          <ReturnToMenuDialog
+            open={showReturnConfirm}
+            onOpenChange={(next) => setShowReturnConfirm(next)}
+            onConfirm={handleReturnToMenu}
+          />
+        </Suspense>
+      ) : null}
 
-      <ManageSavesDialog />
+      {isSaveManagerOpen ? (
+        <Suspense fallback={null}>
+          <ManageSavesDialog />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

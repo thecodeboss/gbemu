@@ -1,8 +1,22 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  ReactNode,
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { JOYPAD_BUTTONS, createEmptyJoypadState } from "@gbemu/core/input";
 import { JoypadButton, JoypadInputState } from "@gbemu/core/input";
-import { VirtualJoypad } from "@/components/virtual-joypad";
+
+const VirtualJoypad = lazy(() =>
+  import("@/components/virtual-joypad").then((module) => ({
+    default: module.VirtualJoypad,
+  })),
+);
 
 type InputSink = (state: JoypadInputState) => Promise<void> | void;
 
@@ -193,6 +207,15 @@ export function useGamepad({ onChange }: UseGamepadOptions): {
 } {
   const onChangeRef = useRef<InputSink>(onChange);
   const frameRef = useRef<number | null>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState<boolean>(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return false;
+    }
+    return window.matchMedia("(max-width: 639px)").matches;
+  });
   const keyboardStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
   const hardwareStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
   const virtualStateRef = useRef<JoypadInputState>(createEmptyJoypadState());
@@ -235,6 +258,37 @@ export function useGamepad({ onChange }: UseGamepadOptions): {
     },
     [applyInputState],
   );
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 639px)");
+    const handleChange = (event: MediaQueryListEvent): void => {
+      setIsSmallScreen(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (isSmallScreen) {
+      return;
+    }
+    const neutral = createEmptyJoypadState();
+    virtualStateRef.current = neutral;
+    applyInputState({ virtual: neutral });
+  }, [applyInputState, isSmallScreen]);
 
   useEffect(() => {
     if (
@@ -306,8 +360,13 @@ export function useGamepad({ onChange }: UseGamepadOptions): {
   }, [applyInputState]);
 
   const virtualGamepad = useMemo(
-    () => <VirtualJoypad onChange={handleVirtualInputStateChange} />,
-    [handleVirtualInputStateChange],
+    () =>
+      isSmallScreen ? (
+        <Suspense fallback={null}>
+          <VirtualJoypad onChange={handleVirtualInputStateChange} />
+        </Suspense>
+      ) : null,
+    [handleVirtualInputStateChange, isSmallScreen],
   );
 
   return {
