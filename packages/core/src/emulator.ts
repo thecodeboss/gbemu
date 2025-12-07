@@ -71,7 +71,9 @@ const DEFAULT_AUDIO_BUFFER_FRAMES = 1024;
 const DEFAULT_OUTPUT_SAMPLE_RATE = 44_100;
 const MASTER_CLOCK_HZ = 4_194_304;
 const FRAME_DURATION_MS = (Clock.FRAME_CYCLES / MASTER_CLOCK_HZ) * 1000;
-const SAVE_FLUSH_DELAY_MS = 200;
+const SAVE_GRACE_CYCLES = Clock.FRAME_CYCLES * 4; // ~4 frames of inactivity before considering a flush
+const MIN_SAVE_DIRTY_WRITES = 1024; // treat only larger bursts as intentional saves
+const SAVE_LONG_IDLE_CYCLES = Clock.FRAME_CYCLES * 240; // ~4 seconds idle flush for small changes
 
 function computeCgbNativeRegisters(): CpuRegisters {
   return {
@@ -144,7 +146,8 @@ export class Emulator {
   #audioRemainder = 0;
   #lastAudioTimestamp: number | null = null;
   #ramDirty = false;
-  #saveFlushTimer: number | null = null;
+  #lastRamWriteCycles: number | null = null;
+  #ramDirtyWrites = 0;
   #persistSaves = false;
 
   constructor(deps: EmulatorDependencies) {
@@ -413,6 +416,7 @@ export class Emulator {
     this.ppu.tick(cycles);
     this.apu.tick(cycles);
     this.clock.stepBulk(cycles);
+    this.#maybeFlushSave(this.clock.masterCycles);
   }
 
   #emitVideoFrame(): void {
@@ -475,43 +479,50 @@ export class Emulator {
   }
 
   #scheduleSaveFlush(): void {
-    if (
-      !this.#persistSaves ||
-      (this.#mbc.getRamSize() === 0 && !this.#mbc.hasRtc())
-    ) {
+    if (!this.#persistSaves) {
       return;
     }
     this.#ramDirty = true;
-    if (this.#saveFlushTimer !== null) {
-      return;
-    }
-    this.#saveFlushTimer = setTimeout(() => {
-      this.#saveFlushTimer = null;
-      if (!this.#ramDirty) {
-        return;
-      }
-      this.#ramDirty = false;
-      this.#emitSaveData();
-    }, SAVE_FLUSH_DELAY_MS) as unknown as number;
+    this.#lastRamWriteCycles = this.clock.masterCycles;
+    this.#ramDirtyWrites += 1;
   }
 
   #flushPendingSave(): void {
-    if (this.#saveFlushTimer !== null) {
-      clearTimeout(this.#saveFlushTimer);
-      this.#saveFlushTimer = null;
-    }
     if (this.#ramDirty) {
       this.#ramDirty = false;
+      this.#ramDirtyWrites = 0;
       this.#emitSaveData();
     }
   }
 
   #resetSaveTracking(): void {
-    if (this.#saveFlushTimer !== null) {
-      clearTimeout(this.#saveFlushTimer);
-      this.#saveFlushTimer = null;
+    this.#ramDirty = false;
+    this.#lastRamWriteCycles = null;
+    this.#ramDirtyWrites = 0;
+  }
+
+  #maybeFlushSave(currentCycles: number): void {
+    if (
+      !this.#persistSaves ||
+      (this.#mbc.getRamSize() === 0 && !this.#mbc.hasRtc()) ||
+      !this.#ramDirty
+    ) {
+      return;
+    }
+    if (this.#lastRamWriteCycles === null) {
+      return;
+    }
+    const idleCycles = currentCycles - this.#lastRamWriteCycles;
+    if (
+      idleCycles < SAVE_GRACE_CYCLES ||
+      (this.#ramDirtyWrites < MIN_SAVE_DIRTY_WRITES &&
+        idleCycles < SAVE_LONG_IDLE_CYCLES)
+    ) {
+      return;
     }
     this.#ramDirty = false;
+    this.#ramDirtyWrites = 0;
+    this.#emitSaveData();
   }
 
   #applySaveDataToMbc(payload: SavePayload): void {

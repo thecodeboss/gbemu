@@ -137,7 +137,12 @@ export abstract class Mbc {
     if (base < 0 || base >= this.ram.length) {
       return;
     }
-    this.ram[base] = value & 0xff;
+    const next = value & 0xff;
+    if (this.ram[base] === next) {
+      return;
+    }
+    this.ram[base] = next;
+    this.markRamDirty();
   }
 
   protected markRamDirty(): void {

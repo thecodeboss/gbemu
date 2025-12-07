@@ -524,6 +524,10 @@ export function createSupabaseSaveAdapter(options: {
     client: SupabasePostgresClient | null,
     nextUserId: string | null,
   ): Promise<void> => {
+    if (supabaseClient === client && userId === nextUserId) {
+      return;
+    }
+
     supabaseClient = client;
 
     if (userId !== nextUserId) {
