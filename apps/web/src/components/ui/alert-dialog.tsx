@@ -89,16 +89,27 @@ const AlertDialogDescription = React.forwardRef<
 AlertDialogDescription.displayName =
   AlertDialogPrimitive.Description.displayName;
 
+type AlertDialogActionVariant = "primary" | "destructive";
+
+const actionBaseClasses =
+  "inline-flex min-h-10 items-center justify-center px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition-transform duration-75 border-[3px] focus-visible:outline-none focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50 hover:-translate-y-px hover:-translate-x-px";
+
+const actionVariants: Record<AlertDialogActionVariant, string> = {
+  primary:
+    "border-foreground bg-primary text-primary-foreground shadow-[4px_4px_0_var(--color-accent)] hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:ring-ring/60",
+  destructive:
+    "border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60",
+};
+
 const AlertDialogAction = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Action>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action> & {
+    variant?: AlertDialogActionVariant;
+  }
+>(({ className, variant = "primary", ...props }, ref) => (
   <AlertDialogPrimitive.Action
     ref={ref}
-    className={cn(
-      "inline-flex min-h-10 items-center justify-center border-[3px] border-foreground bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground shadow-[4px_4px_0_var(--color-accent)] transition-transform duration-75 hover:-translate-y-px hover:-translate-x-px hover:shadow-[5px_5px_0_var(--color-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50",
-      className,
-    )}
+    className={cn(actionBaseClasses, actionVariants[variant], className)}
     {...props}
   />
 ));

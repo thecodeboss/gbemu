@@ -1,8 +1,7 @@
 import { ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  return clsx(inputs);
 }
 
 export const createRomId = (name: string): string => {

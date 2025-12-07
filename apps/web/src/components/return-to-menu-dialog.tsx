@@ -36,10 +36,7 @@ export function ReturnToMenuDialog({
           <AlertDialogCancel onClick={() => onOpenChange(false)}>
             Stay Here
           </AlertDialogCancel>
-          <AlertDialogAction
-            className="border-foreground bg-destructive text-primary-foreground shadow-[4px_4px_0_var(--color-destructive)] hover:-translate-y-px hover:-translate-x-px hover:shadow-[5px_5px_0_var(--color-destructive)] focus-visible:ring-destructive/60"
-            onClick={onConfirm}
-          >
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
             Return to Menu
           </AlertDialogAction>
         </AlertDialogFooter>

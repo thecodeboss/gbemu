@@ -96,9 +96,6 @@ importers:
       react-dom:
         specifier: npm:@preact/compat@18.3.1
         version: "@preact/compat@18.3.1(preact@10.28.0)"
-      tailwind-merge:
-        specifier: 3.4.0
-        version: 3.4.0
     devDependencies:
       "@preact/preset-vite":
         specifier: 2.10.2
@@ -5159,12 +5156,6 @@ packages:
     peerDependencies:
       tailwindcss: ^3.3.0 || ^4.0.0 || ^4.0.0-beta
 
-  tailwind-merge@3.4.0:
-    resolution:
-      {
-        integrity: sha512-uSaO4gnW+b3Y2aWoWfFpX62vn2sR3skfhbjsEnaBI81WD1wBLlHZe5sWf0AqjksNdYTbGBEd0UasQMT3SNV15g==,
-      }
-
   tailwindcss@4.1.17:
     resolution:
       {
@@ -8838,8 +8829,6 @@ snapshots:
       jiti: 2.6.1
       local-pkg: 1.1.2
       tailwindcss: 4.1.17
-
-  tailwind-merge@3.4.0: {}
 
   tailwindcss@4.1.17: {}
 
