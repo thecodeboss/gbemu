@@ -1,38 +1,80 @@
-// src/lib/auth/AuthProvider.tsx
-import { createContext, useContext, useEffect, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  SupabaseAuthSession,
+  SupabaseAuthUser,
+  supabaseAuthClient,
+} from "@/lib/supabase-auth-client";
 
 type AuthContextValue = {
-  user: User | null;
-  session: Session | null;
+  user: SupabaseAuthUser | null;
+  session: SupabaseAuthSession | null;
   loading: boolean;
+  refreshSession: () => Promise<SupabaseAuthSession | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<SupabaseAuthSession | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session ?? null);
-      setLoading(false);
+    let isMounted = true;
+
+    const init = async () => {
+      try {
+        const initial = await supabaseAuthClient.initialize();
+        if (!isMounted) return;
+        setSession(initial);
+      } catch (err) {
+        console.error("Supabase auth init failed", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void init();
+
+    const unsubscribe = supabaseAuthClient.subscribe((nextSession) => {
+      if (!isMounted) return;
+      setSession(nextSession);
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    return () => {
+      isMounted = false;
+      unsubscribe();
+      supabaseAuthClient.teardown();
+    };
+  }, []);
 
-    return () => subscription.unsubscribe();
+  const refreshSession = useCallback(async () => {
+    try {
+      const next = await supabaseAuthClient.refreshSession(true);
+      setSession(next);
+      return next;
+    } catch (err) {
+      console.error("Supabase refresh failed", err);
+      return null;
+    }
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, loading }}
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        refreshSession,
+      }}
     >
       {children}
     </AuthContext.Provider>

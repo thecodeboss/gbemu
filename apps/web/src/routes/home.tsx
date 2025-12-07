@@ -8,9 +8,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
-import { supabase } from "@/lib/supabase";
 import { useLocation } from "preact-iso";
 import { TargetedInputEvent } from "preact";
+import { supabaseAuthClient } from "@/lib/supabase-auth-client";
 
 export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -76,10 +76,10 @@ export function HomePage() {
     [route, setCurrentRom],
   );
 
-  const handleSignOut = useCallback(async () => {
+  const handleSignOut = useCallback(() => {
+    setIsSigningOut(true);
     try {
-      setIsSigningOut(true);
-      await supabase.auth.signOut();
+      supabaseAuthClient.signOut();
     } catch (err) {
       console.error(err);
     } finally {

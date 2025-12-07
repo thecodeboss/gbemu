@@ -8,10 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
 import googleLogo from "@/assets/google.svg";
 import discordLogo from "@/assets/discord.svg";
 import { cn } from "@/lib/utils";
+import { supabaseAuthClient } from "@/lib/supabase-auth-client";
 
 type SocialProvider = "google" | "discord";
 
@@ -24,16 +24,11 @@ export function LoginPage({
     null,
   );
 
-  const handleSocialLogin = useCallback(async (provider: SocialProvider) => {
+  const handleSocialLogin = useCallback((provider: SocialProvider) => {
     setLoadingProvider(provider);
     setError(null);
-
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-      });
-
-      if (error) throw error;
+      supabaseAuthClient.redirectToProvider(provider);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
       setLoadingProvider(null);
