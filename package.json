@@ -7,6 +7,7 @@
     "build": "pnpm --filter @gbemu/core build && pnpm --filter @gbemu/runtime build && pnpm --filter @gbemu/web build",
     "dev": "pnpm --filter @gbemu/web dev",
     "lint": "eslint . --fix && prettier --cache --write --log-level warn .",
+    "prepare-test-roms": "./scripts/prepare-test-roms.sh",
     "test": "pnpm --filter @gbemu/core test"
   },
   "keywords": [],
