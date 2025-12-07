@@ -94,7 +94,7 @@
   }
   body {
     margin: 0;
-    font-family: "Press Start 2P", "VT323", monospace;
+    font-family: monospace;
     letter-spacing: 0.02em;
     @apply bg-background text-foreground;
     background-image:
