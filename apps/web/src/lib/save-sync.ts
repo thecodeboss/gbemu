@@ -4,7 +4,10 @@ import {
   SaveStorageRecord,
   SaveWriteOptions,
 } from "@gbemu/runtime";
-import { SupabaseClient } from "@supabase/supabase-js";
+import {
+  SupabasePostgresClient,
+  SaveRow as SupabaseSaveRow,
+} from "@/lib/supabase";
 
 export type SaveSyncState = "synced" | "pending" | "error";
 
@@ -39,7 +42,7 @@ export interface SupabaseSyncedSaveStorage extends SaveStorageAdapter {
   syncFromSupabase(): Promise<void>;
   flushQueue(): Promise<void>;
   setRemote(
-    client: SupabaseClient | null,
+    client: SupabasePostgresClient | null,
     userId: string | null,
   ): Promise<void>;
   getSyncStateMap(): Record<string, SaveSyncState>;
@@ -254,7 +257,7 @@ export function createSupabaseSaveAdapter(options: {
   onStatusChange?: (status: Record<string, SaveSyncState>) => void;
 }): SupabaseSyncedSaveStorage {
   const { baseAdapter, onStatusChange } = options;
-  let supabaseClient: SupabaseClient | null = null;
+  let supabaseClient: SupabasePostgresClient | null = null;
   let userId: string | null = null;
   let queue: QueueOperation[] = [];
   let isFlushing = false;
@@ -291,39 +294,32 @@ export function createSupabaseSaveAdapter(options: {
     if (!supabaseClient || !userId) {
       return false;
     }
-    const { error } = await supabaseClient
-      .from("saves")
-      .upsert(toSupabaseRecord(operation.record))
-      .select()
-      .single();
 
-    if (error) {
+    try {
+      await supabaseClient.upsertSave(toSupabaseRecord(operation.record));
+      setStatus(operation.record.id, "synced");
+      return true;
+    } catch (error) {
       console.error("Supabase save upsert failed", error);
       setStatus(operation.record.id, "error");
       return false;
     }
-
-    setStatus(operation.record.id, "synced");
-    return true;
   };
 
   const processDelete = async (operation: QueueDeleteOperation) => {
     if (!supabaseClient || !userId) {
       return false;
     }
-    const { error } = await supabaseClient
-      .from("saves")
-      .delete()
-      .eq("id", operation.id);
 
-    if (error) {
+    try {
+      await supabaseClient.deleteSave(operation.id);
+      clearStatus(operation.id);
+      return true;
+    } catch (error) {
       console.error("Supabase save delete failed", error);
       setStatus(operation.id, "error");
       return false;
     }
-
-    clearStatus(operation.id);
-    return true;
   };
 
   const flushQueue = async () => {
@@ -412,16 +408,16 @@ export function createSupabaseSaveAdapter(options: {
         return;
       }
 
-      const { data, error } = await supabaseClient
-        .from("saves")
-        .select("id, gameId, name, payload, createdAt, updatedAt");
+      let remoteRows: SupabaseSaveRow[] = [];
 
-      if (error) {
+      try {
+        remoteRows = await supabaseClient.fetchSaves();
+      } catch (error) {
         console.error("Failed to fetch saves from Supabase", error);
         return;
       }
 
-      const remoteRecords = (data ?? [])
+      const remoteRecords = remoteRows
         .map((row) => toSaveStorageRecord(row))
         .filter((row): row is SaveStorageRecord => Boolean(row));
 
@@ -525,7 +521,7 @@ export function createSupabaseSaveAdapter(options: {
   };
 
   const setRemote = async (
-    client: SupabaseClient | null,
+    client: SupabasePostgresClient | null,
     nextUserId: string | null,
   ): Promise<void> => {
     supabaseClient = client;
