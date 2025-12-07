@@ -1,6 +1,7 @@
 import {
-  CB_PREFIXED_OPCODE_TABLE,
-  UNPREFIXED_OPCODE_TABLE,
+  getCbPrefixedOpcodeMeta,
+  getUnprefixedOpcodeMeta,
+  OpcodeMeta,
 } from "./opcode-tables.js";
 import { InstructionOperand, OpcodeInstruction } from "./rom/types.js";
 import { executeFns } from "./cpu-instructions/index.js";
@@ -176,7 +177,7 @@ export class Cpu {
     }
 
     if (this.state.halted || this.state.stopped) {
-      return this.#consumeCycles(UNPREFIXED_OPCODE_TABLE[0].c);
+      return this.#consumeCycles(getUnprefixedOpcodeMeta(0).c);
     }
 
     const pc = this.state.registers.pc & 0xffff;
@@ -292,7 +293,7 @@ export class Cpu {
     const opcode = this.#instructionView[pc] ?? 0;
     if (opcode === 0xcb) {
       const cbOpcode = this.#instructionView[pc + 1] ?? 0;
-      const meta = CB_PREFIXED_OPCODE_TABLE[cbOpcode];
+      const meta = getCbPrefixedOpcodeMeta(cbOpcode);
       const operands = this.#readOperands(meta, pc + 2);
       const length = meta.len;
       const bytes = this.#instructionView.subarray(pc, pc + length);
@@ -308,7 +309,7 @@ export class Cpu {
       };
     }
 
-    const meta = UNPREFIXED_OPCODE_TABLE[opcode];
+    const meta = getUnprefixedOpcodeMeta(opcode);
     const operands = this.#readOperands(meta, pc + 1);
     const length = meta.len;
     const bytes = this.#instructionView.subarray(pc, pc + length);
@@ -324,10 +325,7 @@ export class Cpu {
     };
   }
 
-  #readOperands(
-    meta: (typeof UNPREFIXED_OPCODE_TABLE)[number],
-    start: number,
-  ): InstructionOperand[] {
+  #readOperands(meta: OpcodeMeta, start: number): InstructionOperand[] {
     let cursor = start;
     const ops: InstructionOperand[] = this.#operandBuffer;
     ops.length = meta.ops.length;

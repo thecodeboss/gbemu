@@ -1,4 +1,3 @@
-// Auto-generated opcode metadata derived from https://gbdev.io/gb-opcodes/Opcodes.json
 export interface OpcodeOperandMeta {
   readonly name: string;
   readonly bytes?: number | null;
@@ -14,521 +13,319 @@ export interface OpcodeMeta {
   readonly ops: readonly OpcodeOperandMeta[];
 }
 
-// prettier-ignore
-export const UNPREFIXED_OPCODE_TABLE: OpcodeMeta[] = [
-/* 0x00 */ {m: "nop", len: 1, c: 1, ops: []},
-/* 0x01 */ {m: "ld", len: 3, c: 3, ops: [{name: "BC", imm: true}, {name: "n16", bytes: 2, imm: true}]},
-/* 0x02 */ {m: "ld", len: 1, c: 2, ops: [{name: "BC"}, {name: "A", imm: true}]},
-/* 0x03 */ {m: "inc", len: 1, c: 2, ops: [{name: "BC", imm: true}]},
-/* 0x04 */ {m: "inc", len: 1, c: 1, ops: [{name: "B", imm: true}]},
-/* 0x05 */ {m: "dec", len: 1, c: 1, ops: [{name: "B", imm: true}]},
-/* 0x06 */ {m: "ld", len: 2, c: 2, ops: [{name: "B", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x07 */ {m: "rlca", len: 1, c: 1, ops: []},
-/* 0x08 */ {m: "ld", len: 3, c: 5, ops: [{name: "a16", bytes: 2}, {name: "SP", imm: true}]},
-/* 0x09 */ {m: "add", len: 1, c: 2, ops: [{name: "HL", imm: true}, {name: "BC", imm: true}]},
-/* 0x0a */ {m: "ld", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "BC"}]},
-/* 0x0b */ {m: "dec", len: 1, c: 2, ops: [{name: "BC", imm: true}]},
-/* 0x0c */ {m: "inc", len: 1, c: 1, ops: [{name: "C", imm: true}]},
-/* 0x0d */ {m: "dec", len: 1, c: 1, ops: [{name: "C", imm: true}]},
-/* 0x0e */ {m: "ld", len: 2, c: 2, ops: [{name: "C", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x0f */ {m: "rrca", len: 1, c: 1, ops: []},
-/* 0x10 */ {m: "stop", len: 2, c: 0, ops: [{name: "n8", bytes: 1, imm: true}]},
-/* 0x11 */ {m: "ld", len: 3, c: 3, ops: [{name: "DE", imm: true}, {name: "n16", bytes: 2, imm: true}]},
-/* 0x12 */ {m: "ld", len: 1, c: 2, ops: [{name: "DE"}, {name: "A", imm: true}]},
-/* 0x13 */ {m: "inc", len: 1, c: 2, ops: [{name: "DE", imm: true}]},
-/* 0x14 */ {m: "inc", len: 1, c: 1, ops: [{name: "D", imm: true}]},
-/* 0x15 */ {m: "dec", len: 1, c: 1, ops: [{name: "D", imm: true}]},
-/* 0x16 */ {m: "ld", len: 2, c: 2, ops: [{name: "D", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x17 */ {m: "rla", len: 1, c: 1, ops: []},
-/* 0x18 */ {m: "jr", len: 2, c: 3, ops: [{name: "e8", bytes: 1, imm: true}]},
-/* 0x19 */ {m: "add", len: 1, c: 2, ops: [{name: "HL", imm: true}, {name: "DE", imm: true}]},
-/* 0x1a */ {m: "ld", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "DE"}]},
-/* 0x1b */ {m: "dec", len: 1, c: 2, ops: [{name: "DE", imm: true}]},
-/* 0x1c */ {m: "inc", len: 1, c: 1, ops: [{name: "E", imm: true}]},
-/* 0x1d */ {m: "dec", len: 1, c: 1, ops: [{name: "E", imm: true}]},
-/* 0x1e */ {m: "ld", len: 2, c: 2, ops: [{name: "E", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x1f */ {m: "rra", len: 1, c: 1, ops: []},
-/* 0x20 */ {m: "jr", len: 2, c: 2, ops: [{name: "NZ", imm: true}, {name: "e8", bytes: 1, imm: true}]},
-/* 0x21 */ {m: "ld", len: 3, c: 3, ops: [{name: "HL", imm: true}, {name: "n16", bytes: 2, imm: true}]},
-/* 0x22 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL", inc: true}, {name: "A", imm: true}]},
-/* 0x23 */ {m: "inc", len: 1, c: 2, ops: [{name: "HL", imm: true}]},
-/* 0x24 */ {m: "inc", len: 1, c: 1, ops: [{name: "H", imm: true}]},
-/* 0x25 */ {m: "dec", len: 1, c: 1, ops: [{name: "H", imm: true}]},
-/* 0x26 */ {m: "ld", len: 2, c: 2, ops: [{name: "H", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x27 */ {m: "daa", len: 1, c: 1, ops: []},
-/* 0x28 */ {m: "jr", len: 2, c: 2, ops: [{name: "Z", imm: true}, {name: "e8", bytes: 1, imm: true}]},
-/* 0x29 */ {m: "add", len: 1, c: 2, ops: [{name: "HL", imm: true}, {name: "HL", imm: true}]},
-/* 0x2a */ {m: "ld", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL", inc: true}]},
-/* 0x2b */ {m: "dec", len: 1, c: 2, ops: [{name: "HL", imm: true}]},
-/* 0x2c */ {m: "inc", len: 1, c: 1, ops: [{name: "L", imm: true}]},
-/* 0x2d */ {m: "dec", len: 1, c: 1, ops: [{name: "L", imm: true}]},
-/* 0x2e */ {m: "ld", len: 2, c: 2, ops: [{name: "L", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x2f */ {m: "cpl", len: 1, c: 1, ops: []},
-/* 0x30 */ {m: "jr", len: 2, c: 2, ops: [{name: "NC", imm: true}, {name: "e8", bytes: 1, imm: true}]},
-/* 0x31 */ {m: "ld", len: 3, c: 3, ops: [{name: "SP", imm: true}, {name: "n16", bytes: 2, imm: true}]},
-/* 0x32 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL", dec: true}, {name: "A", imm: true}]},
-/* 0x33 */ {m: "inc", len: 1, c: 2, ops: [{name: "SP", imm: true}]},
-/* 0x34 */ {m: "inc", len: 1, c: 3, ops: [{name: "HL"}]},
-/* 0x35 */ {m: "dec", len: 1, c: 3, ops: [{name: "HL"}]},
-/* 0x36 */ {m: "ld", len: 2, c: 3, ops: [{name: "HL"}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x37 */ {m: "scf", len: 1, c: 1, ops: []},
-/* 0x38 */ {m: "jr", len: 2, c: 2, ops: [{name: "C", imm: true}, {name: "e8", bytes: 1, imm: true}]},
-/* 0x39 */ {m: "add", len: 1, c: 2, ops: [{name: "HL", imm: true}, {name: "SP", imm: true}]},
-/* 0x3a */ {m: "ld", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL", dec: true}]},
-/* 0x3b */ {m: "dec", len: 1, c: 2, ops: [{name: "SP", imm: true}]},
-/* 0x3c */ {m: "inc", len: 1, c: 1, ops: [{name: "A", imm: true}]},
-/* 0x3d */ {m: "dec", len: 1, c: 1, ops: [{name: "A", imm: true}]},
-/* 0x3e */ {m: "ld", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0x3f */ {m: "ccf", len: 1, c: 1, ops: []},
-/* 0x40 */ {m: "ld", len: 1, c: 1, ops: [{name: "B", imm: true}, {name: "B", imm: true}]},
-/* 0x41 */ {m: "ld", len: 1, c: 1, ops: [{name: "B", imm: true}, {name: "C", imm: true}]},
-/* 0x42 */ {m: "ld", len: 1, c: 1, ops: [{name: "B", imm: true}, {name: "D", imm: true}]},
-/* 0x43 */ {m: "ld", len: 1, c: 1, ops: [{name: "B", imm: true}, {name: "E", imm: true}]},
-/* 0x44 */ {m: "ld", len: 1, c: 1, ops: [{name: "B", imm: true}, {name: "H", imm: true}]},
-/* 0x45 */ {m: "ld", len: 1, c: 1, ops: [{name: "B", imm: true}, {name: "L", imm: true}]},
-/* 0x46 */ {m: "ld", len: 1, c: 2, ops: [{name: "B", imm: true}, {name: "HL"}]},
-/* 0x47 */ {m: "ld", len: 1, c: 1, ops: [{name: "B", imm: true}, {name: "A", imm: true}]},
-/* 0x48 */ {m: "ld", len: 1, c: 1, ops: [{name: "C", imm: true}, {name: "B", imm: true}]},
-/* 0x49 */ {m: "ld", len: 1, c: 1, ops: [{name: "C", imm: true}, {name: "C", imm: true}]},
-/* 0x4a */ {m: "ld", len: 1, c: 1, ops: [{name: "C", imm: true}, {name: "D", imm: true}]},
-/* 0x4b */ {m: "ld", len: 1, c: 1, ops: [{name: "C", imm: true}, {name: "E", imm: true}]},
-/* 0x4c */ {m: "ld", len: 1, c: 1, ops: [{name: "C", imm: true}, {name: "H", imm: true}]},
-/* 0x4d */ {m: "ld", len: 1, c: 1, ops: [{name: "C", imm: true}, {name: "L", imm: true}]},
-/* 0x4e */ {m: "ld", len: 1, c: 2, ops: [{name: "C", imm: true}, {name: "HL"}]},
-/* 0x4f */ {m: "ld", len: 1, c: 1, ops: [{name: "C", imm: true}, {name: "A", imm: true}]},
-/* 0x50 */ {m: "ld", len: 1, c: 1, ops: [{name: "D", imm: true}, {name: "B", imm: true}]},
-/* 0x51 */ {m: "ld", len: 1, c: 1, ops: [{name: "D", imm: true}, {name: "C", imm: true}]},
-/* 0x52 */ {m: "ld", len: 1, c: 1, ops: [{name: "D", imm: true}, {name: "D", imm: true}]},
-/* 0x53 */ {m: "ld", len: 1, c: 1, ops: [{name: "D", imm: true}, {name: "E", imm: true}]},
-/* 0x54 */ {m: "ld", len: 1, c: 1, ops: [{name: "D", imm: true}, {name: "H", imm: true}]},
-/* 0x55 */ {m: "ld", len: 1, c: 1, ops: [{name: "D", imm: true}, {name: "L", imm: true}]},
-/* 0x56 */ {m: "ld", len: 1, c: 2, ops: [{name: "D", imm: true}, {name: "HL"}]},
-/* 0x57 */ {m: "ld", len: 1, c: 1, ops: [{name: "D", imm: true}, {name: "A", imm: true}]},
-/* 0x58 */ {m: "ld", len: 1, c: 1, ops: [{name: "E", imm: true}, {name: "B", imm: true}]},
-/* 0x59 */ {m: "ld", len: 1, c: 1, ops: [{name: "E", imm: true}, {name: "C", imm: true}]},
-/* 0x5a */ {m: "ld", len: 1, c: 1, ops: [{name: "E", imm: true}, {name: "D", imm: true}]},
-/* 0x5b */ {m: "ld", len: 1, c: 1, ops: [{name: "E", imm: true}, {name: "E", imm: true}]},
-/* 0x5c */ {m: "ld", len: 1, c: 1, ops: [{name: "E", imm: true}, {name: "H", imm: true}]},
-/* 0x5d */ {m: "ld", len: 1, c: 1, ops: [{name: "E", imm: true}, {name: "L", imm: true}]},
-/* 0x5e */ {m: "ld", len: 1, c: 2, ops: [{name: "E", imm: true}, {name: "HL"}]},
-/* 0x5f */ {m: "ld", len: 1, c: 1, ops: [{name: "E", imm: true}, {name: "A", imm: true}]},
-/* 0x60 */ {m: "ld", len: 1, c: 1, ops: [{name: "H", imm: true}, {name: "B", imm: true}]},
-/* 0x61 */ {m: "ld", len: 1, c: 1, ops: [{name: "H", imm: true}, {name: "C", imm: true}]},
-/* 0x62 */ {m: "ld", len: 1, c: 1, ops: [{name: "H", imm: true}, {name: "D", imm: true}]},
-/* 0x63 */ {m: "ld", len: 1, c: 1, ops: [{name: "H", imm: true}, {name: "E", imm: true}]},
-/* 0x64 */ {m: "ld", len: 1, c: 1, ops: [{name: "H", imm: true}, {name: "H", imm: true}]},
-/* 0x65 */ {m: "ld", len: 1, c: 1, ops: [{name: "H", imm: true}, {name: "L", imm: true}]},
-/* 0x66 */ {m: "ld", len: 1, c: 2, ops: [{name: "H", imm: true}, {name: "HL"}]},
-/* 0x67 */ {m: "ld", len: 1, c: 1, ops: [{name: "H", imm: true}, {name: "A", imm: true}]},
-/* 0x68 */ {m: "ld", len: 1, c: 1, ops: [{name: "L", imm: true}, {name: "B", imm: true}]},
-/* 0x69 */ {m: "ld", len: 1, c: 1, ops: [{name: "L", imm: true}, {name: "C", imm: true}]},
-/* 0x6a */ {m: "ld", len: 1, c: 1, ops: [{name: "L", imm: true}, {name: "D", imm: true}]},
-/* 0x6b */ {m: "ld", len: 1, c: 1, ops: [{name: "L", imm: true}, {name: "E", imm: true}]},
-/* 0x6c */ {m: "ld", len: 1, c: 1, ops: [{name: "L", imm: true}, {name: "H", imm: true}]},
-/* 0x6d */ {m: "ld", len: 1, c: 1, ops: [{name: "L", imm: true}, {name: "L", imm: true}]},
-/* 0x6e */ {m: "ld", len: 1, c: 2, ops: [{name: "L", imm: true}, {name: "HL"}]},
-/* 0x6f */ {m: "ld", len: 1, c: 1, ops: [{name: "L", imm: true}, {name: "A", imm: true}]},
-/* 0x70 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL"}, {name: "B", imm: true}]},
-/* 0x71 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL"}, {name: "C", imm: true}]},
-/* 0x72 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL"}, {name: "D", imm: true}]},
-/* 0x73 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL"}, {name: "E", imm: true}]},
-/* 0x74 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL"}, {name: "H", imm: true}]},
-/* 0x75 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL"}, {name: "L", imm: true}]},
-/* 0x76 */ {m: "halt", len: 1, c: 0, ops: []},
-/* 0x77 */ {m: "ld", len: 1, c: 2, ops: [{name: "HL"}, {name: "A", imm: true}]},
-/* 0x78 */ {m: "ld", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0x79 */ {m: "ld", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0x7a */ {m: "ld", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0x7b */ {m: "ld", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0x7c */ {m: "ld", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0x7d */ {m: "ld", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0x7e */ {m: "ld", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0x7f */ {m: "ld", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0x80 */ {m: "add", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0x81 */ {m: "add", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0x82 */ {m: "add", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0x83 */ {m: "add", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0x84 */ {m: "add", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0x85 */ {m: "add", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0x86 */ {m: "add", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0x87 */ {m: "add", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0x88 */ {m: "adc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0x89 */ {m: "adc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0x8a */ {m: "adc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0x8b */ {m: "adc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0x8c */ {m: "adc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0x8d */ {m: "adc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0x8e */ {m: "adc", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0x8f */ {m: "adc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0x90 */ {m: "sub", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0x91 */ {m: "sub", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0x92 */ {m: "sub", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0x93 */ {m: "sub", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0x94 */ {m: "sub", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0x95 */ {m: "sub", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0x96 */ {m: "sub", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0x97 */ {m: "sub", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0x98 */ {m: "sbc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0x99 */ {m: "sbc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0x9a */ {m: "sbc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0x9b */ {m: "sbc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0x9c */ {m: "sbc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0x9d */ {m: "sbc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0x9e */ {m: "sbc", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0x9f */ {m: "sbc", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0xa0 */ {m: "and", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0xa1 */ {m: "and", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0xa2 */ {m: "and", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0xa3 */ {m: "and", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0xa4 */ {m: "and", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0xa5 */ {m: "and", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0xa6 */ {m: "and", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0xa7 */ {m: "and", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0xa8 */ {m: "xor", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0xa9 */ {m: "xor", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0xaa */ {m: "xor", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0xab */ {m: "xor", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0xac */ {m: "xor", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0xad */ {m: "xor", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0xae */ {m: "xor", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0xaf */ {m: "xor", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0xb0 */ {m: "or", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0xb1 */ {m: "or", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0xb2 */ {m: "or", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0xb3 */ {m: "or", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0xb4 */ {m: "or", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0xb5 */ {m: "or", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0xb6 */ {m: "or", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0xb7 */ {m: "or", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0xb8 */ {m: "cp", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "B", imm: true}]},
-/* 0xb9 */ {m: "cp", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "C", imm: true}]},
-/* 0xba */ {m: "cp", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "D", imm: true}]},
-/* 0xbb */ {m: "cp", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "E", imm: true}]},
-/* 0xbc */ {m: "cp", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "H", imm: true}]},
-/* 0xbd */ {m: "cp", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "L", imm: true}]},
-/* 0xbe */ {m: "cp", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "HL"}]},
-/* 0xbf */ {m: "cp", len: 1, c: 1, ops: [{name: "A", imm: true}, {name: "A", imm: true}]},
-/* 0xc0 */ {m: "ret", len: 1, c: 2, ops: [{name: "NZ", imm: true}]},
-/* 0xc1 */ {m: "pop", len: 1, c: 3, ops: [{name: "BC", imm: true}]},
-/* 0xc2 */ {m: "jp", len: 3, c: 3, ops: [{name: "NZ", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xc3 */ {m: "jp", len: 3, c: 4, ops: [{name: "a16", bytes: 2, imm: true}]},
-/* 0xc4 */ {m: "call", len: 3, c: 3, ops: [{name: "NZ", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xc5 */ {m: "push", len: 1, c: 4, ops: [{name: "BC", imm: true}]},
-/* 0xc6 */ {m: "add", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xc7 */ {m: "rst", len: 1, c: 4, ops: [{name: "$00", imm: true}]},
-/* 0xc8 */ {m: "ret", len: 1, c: 2, ops: [{name: "Z", imm: true}]},
-/* 0xc9 */ {m: "ret", len: 1, c: 4, ops: []},
-/* 0xca */ {m: "jp", len: 3, c: 3, ops: [{name: "Z", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xcb */ {m: "prefix", len: 1, c: 0, ops: []},
-/* 0xcc */ {m: "call", len: 3, c: 3, ops: [{name: "Z", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xcd */ {m: "call", len: 3, c: 6, ops: [{name: "a16", bytes: 2, imm: true}]},
-/* 0xce */ {m: "adc", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xcf */ {m: "rst", len: 1, c: 4, ops: [{name: "$08", imm: true}]},
-/* 0xd0 */ {m: "ret", len: 1, c: 2, ops: [{name: "NC", imm: true}]},
-/* 0xd1 */ {m: "pop", len: 1, c: 3, ops: [{name: "DE", imm: true}]},
-/* 0xd2 */ {m: "jp", len: 3, c: 3, ops: [{name: "NC", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xd3 */ {m: "illegal_d3", len: 1, c: 0, ops: []},
-/* 0xd4 */ {m: "call", len: 3, c: 3, ops: [{name: "NC", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xd5 */ {m: "push", len: 1, c: 4, ops: [{name: "DE", imm: true}]},
-/* 0xd6 */ {m: "sub", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xd7 */ {m: "rst", len: 1, c: 4, ops: [{name: "$10", imm: true}]},
-/* 0xd8 */ {m: "ret", len: 1, c: 2, ops: [{name: "C", imm: true}]},
-/* 0xd9 */ {m: "reti", len: 1, c: 4, ops: []},
-/* 0xda */ {m: "jp", len: 3, c: 3, ops: [{name: "C", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xdb */ {m: "illegal_db", len: 1, c: 0, ops: []},
-/* 0xdc */ {m: "call", len: 3, c: 3, ops: [{name: "C", imm: true}, {name: "a16", bytes: 2, imm: true}]},
-/* 0xdd */ {m: "illegal_dd", len: 1, c: 0, ops: []},
-/* 0xde */ {m: "sbc", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xdf */ {m: "rst", len: 1, c: 4, ops: [{name: "$18", imm: true}]},
-/* 0xe0 */ {m: "ldh", len: 2, c: 3, ops: [{name: "a8", bytes: 1}, {name: "A", imm: true}]},
-/* 0xe1 */ {m: "pop", len: 1, c: 3, ops: [{name: "HL", imm: true}]},
-/* 0xe2 */ {m: "ldh", len: 1, c: 2, ops: [{name: "C"}, {name: "A", imm: true}]},
-/* 0xe3 */ {m: "illegal_e3", len: 1, c: 0, ops: []},
-/* 0xe4 */ {m: "illegal_e4", len: 1, c: 0, ops: []},
-/* 0xe5 */ {m: "push", len: 1, c: 4, ops: [{name: "HL", imm: true}]},
-/* 0xe6 */ {m: "and", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xe7 */ {m: "rst", len: 1, c: 4, ops: [{name: "$20", imm: true}]},
-/* 0xe8 */ {m: "add", len: 2, c: 4, ops: [{name: "SP", imm: true}, {name: "e8", bytes: 1, imm: true}]},
-/* 0xe9 */ {m: "jp", len: 1, c: 1, ops: [{name: "HL", imm: true}]},
-/* 0xea */ {m: "ld", len: 3, c: 4, ops: [{name: "a16", bytes: 2}, {name: "A", imm: true}]},
-/* 0xeb */ {m: "illegal_eb", len: 1, c: 0, ops: []},
-/* 0xec */ {m: "illegal_ec", len: 1, c: 0, ops: []},
-/* 0xed */ {m: "illegal_ed", len: 1, c: 0, ops: []},
-/* 0xee */ {m: "xor", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xef */ {m: "rst", len: 1, c: 4, ops: [{name: "$28", imm: true}]},
-/* 0xf0 */ {m: "ldh", len: 2, c: 3, ops: [{name: "A", imm: true}, {name: "a8", bytes: 1}]},
-/* 0xf1 */ {m: "pop", len: 1, c: 3, ops: [{name: "AF", imm: true}]},
-/* 0xf2 */ {m: "ldh", len: 1, c: 2, ops: [{name: "A", imm: true}, {name: "C"}]},
-/* 0xf3 */ {m: "di", len: 1, c: 1, ops: []},
-/* 0xf4 */ {m: "illegal_f4", len: 1, c: 0, ops: []},
-/* 0xf5 */ {m: "push", len: 1, c: 4, ops: [{name: "AF", imm: true}]},
-/* 0xf6 */ {m: "or", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xf7 */ {m: "rst", len: 1, c: 4, ops: [{name: "$30", imm: true}]},
-/* 0xf8 */ {m: "ld", len: 2, c: 3, ops: [{name: "HL", imm: true}, {name: "SP", imm: true, inc: true}, {name: "e8", bytes: 1, imm: true}]},
-/* 0xf9 */ {m: "ld", len: 1, c: 2, ops: [{name: "SP", imm: true}, {name: "HL", imm: true}]},
-/* 0xfa */ {m: "ld", len: 3, c: 4, ops: [{name: "A", imm: true}, {name: "a16", bytes: 2}]},
-/* 0xfb */ {m: "ei", len: 1, c: 1, ops: []},
-/* 0xfc */ {m: "illegal_fc", len: 1, c: 0, ops: []},
-/* 0xfd */ {m: "illegal_fd", len: 1, c: 0, ops: []},
-/* 0xfe */ {m: "cp", len: 2, c: 2, ops: [{name: "A", imm: true}, {name: "n8", bytes: 1, imm: true}]},
-/* 0xff */ {m: "rst", len: 1, c: 4, ops: [{name: "$38", imm: true}]},
+const HL_MEMORY: OpcodeOperandMeta = { name: "HL" };
+const HL_INC_MEMORY: OpcodeOperandMeta = { name: "HL", inc: true };
+const HL_DEC_MEMORY: OpcodeOperandMeta = { name: "HL", dec: true };
+
+const REG8_OPERANDS: readonly OpcodeOperandMeta[] = [
+  { name: "B", imm: true },
+  { name: "C", imm: true },
+  { name: "D", imm: true },
+  { name: "E", imm: true },
+  { name: "H", imm: true },
+  { name: "L", imm: true },
+  HL_MEMORY,
+  { name: "A", imm: true },
 ];
-// prettier-ignore
-export const CB_PREFIXED_OPCODE_TABLE: OpcodeMeta[] = [
-/* 0x00 */ {m: "rlc", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x01 */ {m: "rlc", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x02 */ {m: "rlc", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x03 */ {m: "rlc", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x04 */ {m: "rlc", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x05 */ {m: "rlc", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x06 */ {m: "rlc", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x07 */ {m: "rlc", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x08 */ {m: "rrc", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x09 */ {m: "rrc", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x0a */ {m: "rrc", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x0b */ {m: "rrc", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x0c */ {m: "rrc", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x0d */ {m: "rrc", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x0e */ {m: "rrc", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x0f */ {m: "rrc", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x10 */ {m: "rl", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x11 */ {m: "rl", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x12 */ {m: "rl", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x13 */ {m: "rl", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x14 */ {m: "rl", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x15 */ {m: "rl", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x16 */ {m: "rl", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x17 */ {m: "rl", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x18 */ {m: "rr", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x19 */ {m: "rr", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x1a */ {m: "rr", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x1b */ {m: "rr", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x1c */ {m: "rr", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x1d */ {m: "rr", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x1e */ {m: "rr", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x1f */ {m: "rr", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x20 */ {m: "sla", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x21 */ {m: "sla", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x22 */ {m: "sla", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x23 */ {m: "sla", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x24 */ {m: "sla", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x25 */ {m: "sla", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x26 */ {m: "sla", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x27 */ {m: "sla", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x28 */ {m: "sra", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x29 */ {m: "sra", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x2a */ {m: "sra", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x2b */ {m: "sra", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x2c */ {m: "sra", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x2d */ {m: "sra", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x2e */ {m: "sra", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x2f */ {m: "sra", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x30 */ {m: "swap", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x31 */ {m: "swap", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x32 */ {m: "swap", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x33 */ {m: "swap", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x34 */ {m: "swap", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x35 */ {m: "swap", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x36 */ {m: "swap", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x37 */ {m: "swap", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x38 */ {m: "srl", len: 2, c: 2, ops: [{name: "B", imm: true}]},
-/* 0x39 */ {m: "srl", len: 2, c: 2, ops: [{name: "C", imm: true}]},
-/* 0x3a */ {m: "srl", len: 2, c: 2, ops: [{name: "D", imm: true}]},
-/* 0x3b */ {m: "srl", len: 2, c: 2, ops: [{name: "E", imm: true}]},
-/* 0x3c */ {m: "srl", len: 2, c: 2, ops: [{name: "H", imm: true}]},
-/* 0x3d */ {m: "srl", len: 2, c: 2, ops: [{name: "L", imm: true}]},
-/* 0x3e */ {m: "srl", len: 2, c: 4, ops: [{name: "HL"}]},
-/* 0x3f */ {m: "srl", len: 2, c: 2, ops: [{name: "A", imm: true}]},
-/* 0x40 */ {m: "bit", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "B", imm: true}]},
-/* 0x41 */ {m: "bit", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "C", imm: true}]},
-/* 0x42 */ {m: "bit", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "D", imm: true}]},
-/* 0x43 */ {m: "bit", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "E", imm: true}]},
-/* 0x44 */ {m: "bit", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "H", imm: true}]},
-/* 0x45 */ {m: "bit", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "L", imm: true}]},
-/* 0x46 */ {m: "bit", len: 2, c: 3, ops: [{name: "0", imm: true}, {name: "HL"}]},
-/* 0x47 */ {m: "bit", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "A", imm: true}]},
-/* 0x48 */ {m: "bit", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "B", imm: true}]},
-/* 0x49 */ {m: "bit", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "C", imm: true}]},
-/* 0x4a */ {m: "bit", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "D", imm: true}]},
-/* 0x4b */ {m: "bit", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "E", imm: true}]},
-/* 0x4c */ {m: "bit", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "H", imm: true}]},
-/* 0x4d */ {m: "bit", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "L", imm: true}]},
-/* 0x4e */ {m: "bit", len: 2, c: 3, ops: [{name: "1", imm: true}, {name: "HL"}]},
-/* 0x4f */ {m: "bit", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "A", imm: true}]},
-/* 0x50 */ {m: "bit", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "B", imm: true}]},
-/* 0x51 */ {m: "bit", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "C", imm: true}]},
-/* 0x52 */ {m: "bit", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "D", imm: true}]},
-/* 0x53 */ {m: "bit", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "E", imm: true}]},
-/* 0x54 */ {m: "bit", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "H", imm: true}]},
-/* 0x55 */ {m: "bit", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "L", imm: true}]},
-/* 0x56 */ {m: "bit", len: 2, c: 3, ops: [{name: "2", imm: true}, {name: "HL"}]},
-/* 0x57 */ {m: "bit", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "A", imm: true}]},
-/* 0x58 */ {m: "bit", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "B", imm: true}]},
-/* 0x59 */ {m: "bit", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "C", imm: true}]},
-/* 0x5a */ {m: "bit", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "D", imm: true}]},
-/* 0x5b */ {m: "bit", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "E", imm: true}]},
-/* 0x5c */ {m: "bit", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "H", imm: true}]},
-/* 0x5d */ {m: "bit", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "L", imm: true}]},
-/* 0x5e */ {m: "bit", len: 2, c: 3, ops: [{name: "3", imm: true}, {name: "HL"}]},
-/* 0x5f */ {m: "bit", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "A", imm: true}]},
-/* 0x60 */ {m: "bit", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "B", imm: true}]},
-/* 0x61 */ {m: "bit", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "C", imm: true}]},
-/* 0x62 */ {m: "bit", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "D", imm: true}]},
-/* 0x63 */ {m: "bit", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "E", imm: true}]},
-/* 0x64 */ {m: "bit", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "H", imm: true}]},
-/* 0x65 */ {m: "bit", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "L", imm: true}]},
-/* 0x66 */ {m: "bit", len: 2, c: 3, ops: [{name: "4", imm: true}, {name: "HL"}]},
-/* 0x67 */ {m: "bit", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "A", imm: true}]},
-/* 0x68 */ {m: "bit", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "B", imm: true}]},
-/* 0x69 */ {m: "bit", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "C", imm: true}]},
-/* 0x6a */ {m: "bit", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "D", imm: true}]},
-/* 0x6b */ {m: "bit", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "E", imm: true}]},
-/* 0x6c */ {m: "bit", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "H", imm: true}]},
-/* 0x6d */ {m: "bit", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "L", imm: true}]},
-/* 0x6e */ {m: "bit", len: 2, c: 3, ops: [{name: "5", imm: true}, {name: "HL"}]},
-/* 0x6f */ {m: "bit", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "A", imm: true}]},
-/* 0x70 */ {m: "bit", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "B", imm: true}]},
-/* 0x71 */ {m: "bit", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "C", imm: true}]},
-/* 0x72 */ {m: "bit", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "D", imm: true}]},
-/* 0x73 */ {m: "bit", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "E", imm: true}]},
-/* 0x74 */ {m: "bit", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "H", imm: true}]},
-/* 0x75 */ {m: "bit", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "L", imm: true}]},
-/* 0x76 */ {m: "bit", len: 2, c: 3, ops: [{name: "6", imm: true}, {name: "HL"}]},
-/* 0x77 */ {m: "bit", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "A", imm: true}]},
-/* 0x78 */ {m: "bit", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "B", imm: true}]},
-/* 0x79 */ {m: "bit", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "C", imm: true}]},
-/* 0x7a */ {m: "bit", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "D", imm: true}]},
-/* 0x7b */ {m: "bit", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "E", imm: true}]},
-/* 0x7c */ {m: "bit", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "H", imm: true}]},
-/* 0x7d */ {m: "bit", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "L", imm: true}]},
-/* 0x7e */ {m: "bit", len: 2, c: 3, ops: [{name: "7", imm: true}, {name: "HL"}]},
-/* 0x7f */ {m: "bit", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "A", imm: true}]},
-/* 0x80 */ {m: "res", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "B", imm: true}]},
-/* 0x81 */ {m: "res", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "C", imm: true}]},
-/* 0x82 */ {m: "res", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "D", imm: true}]},
-/* 0x83 */ {m: "res", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "E", imm: true}]},
-/* 0x84 */ {m: "res", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "H", imm: true}]},
-/* 0x85 */ {m: "res", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "L", imm: true}]},
-/* 0x86 */ {m: "res", len: 2, c: 4, ops: [{name: "0", imm: true}, {name: "HL"}]},
-/* 0x87 */ {m: "res", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "A", imm: true}]},
-/* 0x88 */ {m: "res", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "B", imm: true}]},
-/* 0x89 */ {m: "res", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "C", imm: true}]},
-/* 0x8a */ {m: "res", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "D", imm: true}]},
-/* 0x8b */ {m: "res", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "E", imm: true}]},
-/* 0x8c */ {m: "res", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "H", imm: true}]},
-/* 0x8d */ {m: "res", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "L", imm: true}]},
-/* 0x8e */ {m: "res", len: 2, c: 4, ops: [{name: "1", imm: true}, {name: "HL"}]},
-/* 0x8f */ {m: "res", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "A", imm: true}]},
-/* 0x90 */ {m: "res", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "B", imm: true}]},
-/* 0x91 */ {m: "res", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "C", imm: true}]},
-/* 0x92 */ {m: "res", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "D", imm: true}]},
-/* 0x93 */ {m: "res", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "E", imm: true}]},
-/* 0x94 */ {m: "res", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "H", imm: true}]},
-/* 0x95 */ {m: "res", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "L", imm: true}]},
-/* 0x96 */ {m: "res", len: 2, c: 4, ops: [{name: "2", imm: true}, {name: "HL"}]},
-/* 0x97 */ {m: "res", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "A", imm: true}]},
-/* 0x98 */ {m: "res", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "B", imm: true}]},
-/* 0x99 */ {m: "res", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "C", imm: true}]},
-/* 0x9a */ {m: "res", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "D", imm: true}]},
-/* 0x9b */ {m: "res", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "E", imm: true}]},
-/* 0x9c */ {m: "res", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "H", imm: true}]},
-/* 0x9d */ {m: "res", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "L", imm: true}]},
-/* 0x9e */ {m: "res", len: 2, c: 4, ops: [{name: "3", imm: true}, {name: "HL"}]},
-/* 0x9f */ {m: "res", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "A", imm: true}]},
-/* 0xa0 */ {m: "res", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "B", imm: true}]},
-/* 0xa1 */ {m: "res", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "C", imm: true}]},
-/* 0xa2 */ {m: "res", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "D", imm: true}]},
-/* 0xa3 */ {m: "res", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "E", imm: true}]},
-/* 0xa4 */ {m: "res", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "H", imm: true}]},
-/* 0xa5 */ {m: "res", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "L", imm: true}]},
-/* 0xa6 */ {m: "res", len: 2, c: 4, ops: [{name: "4", imm: true}, {name: "HL"}]},
-/* 0xa7 */ {m: "res", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "A", imm: true}]},
-/* 0xa8 */ {m: "res", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "B", imm: true}]},
-/* 0xa9 */ {m: "res", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "C", imm: true}]},
-/* 0xaa */ {m: "res", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "D", imm: true}]},
-/* 0xab */ {m: "res", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "E", imm: true}]},
-/* 0xac */ {m: "res", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "H", imm: true}]},
-/* 0xad */ {m: "res", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "L", imm: true}]},
-/* 0xae */ {m: "res", len: 2, c: 4, ops: [{name: "5", imm: true}, {name: "HL"}]},
-/* 0xaf */ {m: "res", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "A", imm: true}]},
-/* 0xb0 */ {m: "res", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "B", imm: true}]},
-/* 0xb1 */ {m: "res", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "C", imm: true}]},
-/* 0xb2 */ {m: "res", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "D", imm: true}]},
-/* 0xb3 */ {m: "res", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "E", imm: true}]},
-/* 0xb4 */ {m: "res", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "H", imm: true}]},
-/* 0xb5 */ {m: "res", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "L", imm: true}]},
-/* 0xb6 */ {m: "res", len: 2, c: 4, ops: [{name: "6", imm: true}, {name: "HL"}]},
-/* 0xb7 */ {m: "res", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "A", imm: true}]},
-/* 0xb8 */ {m: "res", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "B", imm: true}]},
-/* 0xb9 */ {m: "res", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "C", imm: true}]},
-/* 0xba */ {m: "res", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "D", imm: true}]},
-/* 0xbb */ {m: "res", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "E", imm: true}]},
-/* 0xbc */ {m: "res", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "H", imm: true}]},
-/* 0xbd */ {m: "res", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "L", imm: true}]},
-/* 0xbe */ {m: "res", len: 2, c: 4, ops: [{name: "7", imm: true}, {name: "HL"}]},
-/* 0xbf */ {m: "res", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "A", imm: true}]},
-/* 0xc0 */ {m: "set", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "B", imm: true}]},
-/* 0xc1 */ {m: "set", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "C", imm: true}]},
-/* 0xc2 */ {m: "set", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "D", imm: true}]},
-/* 0xc3 */ {m: "set", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "E", imm: true}]},
-/* 0xc4 */ {m: "set", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "H", imm: true}]},
-/* 0xc5 */ {m: "set", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "L", imm: true}]},
-/* 0xc6 */ {m: "set", len: 2, c: 4, ops: [{name: "0", imm: true}, {name: "HL"}]},
-/* 0xc7 */ {m: "set", len: 2, c: 2, ops: [{name: "0", imm: true}, {name: "A", imm: true}]},
-/* 0xc8 */ {m: "set", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "B", imm: true}]},
-/* 0xc9 */ {m: "set", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "C", imm: true}]},
-/* 0xca */ {m: "set", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "D", imm: true}]},
-/* 0xcb */ {m: "set", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "E", imm: true}]},
-/* 0xcc */ {m: "set", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "H", imm: true}]},
-/* 0xcd */ {m: "set", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "L", imm: true}]},
-/* 0xce */ {m: "set", len: 2, c: 4, ops: [{name: "1", imm: true}, {name: "HL"}]},
-/* 0xcf */ {m: "set", len: 2, c: 2, ops: [{name: "1", imm: true}, {name: "A", imm: true}]},
-/* 0xd0 */ {m: "set", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "B", imm: true}]},
-/* 0xd1 */ {m: "set", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "C", imm: true}]},
-/* 0xd2 */ {m: "set", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "D", imm: true}]},
-/* 0xd3 */ {m: "set", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "E", imm: true}]},
-/* 0xd4 */ {m: "set", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "H", imm: true}]},
-/* 0xd5 */ {m: "set", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "L", imm: true}]},
-/* 0xd6 */ {m: "set", len: 2, c: 4, ops: [{name: "2", imm: true}, {name: "HL"}]},
-/* 0xd7 */ {m: "set", len: 2, c: 2, ops: [{name: "2", imm: true}, {name: "A", imm: true}]},
-/* 0xd8 */ {m: "set", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "B", imm: true}]},
-/* 0xd9 */ {m: "set", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "C", imm: true}]},
-/* 0xda */ {m: "set", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "D", imm: true}]},
-/* 0xdb */ {m: "set", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "E", imm: true}]},
-/* 0xdc */ {m: "set", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "H", imm: true}]},
-/* 0xdd */ {m: "set", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "L", imm: true}]},
-/* 0xde */ {m: "set", len: 2, c: 4, ops: [{name: "3", imm: true}, {name: "HL"}]},
-/* 0xdf */ {m: "set", len: 2, c: 2, ops: [{name: "3", imm: true}, {name: "A", imm: true}]},
-/* 0xe0 */ {m: "set", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "B", imm: true}]},
-/* 0xe1 */ {m: "set", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "C", imm: true}]},
-/* 0xe2 */ {m: "set", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "D", imm: true}]},
-/* 0xe3 */ {m: "set", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "E", imm: true}]},
-/* 0xe4 */ {m: "set", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "H", imm: true}]},
-/* 0xe5 */ {m: "set", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "L", imm: true}]},
-/* 0xe6 */ {m: "set", len: 2, c: 4, ops: [{name: "4", imm: true}, {name: "HL"}]},
-/* 0xe7 */ {m: "set", len: 2, c: 2, ops: [{name: "4", imm: true}, {name: "A", imm: true}]},
-/* 0xe8 */ {m: "set", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "B", imm: true}]},
-/* 0xe9 */ {m: "set", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "C", imm: true}]},
-/* 0xea */ {m: "set", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "D", imm: true}]},
-/* 0xeb */ {m: "set", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "E", imm: true}]},
-/* 0xec */ {m: "set", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "H", imm: true}]},
-/* 0xed */ {m: "set", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "L", imm: true}]},
-/* 0xee */ {m: "set", len: 2, c: 4, ops: [{name: "5", imm: true}, {name: "HL"}]},
-/* 0xef */ {m: "set", len: 2, c: 2, ops: [{name: "5", imm: true}, {name: "A", imm: true}]},
-/* 0xf0 */ {m: "set", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "B", imm: true}]},
-/* 0xf1 */ {m: "set", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "C", imm: true}]},
-/* 0xf2 */ {m: "set", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "D", imm: true}]},
-/* 0xf3 */ {m: "set", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "E", imm: true}]},
-/* 0xf4 */ {m: "set", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "H", imm: true}]},
-/* 0xf5 */ {m: "set", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "L", imm: true}]},
-/* 0xf6 */ {m: "set", len: 2, c: 4, ops: [{name: "6", imm: true}, {name: "HL"}]},
-/* 0xf7 */ {m: "set", len: 2, c: 2, ops: [{name: "6", imm: true}, {name: "A", imm: true}]},
-/* 0xf8 */ {m: "set", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "B", imm: true}]},
-/* 0xf9 */ {m: "set", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "C", imm: true}]},
-/* 0xfa */ {m: "set", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "D", imm: true}]},
-/* 0xfb */ {m: "set", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "E", imm: true}]},
-/* 0xfc */ {m: "set", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "H", imm: true}]},
-/* 0xfd */ {m: "set", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "L", imm: true}]},
-/* 0xfe */ {m: "set", len: 2, c: 4, ops: [{name: "7", imm: true}, {name: "HL"}]},
-/* 0xff */ {m: "set", len: 2, c: 2, ops: [{name: "7", imm: true}, {name: "A", imm: true}]},
+
+const RP_OPERANDS: readonly OpcodeOperandMeta[] = [
+  { name: "BC", imm: true },
+  { name: "DE", imm: true },
+  { name: "HL", imm: true },
+  { name: "SP", imm: true },
 ];
+
+const RP2_OPERANDS: readonly OpcodeOperandMeta[] = [
+  { name: "BC", imm: true },
+  { name: "DE", imm: true },
+  { name: "HL", imm: true },
+  { name: "AF", imm: true },
+];
+
+const CONDITION_OPERANDS: readonly OpcodeOperandMeta[] = [
+  { name: "NZ", imm: true },
+  { name: "Z", imm: true },
+  { name: "NC", imm: true },
+  { name: "C", imm: true },
+];
+
+const RST_OPERANDS: readonly OpcodeOperandMeta[] = [
+  { name: "$00", imm: true },
+  { name: "$08", imm: true },
+  { name: "$10", imm: true },
+  { name: "$18", imm: true },
+  { name: "$20", imm: true },
+  { name: "$28", imm: true },
+  { name: "$30", imm: true },
+  { name: "$38", imm: true },
+];
+
+const BIT_OPERANDS: readonly OpcodeOperandMeta[] = [
+  { name: "0", imm: true },
+  { name: "1", imm: true },
+  { name: "2", imm: true },
+  { name: "3", imm: true },
+  { name: "4", imm: true },
+  { name: "5", imm: true },
+  { name: "6", imm: true },
+  { name: "7", imm: true },
+];
+
+const ROTATE_MNEMONICS = [
+  "rlc",
+  "rrc",
+  "rl",
+  "rr",
+  "sla",
+  "sra",
+  "swap",
+  "srl",
+] as const;
+
+const ALU_MNEMONICS = [
+  "add",
+  "adc",
+  "sub",
+  "sbc",
+  "and",
+  "xor",
+  "or",
+  "cp",
+] as const;
+
+const IMM8: OpcodeOperandMeta = { name: "n8", bytes: 1, imm: true };
+const IMM16: OpcodeOperandMeta = { name: "n16", bytes: 2, imm: true };
+const SIGNED8: OpcodeOperandMeta = { name: "e8", bytes: 1, imm: true };
+const ADDRESS_A8: OpcodeOperandMeta = { name: "a8", bytes: 1 };
+const ADDRESS_A16: OpcodeOperandMeta = { name: "a16", bytes: 2 };
+const ADDRESS_A16_IMM: OpcodeOperandMeta = { name: "a16", bytes: 2, imm: true };
+const SP_REGISTER: OpcodeOperandMeta = { name: "SP", imm: true };
+const SP_ADD_OPERAND: OpcodeOperandMeta = { name: "SP", imm: true, inc: true };
+const HL_REGISTER: OpcodeOperandMeta = { name: "HL", imm: true };
+const A_REGISTER: OpcodeOperandMeta = { name: "A", imm: true };
+const BC_MEMORY: OpcodeOperandMeta = { name: "BC" };
+const DE_MEMORY: OpcodeOperandMeta = { name: "DE" };
+const C_MEMORY: OpcodeOperandMeta = { name: "C" };
+
+const ILLEGAL_OPCODES = new Set([
+  0xd3, 0xdb, 0xdd, 0xe3, 0xe4, 0xeb, 0xec, 0xed, 0xf4, 0xfc, 0xfd,
+]);
+
+const UNPREFIXED_CACHE: Array<OpcodeMeta | undefined> = new Array(0x100);
+const CB_PREFIXED_CACHE: Array<OpcodeMeta | undefined> = new Array(0x100);
+
+export function getUnprefixedOpcodeMeta(opcode: number): OpcodeMeta {
+  const index = opcode & 0xff;
+  const cached = UNPREFIXED_CACHE[index];
+  if (cached) return cached;
+  const meta = decodeUnprefixedOpcode(index);
+  UNPREFIXED_CACHE[index] = meta;
+  return meta;
+}
+
+export function getCbPrefixedOpcodeMeta(opcode: number): OpcodeMeta {
+  const index = opcode & 0xff;
+  const cached = CB_PREFIXED_CACHE[index];
+  if (cached) return cached;
+  const meta = decodeCbOpcode(index);
+  CB_PREFIXED_CACHE[index] = meta;
+  return meta;
+}
+
+function meta(
+  mnemonic: string,
+  length: number,
+  cycles: number,
+  operands: ReadonlyArray<OpcodeOperandMeta>,
+): OpcodeMeta {
+  return { m: mnemonic, len: length, c: cycles, ops: operands };
+}
+
+function illegalMeta(opcode: number): OpcodeMeta {
+  const hex = opcode.toString(16).padStart(2, "0");
+  return meta(`illegal_${hex}`, 1, 0, []);
+}
+
+function decodeUnprefixedOpcode(opcode: number): OpcodeMeta {
+  if (ILLEGAL_OPCODES.has(opcode)) {
+    return illegalMeta(opcode);
+  }
+
+  if (opcode === 0xcb) {
+    return meta("prefix", 1, 0, []);
+  }
+
+  const x = opcode >> 6;
+  const y = (opcode >> 3) & 0x07;
+  const z = opcode & 0x07;
+  const p = y >> 1;
+  const q = y & 0x01;
+
+  switch (x) {
+    case 0:
+      switch (z) {
+        case 0:
+          switch (y) {
+            case 0:
+              return meta("nop", 1, 1, []);
+            case 1:
+              return meta("ld", 3, 5, [ADDRESS_A16, SP_REGISTER]);
+            case 2:
+              return meta("stop", 2, 0, [IMM8]);
+            case 3:
+              return meta("jr", 2, 3, [SIGNED8]);
+            default:
+              return meta("jr", 2, 2, [CONDITION_OPERANDS[y - 4], SIGNED8]);
+          }
+        case 1:
+          if (q === 0) {
+            return meta("ld", 3, 3, [RP_OPERANDS[p], IMM16]);
+          }
+          return meta("add", 1, 2, [HL_REGISTER, RP_OPERANDS[p]]);
+        case 2: {
+          let target: OpcodeOperandMeta = HL_MEMORY;
+          if (p === 0) target = BC_MEMORY;
+          else if (p === 1) target = DE_MEMORY;
+          else if (p === 2) target = HL_INC_MEMORY;
+          else if (p === 3) target = HL_DEC_MEMORY;
+
+          if (q === 0) {
+            return meta("ld", 1, 2, [target, A_REGISTER]);
+          }
+          return meta("ld", 1, 2, [A_REGISTER, target]);
+        }
+        case 3:
+          if (q === 0) {
+            return meta("inc", 1, 2, [RP_OPERANDS[p]]);
+          }
+          return meta("dec", 1, 2, [RP_OPERANDS[p]]);
+        case 4: {
+          const operand = REG8_OPERANDS[y];
+          const cycles = y === 6 ? 3 : 1;
+          return meta("inc", 1, cycles, [operand]);
+        }
+        case 5: {
+          const operand = REG8_OPERANDS[y];
+          const cycles = y === 6 ? 3 : 1;
+          return meta("dec", 1, cycles, [operand]);
+        }
+        case 6: {
+          const operand = REG8_OPERANDS[y];
+          const cycles = y === 6 ? 3 : 2;
+          return meta("ld", 2, cycles, [operand, IMM8]);
+        }
+        case 7: {
+          switch (y) {
+            case 0:
+              return meta("rlca", 1, 1, []);
+            case 1:
+              return meta("rrca", 1, 1, []);
+            case 2:
+              return meta("rla", 1, 1, []);
+            case 3:
+              return meta("rra", 1, 1, []);
+            case 4:
+              return meta("daa", 1, 1, []);
+            case 5:
+              return meta("cpl", 1, 1, []);
+            case 6:
+              return meta("scf", 1, 1, []);
+            case 7:
+              return meta("ccf", 1, 1, []);
+          }
+        }
+      }
+      break;
+    case 1:
+      if (y === 6 && z === 6) {
+        return meta("halt", 1, 0, []);
+      } else {
+        const dest = REG8_OPERANDS[y];
+        const source = REG8_OPERANDS[z];
+        const cycles = y === 6 || z === 6 ? 2 : 1;
+        return meta("ld", 1, cycles, [dest, source]);
+      }
+    case 2: {
+      const source = REG8_OPERANDS[z];
+      const cycles = z === 6 ? 2 : 1;
+      return meta(ALU_MNEMONICS[y], 1, cycles, [A_REGISTER, source]);
+    }
+    case 3:
+      switch (z) {
+        case 0:
+          if (y <= 3) {
+            return meta("ret", 1, 2, [CONDITION_OPERANDS[y]]);
+          }
+          if (y === 4) return meta("ldh", 2, 3, [ADDRESS_A8, A_REGISTER]);
+          if (y === 5) return meta("add", 2, 4, [SP_REGISTER, SIGNED8]);
+          if (y === 6) return meta("ldh", 2, 3, [A_REGISTER, ADDRESS_A8]);
+          return meta("ld", 2, 3, [HL_REGISTER, SP_ADD_OPERAND, SIGNED8]);
+        case 1:
+          if (q === 0) {
+            return meta("pop", 1, 3, [RP2_OPERANDS[p]]);
+          }
+          if (y === 1) return meta("ret", 1, 4, []);
+          if (y === 3) return meta("reti", 1, 4, []);
+          if (y === 5) return meta("jp", 1, 1, [HL_REGISTER]);
+          return meta("ld", 1, 2, [SP_REGISTER, HL_REGISTER]);
+        case 2:
+          if (y <= 3) {
+            return meta("jp", 3, 3, [CONDITION_OPERANDS[y], ADDRESS_A16_IMM]);
+          }
+          if (y === 4) return meta("ldh", 1, 2, [C_MEMORY, A_REGISTER]);
+          if (y === 5) return meta("ld", 3, 4, [ADDRESS_A16, A_REGISTER]);
+          if (y === 6) return meta("ldh", 1, 2, [A_REGISTER, C_MEMORY]);
+          return meta("ld", 3, 4, [A_REGISTER, ADDRESS_A16]);
+        case 3:
+          if (y === 0) return meta("jp", 3, 4, [ADDRESS_A16_IMM]);
+          if (y === 6) return meta("di", 1, 1, []);
+          if (y === 7) return meta("ei", 1, 1, []);
+          return illegalMeta(opcode);
+        case 4:
+          if (y <= 3) {
+            return meta("call", 3, 3, [CONDITION_OPERANDS[y], ADDRESS_A16_IMM]);
+          }
+          return illegalMeta(opcode);
+        case 5:
+          if (q === 0) {
+            return meta("push", 1, 4, [RP2_OPERANDS[p]]);
+          }
+          if (y === 1) return meta("call", 3, 6, [ADDRESS_A16_IMM]);
+          return illegalMeta(opcode);
+        case 6:
+          return meta(ALU_MNEMONICS[y], 2, 2, [A_REGISTER, IMM8]);
+        case 7:
+          return meta("rst", 1, 4, [RST_OPERANDS[y]]);
+      }
+  }
+
+  return illegalMeta(opcode);
+}
+
+function decodeCbOpcode(opcode: number): OpcodeMeta {
+  const x = opcode >> 6;
+  const y = (opcode >> 3) & 0x07;
+  const z = opcode & 0x07;
+  const target = REG8_OPERANDS[z];
+
+  switch (x) {
+    case 0: {
+      const cycles = z === 6 ? 4 : 2;
+      return meta(ROTATE_MNEMONICS[y], 2, cycles, [target]);
+    }
+    case 1: {
+      const cycles = z === 6 ? 3 : 2;
+      return meta("bit", 2, cycles, [BIT_OPERANDS[y], target]);
+    }
+    case 2: {
+      const cycles = z === 6 ? 4 : 2;
+      return meta("res", 2, cycles, [BIT_OPERANDS[y], target]);
+    }
+    case 3: {
+      const cycles = z === 6 ? 4 : 2;
+      return meta("set", 2, cycles, [BIT_OPERANDS[y], target]);
+    }
+  }
+
+  return illegalMeta(opcode);
+}
