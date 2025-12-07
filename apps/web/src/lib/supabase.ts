@@ -130,7 +130,7 @@ export class SupabasePostgresClient {
 }
 
 export async function createSupabaseClient(): Promise<SupabasePostgresClient> {
-  const { supabaseAuthClient } = await import("./supabase-auth-client");
+  const { supabaseAuthClient } = await import("@/lib/supabase-auth-client");
   return new SupabasePostgresClient(
     import.meta.env.VITE_SUPABASE_URL!,
     import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY!,

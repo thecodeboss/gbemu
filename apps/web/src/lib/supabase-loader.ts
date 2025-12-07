@@ -4,7 +4,7 @@ import type { SupabasePostgresClient } from "./supabase";
 let authClientPromise: Promise<SupabaseAuthClient> | null = null;
 export function loadSupabaseAuthClient(): Promise<SupabaseAuthClient> {
   if (!authClientPromise) {
-    authClientPromise = import("./supabase-auth-client").then(
+    authClientPromise = import("@/lib/supabase-auth-client").then(
       ({ supabaseAuthClient }) => supabaseAuthClient,
     );
   }
@@ -14,7 +14,7 @@ export function loadSupabaseAuthClient(): Promise<SupabaseAuthClient> {
 let supabaseClientPromise: Promise<SupabasePostgresClient> | null = null;
 export function loadSupabasePostgresClient(): Promise<SupabasePostgresClient> {
   if (!supabaseClientPromise) {
-    supabaseClientPromise = import("./supabase").then((module) =>
+    supabaseClientPromise = import("@/lib/supabase").then((module) =>
       module.createSupabaseClient(),
     );
   }
