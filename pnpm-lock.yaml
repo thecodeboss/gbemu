@@ -115,6 +115,9 @@ importers:
       globals:
         specifier: 16.5.0
         version: 16.5.0
+      lightningcss:
+        specifier: 1.30.2
+        version: 1.30.2
       shadcn:
         specifier: 3.5.1
         version: 3.5.1(@types/node@24.10.1)(typescript@5.9.3)
@@ -2117,6 +2120,13 @@ packages:
       }
     hasBin: true
 
+  baseline-browser-mapping@2.9.4:
+    resolution:
+      {
+        integrity: sha512-ZCQ9GEWl73BVm8bu5Fts8nt7MHdbt5vY9bP6WGnUh+r3l8M7CgfyTlwsgCbMC66BNxPr6Xoce3j66Ms5YUQTNA==,
+      }
+    hasBin: true
+
   body-parser@2.2.1:
     resolution:
       {
@@ -2153,6 +2163,14 @@ packages:
     resolution:
       {
         integrity: sha512-AXVQwdhot1eqLihwasPElhX2tAZiBjWdJ9i/Zcj2S6QYIjkx62OKSfnobkriB81C3l4w0rVy3Nt4jaTBltYEpw==,
+      }
+    engines: { node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7 }
+    hasBin: true
+
+  browserslist@4.28.1:
+    resolution:
+      {
+        integrity: sha512-ZC5Bd0LgJXgwGqUknZY/vkUQ04r8NXnJZ3yYi4vDmSiZmC/pdSN0NbNRPxZpbtO4uAfDUAFffO8IZoM3Gj8IkA==,
       }
     engines: { node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7 }
     hasBin: true
@@ -2203,6 +2221,12 @@ packages:
     resolution:
       {
         integrity: sha512-vKUk7beoukxE47P5gcVNKkDRzXdVofotshHwfR9vmpeFKxmI5PBpgOMC18LUJUA/DvJ70Y7RveasIBraqsyO/g==,
+      }
+
+  caniuse-lite@1.0.30001759:
+    resolution:
+      {
+        integrity: sha512-Pzfx9fOKoKvevQf8oCXoyNRQ5QyxJj+3O0Rqx2V5oxT61KGx8+n6hV/IUyJeifUci2clnmmKVpvtiqRzgiWjSw==,
       }
 
   chai@6.2.1:
@@ -2604,6 +2628,12 @@ packages:
     resolution:
       {
         integrity: sha512-OszpBN7xZX4vWMPJwB9illkN/znA8M36GQqQxi6MNy9axWxhOfJyZZJtSLQCpEFLHP2xK33BiWx9aIuIEXVCcw==,
+      }
+
+  electron-to-chromium@1.5.266:
+    resolution:
+      {
+        integrity: sha512-kgWEglXvkEfMH7rxP5OSZZwnaDWT7J9EoZCujhnpLbfi0bbNtRkgdX2E3gt0Uer11c61qCYktB3hwkAS325sJg==,
       }
 
   emoji-regex@10.6.0:
@@ -5392,6 +5422,15 @@ packages:
     peerDependencies:
       browserslist: ">= 4.21.0"
 
+  update-browserslist-db@1.2.2:
+    resolution:
+      {
+        integrity: sha512-E85pfNzMQ9jpKkA7+TJAi4TJN+tBCuWh5rUcS/sv6cFi+1q9LYDwDI5dpUL0u/73EElyQ8d3TEaeW4sPedBqYA==,
+      }
+    hasBin: true
+    peerDependencies:
+      browserslist: ">= 4.21.0"
+
   uri-js@4.4.1:
     resolution:
       {
@@ -5757,7 +5796,7 @@ snapshots:
     dependencies:
       "@babel/compat-data": 7.28.5
       "@babel/helper-validator-option": 7.27.1
-      browserslist: 4.27.0
+      browserslist: 4.28.1
       lru-cache: 5.1.1
       semver: 6.3.1
 
@@ -6893,6 +6932,8 @@ snapshots:
 
   baseline-browser-mapping@2.8.21: {}
 
+  baseline-browser-mapping@2.9.4: {}
+
   body-parser@2.2.1:
     dependencies:
       bytes: 3.1.2
@@ -6930,6 +6971,14 @@ snapshots:
       node-releases: 2.0.27
       update-browserslist-db: 1.1.4(browserslist@4.27.0)
 
+  browserslist@4.28.1:
+    dependencies:
+      baseline-browser-mapping: 2.9.4
+      caniuse-lite: 1.0.30001759
+      electron-to-chromium: 1.5.266
+      node-releases: 2.0.27
+      update-browserslist-db: 1.2.2(browserslist@4.28.1)
+
   builtin-modules@5.0.0: {}
 
   bytes@3.1.2: {}
@@ -6954,6 +7003,8 @@ snapshots:
   callsites@3.1.0: {}
 
   caniuse-lite@1.0.30001752: {}
+
+  caniuse-lite@1.0.30001759: {}
 
   chai@6.2.1: {}
 
@@ -7152,6 +7203,8 @@ snapshots:
   ee-first@1.1.1: {}
 
   electron-to-chromium@1.5.244: {}
+
+  electron-to-chromium@1.5.266: {}
 
   emoji-regex@10.6.0: {}
 
@@ -8632,7 +8685,7 @@ snapshots:
       "@babel/preset-typescript": 7.28.5(@babel/core@7.28.5)
       "@dotenvx/dotenvx": 1.51.1
       "@modelcontextprotocol/sdk": 1.24.3(zod@3.25.76)
-      browserslist: 4.27.0
+      browserslist: 4.28.1
       commander: 14.0.2
       cosmiconfig: 9.0.0(typescript@5.9.3)
       dedent: 1.7.0
@@ -8962,6 +9015,12 @@ snapshots:
   update-browserslist-db@1.1.4(browserslist@4.27.0):
     dependencies:
       browserslist: 4.27.0
+      escalade: 3.2.0
+      picocolors: 1.1.1
+
+  update-browserslist-db@1.2.2(browserslist@4.28.1):
+    dependencies:
+      browserslist: 4.28.1
       escalade: 3.2.0
       picocolors: 1.1.1
 

@@ -13,7 +13,17 @@ const coreRoot = fileURLToPath(
 );
 
 export default defineConfig({
-  plugins: [tailwindcss(), preact(), analyzer({ analyzerMode: "static" })],
+  build: {
+    cssMinify: "lightningcss",
+  },
+  css: {
+    transformer: "lightningcss",
+  },
+  plugins: [
+    tailwindcss({ optimize: true }),
+    preact(),
+    analyzer({ analyzerMode: "static" }),
+  ],
   resolve: {
     alias: [
       {

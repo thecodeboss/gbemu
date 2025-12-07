@@ -1,11 +1,6 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @theme inline {
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
-  --radius-xl: 0;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -24,23 +19,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 :root {
-  --radius: 0;
   --app-viewport-height: 100vh;
   --background: #0b0b1a;
   --foreground: #9db0b5;
@@ -63,19 +44,6 @@
   --border: #303556;
   --input: #1a1e34;
   --ring: #ffdd55;
-  --chart-1: #7cf46b;
-  --chart-2: #ffdd55;
-  --chart-3: #ff6b6b;
-  --chart-4: #6dd3ff;
-  --chart-5: #c3a6ff;
-  --sidebar: #111428;
-  --sidebar-foreground: #e7f5c5;
-  --sidebar-primary: #7cf46b;
-  --sidebar-primary-foreground: #0b0b1a;
-  --sidebar-accent: #ffdd55;
-  --sidebar-accent-foreground: #0b0b1a;
-  --sidebar-border: #303556;
-  --sidebar-ring: #ffdd55;
 }
 
 @layer base {
@@ -93,7 +61,6 @@
     justify-content: center;
   }
   body {
-    margin: 0;
     font-family: monospace;
     letter-spacing: 0.02em;
     @apply bg-background text-foreground;
