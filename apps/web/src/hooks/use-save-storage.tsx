@@ -16,7 +16,7 @@ import {
   SaveSyncState,
   createSupabaseSaveAdapter,
 } from "@/lib/save-sync";
-import { loadSupabasePostgresClient } from "@/lib/supabase-loader";
+import { supabase } from "@/lib/supabase";
 import { useCurrentRom } from "@/hooks/use-current-rom";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -115,29 +115,7 @@ export function SaveStorageProvider({ children }: { children: ReactNode }) {
     if (!adapter) {
       return;
     }
-    let isMounted = true;
-
-    const updateRemote = async () => {
-      try {
-        if (user) {
-          const client = await loadSupabasePostgresClient();
-          if (!isMounted) {
-            return;
-          }
-          await adapter.setRemote(client, user.id);
-          return;
-        }
-        await adapter.setRemote(null, null);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    void updateRemote();
-
-    return () => {
-      isMounted = false;
-    };
+    void adapter.setRemote(user ? supabase : null, user ? user.id : null);
   }, [user]);
 
   const value = useMemo(

@@ -3,15 +3,13 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
 
-import { loadSupabaseAuthClient } from "@/lib/supabase-loader";
-import type {
-  SupabaseAuthClient,
+import {
   SupabaseAuthSession,
   SupabaseAuthUser,
+  supabaseAuthClient,
 } from "@/lib/supabase-auth-client";
 
 type AuthContextValue = {
@@ -26,27 +24,13 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SupabaseAuthSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const authClientRef = useRef<SupabaseAuthClient | null>(null);
-
-  const getAuthClient = useCallback(async () => {
-    const existing = authClientRef.current;
-    if (existing) {
-      return existing;
-    }
-    const client = await loadSupabaseAuthClient();
-    authClientRef.current = client;
-    return client;
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
-    let unsubscribe: (() => void) | undefined;
 
     const init = async () => {
-      let client: SupabaseAuthClient | null = null;
       try {
-        client = await getAuthClient();
-        const initial = await client.initialize();
+        const initial = await supabaseAuthClient.initialize();
         if (!isMounted) return;
         setSession(initial);
       } catch (err) {
@@ -60,37 +44,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void init();
 
-    void getAuthClient()
-      .then((client) => {
-        if (!isMounted) return;
-        unsubscribe = client.subscribe((nextSession) => {
-          if (!isMounted) return;
-          setSession(nextSession);
-        });
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        console.error("Supabase auth subscription failed", err);
-      });
+    const unsubscribe = supabaseAuthClient.subscribe((nextSession) => {
+      if (!isMounted) return;
+      setSession(nextSession);
+    });
 
     return () => {
       isMounted = false;
-      unsubscribe?.();
-      authClientRef.current?.teardown();
+      unsubscribe();
+      supabaseAuthClient.teardown();
     };
-  }, [getAuthClient]);
+  }, []);
 
   const refreshSession = useCallback(async () => {
     try {
-      const client = await getAuthClient();
-      const next = await client.refreshSession(true);
+      const next = await supabaseAuthClient.refreshSession(true);
       setSession(next);
       return next;
     } catch (err) {
       console.error("Supabase refresh failed", err);
       return null;
     }
-  }, [getAuthClient]);
+  }, []);
 
   return (
     <AuthContext.Provider

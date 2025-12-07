@@ -4,7 +4,7 @@ import {
   SaveStorageRecord,
   SaveWriteOptions,
 } from "@gbemu/runtime";
-import type {
+import {
   SupabasePostgresClient,
   SaveRow as SupabaseSaveRow,
 } from "@/lib/supabase";
