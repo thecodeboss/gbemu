@@ -3,19 +3,19 @@ import { useCallback, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RecentlyPlayedTable } from "@/components/recently-played-table";
-import { useCurrentRom } from "@/hooks/use-current-rom";
 import { useAuth } from "@/hooks/use-auth";
+import { useCurrentRom } from "@/hooks/use-current-rom";
+import { loadSupabaseAuthClient } from "@/lib/supabase-loader";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
 import { useLocation } from "preact-iso";
 import { TargetedInputEvent } from "preact";
-import { supabaseAuthClient } from "@/lib/supabase-auth-client";
 
 export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { setCurrentRom } = useCurrentRom();
-  const { session } = useAuth();
+  const { session, loading: isAuthLoading } = useAuth();
   const [recentlyPlayedRevision, setRecentlyPlayedRevision] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -78,13 +78,16 @@ export function HomePage() {
 
   const handleSignOut = useCallback(() => {
     setIsSigningOut(true);
-    try {
-      supabaseAuthClient.signOut();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSigningOut(false);
-    }
+    void loadSupabaseAuthClient()
+      .then((client) => {
+        client.signOut();
+      })
+      .catch((err) => {
+        console.error(err);
+      })
+      .finally(() => {
+        setIsSigningOut(false);
+      });
   }, []);
 
   return (
@@ -116,13 +119,25 @@ export function HomePage() {
                 type="button"
                 variant="outline"
                 onClick={handleSignOut}
-                disabled={isSigningOut}
+                disabled={isSigningOut || isAuthLoading}
               >
-                {isSigningOut ? "Signing out..." : "Sign out"}
+                {isAuthLoading
+                  ? "Loading..."
+                  : isSigningOut
+                    ? "Signing out..."
+                    : "Sign out"}
               </Button>
             ) : (
-              <Button asChild variant="secondary">
-                <a href="/login">Sign in</a>
+              <Button
+                asChild={!isAuthLoading}
+                variant="secondary"
+                disabled={isAuthLoading}
+              >
+                {isAuthLoading ? (
+                  "Loading..."
+                ) : (
+                  <a href="/login">Sign in</a>
+                )}
               </Button>
             )}
           </div>

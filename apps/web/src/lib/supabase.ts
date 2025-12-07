@@ -1,4 +1,4 @@
-import { supabaseAuthClient } from "./supabase-auth-client";
+import type { SupabaseAuthClient } from "./supabase-auth-client";
 
 export type SaveRow = {
   id: string;
@@ -14,17 +14,25 @@ type RequestOptions = Omit<RequestInit, "headers"> & {
   headers?: HeadersInit;
 };
 
+type SessionProvider = Pick<SupabaseAuthClient, "getSession">;
+
 export class SupabasePostgresClient {
   private readonly restUrl: string;
   private readonly anonKey: string;
+  private readonly sessionProvider: SessionProvider;
 
-  constructor(supabaseUrl: string, anonKey: string) {
+  constructor(
+    supabaseUrl: string,
+    anonKey: string,
+    sessionProvider: SessionProvider,
+  ) {
     this.anonKey = anonKey;
+    this.sessionProvider = sessionProvider;
     this.restUrl = `${supabaseUrl.replace(/\/$/, "")}/rest/v1`;
   }
 
   private getAccessToken(): string | null {
-    return supabaseAuthClient.getSession()?.access_token ?? null;
+    return this.sessionProvider.getSession()?.access_token ?? null;
   }
 
   private buildHeaders(extra?: HeadersInit): Headers {
@@ -121,7 +129,11 @@ export class SupabasePostgresClient {
   }
 }
 
-export const supabase = new SupabasePostgresClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY!,
-);
+export async function createSupabaseClient(): Promise<SupabasePostgresClient> {
+  const { supabaseAuthClient } = await import("./supabase-auth-client");
+  return new SupabasePostgresClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseAuthClient,
+  );
+}

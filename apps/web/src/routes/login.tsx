@@ -11,7 +11,7 @@ import {
 import googleLogo from "@/assets/google.svg";
 import discordLogo from "@/assets/discord.svg";
 import { cn } from "@/lib/utils";
-import { supabaseAuthClient } from "@/lib/supabase-auth-client";
+import { loadSupabaseAuthClient } from "@/lib/supabase-loader";
 
 type SocialProvider = "google" | "discord";
 
@@ -27,12 +27,14 @@ export function LoginPage({
   const handleSocialLogin = useCallback((provider: SocialProvider) => {
     setLoadingProvider(provider);
     setError(null);
-    try {
-      supabaseAuthClient.redirectToProvider(provider);
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
-      setLoadingProvider(null);
-    }
+    void loadSupabaseAuthClient()
+      .then((client) => {
+        client.redirectToProvider(provider);
+      })
+      .catch((error: unknown) => {
+        setError(error instanceof Error ? error.message : "An error occurred");
+        setLoadingProvider(null);
+      });
   }, []);
 
   return (
