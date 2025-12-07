@@ -3,7 +3,7 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
-import { analyzer } from "vite-bundle-analyzer";
+// import { analyzer } from "vite-bundle-analyzer";
 
 const runtimeRoot = fileURLToPath(
   new URL("../../packages/runtime/", import.meta.url),
@@ -22,7 +22,7 @@ export default defineConfig({
   plugins: [
     tailwindcss({ optimize: true }),
     preact(),
-    analyzer({ analyzerMode: "static" }),
+    // analyzer({ analyzerMode: "static" }),
   ],
   resolve: {
     alias: [
