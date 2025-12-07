@@ -253,12 +253,16 @@ export function EmulatorPage() {
   });
 
   return (
-    <div ref={fullscreenContainerRef}>
-      <Card className="min-h-dvh sm:min-h-0 px-0 py-0 sm:px-5 sm:py-6 gap-2 sm:gap-6">
+    <>
+      <Card
+        className="min-h-dvh sm:min-h-0 sm:px-5 sm:py-6 gap-2 sm:gap-6"
+        ref={fullscreenContainerRef}
+        noPadding
+      >
         <CardHeader className="hidden sm:block">
           <CardTitle>{romName?.replace(/.gbc?/gi, "") ?? "Untitled"}</CardTitle>
         </CardHeader>
-        <CardContent className="px-0 sm:px-5">
+        <CardContent className="sm:px-5" noPadding>
           <canvas
             ref={canvasRef}
             className="mx-auto box-content block sm:border-4 border-foreground bg-black [image-rendering:pixelated] aspect-160/144 w-full sm:w-120 lg:w-160 xl:w-3xl"
@@ -319,6 +323,6 @@ export function EmulatorPage() {
           <ManageSavesDialog />
         </Suspense>
       ) : null}
-    </div>
+    </>
   );
 }

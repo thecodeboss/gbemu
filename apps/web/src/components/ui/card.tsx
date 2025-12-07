@@ -2,12 +2,17 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({
+  className,
+  noPadding,
+  ...props
+}: React.ComponentProps<"div"> & { noPadding?: boolean }) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 sm:border-[3px] border-border px-5 py-6 shadow-[6px_6px_0_var(--color-accent)]",
+        "bg-card text-card-foreground flex flex-col gap-6 sm:border-[3px] border-border shadow-[6px_6px_0_var(--color-accent)]",
+        noPadding ? "p-0" : "px-5 py-6",
         className,
       )}
       {...props}
@@ -64,11 +69,15 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function CardContent({ className, ...props }: React.ComponentProps<"div">) {
+function CardContent({
+  className,
+  noPadding,
+  ...props
+}: React.ComponentProps<"div"> & { noPadding?: boolean }) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-5", className)}
+      className={cn(noPadding ? "p-0" : "px-5", className)}
       {...props}
     />
   );
