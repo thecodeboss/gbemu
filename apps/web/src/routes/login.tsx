@@ -12,7 +12,6 @@ import { supabase } from "@/lib/supabase";
 import googleLogo from "@/assets/google.svg";
 import discordLogo from "@/assets/discord.svg";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router";
 
 type SocialProvider = "google" | "discord";
 
@@ -87,7 +86,7 @@ export function LoginPage({
               : "Continue with Discord"}
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/">Back to Home</Link>
+            <a href="/">Back to Home</a>
           </Button>
         </CardContent>
       </Card>

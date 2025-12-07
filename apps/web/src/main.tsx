@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router";
+import { Router, Route, LocationProvider } from "preact-iso";
 import "@/index.css";
 import App from "@/app";
 import { registerServiceWorker } from "@/register-service-worker";
@@ -15,21 +15,21 @@ import { LoginPage } from "@/routes/login";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
-      <CurrentRomProvider>
-        <SaveStorageProvider>
-          <EmulatorProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route element={<App />}>
-                  <Route index element={<HomePage />} />
-                  <Route path="/emulator" element={<EmulatorPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                </Route>
-              </Routes>
-            </BrowserRouter>
-          </EmulatorProvider>
-        </SaveStorageProvider>
-      </CurrentRomProvider>
+      <LocationProvider>
+        <CurrentRomProvider>
+          <SaveStorageProvider>
+            <EmulatorProvider>
+              <App>
+                <Router>
+                  <Route default index component={HomePage} />
+                  <Route path="/emulator" component={EmulatorPage} />
+                  <Route path="/login" component={LoginPage} />
+                </Router>
+              </App>
+            </EmulatorProvider>
+          </SaveStorageProvider>
+        </CurrentRomProvider>
+      </LocationProvider>
     </AuthProvider>
   </StrictMode>,
 );

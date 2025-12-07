@@ -17,7 +17,7 @@ import { ManageSavesDialog } from "@/components/manage-saves/manage-saves-dialog
 import { ReturnToMenuDialog } from "@/components/return-to-menu-dialog";
 import { useGamepad } from "@/hooks/use-gamepad";
 import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from "@gbemu/runtime";
-import { useNavigate } from "react-router";
+import { useLocation } from "preact-iso";
 
 type FullscreenElement = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
@@ -56,12 +56,11 @@ export function EmulatorPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
-  const navigate = useNavigate();
+  const { route } = useLocation();
 
   useEffect(() => {
-    if (!rom) navigate("/");
-  }, [navigate, rom]);
-
+    if (!rom) route("/");
+  }, [route, rom]);
   const handleReturnToMenu = useCallback(() => {
     if (!runtime) {
       setCurrentRom(null);
@@ -79,10 +78,10 @@ export function EmulatorPage() {
       } finally {
         setCurrentRom(null);
         setShowReturnConfirm(false);
-        navigate("/");
+        route("/");
       }
     })();
-  }, [navigate, runtime, setCurrentRom]);
+  }, [route, runtime, setCurrentRom]);
 
   useEffect(() => {
     if (typeof document === "undefined") {

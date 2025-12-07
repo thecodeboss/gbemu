@@ -1,5 +1,6 @@
-import { ChangeEvent, useRef } from "react";
+import { useRef } from "react";
 import { FolderInput, Plus } from "lucide-react";
+import { TargetedInputEvent } from "preact";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,10 +26,10 @@ export function ManageSavesDialog() {
     actions: { queueStartNew, importSave },
   } = manageSaves;
 
-  const handleImport = (event: ChangeEvent<HTMLInputElement>) => {
-    const [file] = Array.from(event.target.files ?? []);
-    if (event.target.value) {
-      event.target.value = "";
+  const handleImport = (event: TargetedInputEvent<HTMLInputElement>) => {
+    const [file] = Array.from(event.currentTarget.files ?? []);
+    if (event.currentTarget.value) {
+      event.currentTarget.value = "";
     }
     void importSave(file);
   };

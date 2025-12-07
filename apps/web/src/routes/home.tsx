@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
 import { supabase } from "@/lib/supabase";
-import { Link, useNavigate } from "react-router";
+import { useLocation } from "preact-iso";
+import { TargetedInputEvent } from "preact";
 
 export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -19,8 +20,8 @@ export function HomePage() {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleFileInputChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const input = event.target;
+    async (event: TargetedInputEvent<HTMLInputElement>) => {
+      const input = event.currentTarget;
       const [file] = Array.from(input.files ?? []);
       input.value = "";
       if (!file) {
@@ -52,13 +53,13 @@ export function HomePage() {
     fileInputRef.current?.click();
   }, []);
 
-  const navigate = useNavigate();
+  const { route } = useLocation();
   const isSignedIn = !!session;
 
   const handleSelectRecentRom = useCallback(
     async (rom: RecentRomRecord) => {
       const lastPlayed = Date.now();
-      navigate("/emulator");
+      route("/emulator");
       setCurrentRom({
         id: rom.id,
         name: rom.name,
@@ -72,7 +73,7 @@ export function HomePage() {
       });
       setRecentlyPlayedRevision((prev: number) => prev + 1);
     },
-    [navigate, setCurrentRom],
+    [route, setCurrentRom],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -121,7 +122,7 @@ export function HomePage() {
               </Button>
             ) : (
               <Button asChild variant="secondary">
-                <Link to="/login">Sign in</Link>
+                <a href="/login">Sign in</a>
               </Button>
             )}
           </div>

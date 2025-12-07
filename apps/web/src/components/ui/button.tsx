@@ -43,7 +43,7 @@ export function Button({
   size,
   asChild = false,
   ...props
-}: React.ComponentProps<"button"> &
+}: Omit<React.ComponentProps<"button">, "ref"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   }) {

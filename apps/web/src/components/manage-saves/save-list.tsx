@@ -117,14 +117,14 @@ export function SaveList() {
               <div className="flex items-center gap-2">
                 {isEditing ? (
                   <Input
-                    ref={(node) => {
+                    ref={(node: HTMLInputElement | null) => {
                       inputRefs.current[entry.name] = node;
                     }}
                     value={draftValue}
                     onChange={(event) =>
                       setDraftNames((prev) => ({
                         ...prev,
-                        [entry.name]: event.target.value,
+                        [entry.name]: event.currentTarget.value,
                       }))
                     }
                     className="h-8"

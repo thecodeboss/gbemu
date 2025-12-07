@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
 // import { analyzer, unstableRolldownAdapter } from "vite-bundle-analyzer";
 
@@ -16,11 +16,7 @@ const coreRoot = fileURLToPath(
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    react({
-      babel: {
-        plugins: [["babel-plugin-react-compiler"]],
-      },
-    }),
+    preact(),
     // unstableRolldownAdapter(analyzer()),
   ],
   resolve: {
