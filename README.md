@@ -2,6 +2,10 @@
 
 A TypeScript-based Game Boy / Game Boy Color emulator that runs in the browser. Try it out at https://gb.thecodeboss.com.
 
+![Screenshot](./gbemu.gif)
+
+The game shown above is [Neon Nova](https://playinstinct.itch.io/neon-nova) by [playinstinct](https://playinstinct.itch.io/).
+
 ## Features
 
 - Plays Game Boy and Game Boy Color ROMs in the browser - if you find any that don't work, please open an issue!
