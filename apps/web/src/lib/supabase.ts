@@ -23,17 +23,30 @@ export class SupabasePostgresClient {
     this.restUrl = `${supabaseUrl.replace(/\/$/, "")}/rest/v1`;
   }
 
-  private getAccessToken(): string | null {
-    return supabaseAuthClient.getSession()?.access_token ?? null;
+  private async getAccessToken(): Promise<string | null> {
+    const session = supabaseAuthClient.getSession();
+    if (!session) {
+      return null;
+    }
+
+    const secondsUntilExpiry = session.expires_at - Date.now() / 1000;
+    if (secondsUntilExpiry <= 10) {
+      try {
+        const refreshed = await supabaseAuthClient.refreshSession(true);
+        return refreshed?.access_token ?? null;
+      } catch (err) {
+        console.error("Supabase access token refresh failed", err);
+      }
+    }
+
+    return session.access_token;
   }
 
-  private buildHeaders(extra?: HeadersInit): Headers {
+  private async buildHeaders(extra?: HeadersInit): Promise<Headers> {
     const headers = new Headers(extra ?? {});
     headers.set("apikey", this.anonKey);
-    headers.set(
-      "Authorization",
-      `Bearer ${this.getAccessToken() ?? this.anonKey}`,
-    );
+    const accessToken = await this.getAccessToken();
+    headers.set("Authorization", `Bearer ${accessToken ?? this.anonKey}`);
     return headers;
   }
 
@@ -41,7 +54,7 @@ export class SupabasePostgresClient {
     path: string,
     init: RequestOptions = {},
   ): Promise<T> {
-    const headers = this.buildHeaders(init.headers);
+    const headers = await this.buildHeaders(init.headers);
     const isJsonBody =
       init.body &&
       typeof init.body === "string" &&
