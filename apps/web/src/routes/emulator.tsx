@@ -20,6 +20,7 @@ import { useCurrentRom } from "@/hooks/use-current-rom";
 import { useEmulator } from "@/hooks/use-emulator";
 import { useGameOptions } from "@/hooks/use-game-options";
 import { useSaveStorage } from "@/hooks/use-save-storage";
+import { preloadGameOptionsDialog } from "@/components/game-options-dialog.lazy";
 import { createEmptyJoypadState } from "@gbemu/core/input";
 import { JoypadInputState } from "@gbemu/core/input";
 import { useGamepad } from "@/hooks/use-gamepad";
@@ -296,7 +297,13 @@ export function EmulatorPage() {
             </Button>
           </CardAction>
           <CardAction>
-            <Button type="button" variant="outline" onClick={openOptions}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openOptions}
+              onMouseEnter={preloadGameOptionsDialog}
+              onFocus={preloadGameOptionsDialog}
+            >
               Options
             </Button>
           </CardAction>

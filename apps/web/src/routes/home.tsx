@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
+import { preloadGameOptionsDialog } from "@/components/game-options-dialog.lazy";
 import { useGameOptions } from "@/hooks/use-game-options";
 import { useLocation } from "preact-iso";
 import { TargetedInputEvent } from "preact";
@@ -113,7 +114,13 @@ export function HomePage() {
             >
               Select ROM
             </Button>
-            <Button type="button" variant="outline" onClick={openOptions}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openOptions}
+              onMouseEnter={preloadGameOptionsDialog}
+              onFocus={preloadGameOptionsDialog}
+            >
               Options
             </Button>
             {isSignedIn ? (
