@@ -14,6 +14,7 @@ export interface EmulatorWorkerRequestMap {
   reset: { hard?: boolean } | undefined;
   setMode: { mode: EmulatorMode };
   setInputState: { state: JoypadInputState };
+  setSpeedMultiplier: { multiplier: number };
   dispose: undefined;
   getRomInfo: undefined;
   getSave: undefined;

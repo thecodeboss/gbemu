@@ -2,12 +2,19 @@ import { createEmulator } from "@gbemu/core";
 import { initializeEmulatorWorker } from "./index.js";
 
 initializeEmulatorWorker(
-  async ({ callbacks, audioBufferSize, audioSampleRate, mode }) => {
+  async ({
+    callbacks,
+    audioBufferSize,
+    audioSampleRate,
+    mode,
+    speedMultiplier,
+  }) => {
     return createEmulator({
       callbacks,
       audioBufferSize,
       audioSampleRate,
       mode,
+      speedMultiplier,
     });
   },
 );

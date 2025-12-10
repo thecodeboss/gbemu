@@ -33,6 +33,7 @@ export interface RuntimeClientOptions {
   audioBufferSize?: number;
   autoPersistSaves?: boolean;
   mode?: EmulatorMode;
+  speedMultiplier?: number;
   onLog?(message: string): void;
   onError?(error: unknown): void;
 }
@@ -60,6 +61,7 @@ export interface RuntimeClient {
   dispose(): Promise<void>;
   setInputState(state: JoypadInputState): Promise<void>;
   setMode(mode: EmulatorMode): Promise<void>;
+  setSpeedMultiplier(multiplier: number): Promise<void>;
   readonly renderer: Canvas2DRenderer;
   readonly audio: EmulatorAudioNode;
   readonly worker: Worker;
@@ -72,6 +74,7 @@ export async function createRuntimeClient(
   let currentSaveKey: SaveStorageKey | null = null;
   let currentRomInfo: EmulatorRomInfo | null = null;
   let currentMode: EmulatorMode = options.mode ?? "dmg";
+  let currentSpeedMultiplier = options.speedMultiplier ?? 1;
 
   const worker = options.createWorker();
   const workerEndpoint = Comlink.wrap<EmulatorWorkerApi>(worker);
@@ -125,6 +128,7 @@ export async function createRuntimeClient(
         audioBufferSize: options.audioBufferSize,
         audioSampleRate: options.audioContext.sampleRate,
         mode: currentMode,
+        speedMultiplier: currentSpeedMultiplier,
       },
       [callbackChannel.port2],
     ),
@@ -245,6 +249,10 @@ export async function createRuntimeClient(
     async setMode(mode) {
       currentMode = mode;
       await workerEndpoint.setMode({ mode });
+    },
+    async setSpeedMultiplier(multiplier) {
+      currentSpeedMultiplier = multiplier;
+      await workerEndpoint.setSpeedMultiplier({ multiplier });
     },
     async getRomInfo() {
       currentRomInfo = await workerEndpoint.getRomInfo();

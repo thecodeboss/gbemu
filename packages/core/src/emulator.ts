@@ -45,6 +45,7 @@ export interface EmulatorOptions {
   audioBufferSize?: number;
   audioSampleRate?: number;
   mode?: EmulatorMode;
+  speedMultiplier?: number;
 }
 
 export interface EmulatorStateSnapshot {
@@ -74,6 +75,7 @@ const FRAME_DURATION_MS = (Clock.FRAME_CYCLES / MASTER_CLOCK_HZ) * 1000;
 const SAVE_GRACE_CYCLES = Clock.FRAME_CYCLES * 4; // ~4 frames of inactivity before considering a flush
 const MIN_SAVE_DIRTY_WRITES = 1024; // treat only larger bursts as intentional saves
 const SAVE_LONG_IDLE_CYCLES = Clock.FRAME_CYCLES * 240; // ~4 seconds idle flush for small changes
+const MIN_SPEED_MULTIPLIER = 0.1;
 
 function computeCgbNativeRegisters(): CpuRegisters {
   return {
@@ -149,6 +151,7 @@ export class Emulator {
   #lastRamWriteCycles: number | null = null;
   #ramDirtyWrites = 0;
   #persistSaves = false;
+  #speedMultiplier = 1;
 
   constructor(deps: EmulatorDependencies) {
     this.clock = deps.clock;
@@ -169,6 +172,9 @@ export class Emulator {
     this.#audioSampleRate =
       options.audioSampleRate ?? DEFAULT_OUTPUT_SAMPLE_RATE;
     this.#mode = options.mode ?? "dmg";
+    this.#speedMultiplier = this.#normalizeSpeedMultiplier(
+      options.speedMultiplier,
+    );
     this.#audioRemainder = 0;
     this.#lastAudioTimestamp = null;
     this.apu.setOutputSampleRate(this.#audioSampleRate);
@@ -324,6 +330,26 @@ export class Emulator {
     this.#mode = mode;
   }
 
+  setSpeedMultiplier(multiplier: number): void {
+    const normalized = this.#normalizeSpeedMultiplier(multiplier);
+    if (normalized === this.#speedMultiplier) {
+      return;
+    }
+    this.#speedMultiplier = normalized;
+    if (this.#running) {
+      if (this.#frameTimer !== null) {
+        clearTimeout(this.#frameTimer);
+        this.#frameTimer = null;
+      }
+      this.#nextFrameTimestamp = this.#now();
+      this.#scheduleNextFrame();
+    }
+  }
+
+  getSpeedMultiplier(): number {
+    return this.#speedMultiplier;
+  }
+
   getStateSnapshot(): EmulatorStateSnapshot {
     return {
       cpu: { cycles: this.cpu.state.cycles },
@@ -378,7 +404,7 @@ export class Emulator {
     }
 
     const now = this.#now();
-    const frameDuration = FRAME_DURATION_MS;
+    const frameDuration = this.#frameDurationMs();
 
     if (this.#nextFrameTimestamp === null) {
       this.#nextFrameTimestamp = now;
@@ -448,7 +474,8 @@ export class Emulator {
     this.#lastAudioTimestamp = now;
 
     const expectedSamples =
-      (elapsedMs * this.#audioSampleRate) / 1000 + this.#audioRemainder;
+      (elapsedMs * this.#audioSampleRate * this.#speedMultiplier) / 1000 +
+      this.#audioRemainder;
     let sampleCount = Math.floor(expectedSamples);
     this.#audioRemainder = expectedSamples - sampleCount;
 
@@ -569,6 +596,20 @@ export class Emulator {
     });
   }
 
+  #frameDurationMs(): number {
+    return FRAME_DURATION_MS / this.#speedMultiplier;
+  }
+
+  #normalizeSpeedMultiplier(multiplier?: number): number {
+    if (typeof multiplier !== "number" || Number.isNaN(multiplier)) {
+      return 1;
+    }
+    if (!Number.isFinite(multiplier) || multiplier <= 0) {
+      return 1;
+    }
+    return Math.max(MIN_SPEED_MULTIPLIER, multiplier);
+  }
+
   #now(): number {
     if (
       typeof performance !== "undefined" &&
@@ -585,6 +626,7 @@ export interface EmulatorInitOptions {
   audioBufferSize?: number;
   audioSampleRate?: number;
   mode?: EmulatorMode;
+  speedMultiplier?: number;
 }
 
 export function createEmulator(options: EmulatorInitOptions): Emulator {

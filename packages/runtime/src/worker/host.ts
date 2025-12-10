@@ -24,6 +24,7 @@ export interface WorkerInitializeOptions {
   audioBufferSize?: number;
   audioSampleRate?: number;
   mode?: EmulatorMode;
+  speedMultiplier?: number;
 }
 
 export interface EmulatorFactoryContext {
@@ -31,6 +32,7 @@ export interface EmulatorFactoryContext {
   audioBufferSize?: number;
   audioSampleRate?: number;
   mode: EmulatorMode;
+  speedMultiplier: number;
 }
 
 export type EmulatorFactory = (
@@ -46,6 +48,7 @@ export interface EmulatorWorkerApi {
   reset(options?: { hard?: boolean }): Promise<void>;
   setInputState(message: { state: JoypadInputState }): Promise<void>;
   setMode(message: { mode: EmulatorMode }): Promise<void>;
+  setSpeedMultiplier(message: { multiplier: number }): Promise<void>;
   dispose(): Promise<void>;
   getRomInfo(): Promise<EmulatorRomInfo | null>;
   getSave(): Promise<SavePayload | null>;
@@ -59,6 +62,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
   let audioSampleRate: number | undefined;
   let callbacksPort: MessagePort | null = null;
   let currentMode: EmulatorMode = "dmg";
+  let currentSpeedMultiplier = 1;
 
   async function ensureEmulator(): Promise<Emulator> {
     if (isDisposed) {
@@ -78,6 +82,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
         audioBufferSize,
         audioSampleRate,
         mode: currentMode,
+        speedMultiplier: currentSpeedMultiplier,
       });
     }
 
@@ -92,6 +97,7 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
       audioBufferSize = options.audioBufferSize;
       audioSampleRate = options.audioSampleRate;
       currentMode = options.mode ?? "dmg";
+      currentSpeedMultiplier = options.speedMultiplier ?? 1;
     },
 
     async loadRom(message): Promise<void> {
@@ -128,6 +134,13 @@ export function createWorkerHost(factory: EmulatorFactory): EmulatorWorkerApi {
       currentMode = message.mode;
       if (emulator) {
         emulator.setMode(currentMode);
+      }
+    },
+
+    async setSpeedMultiplier(message: { multiplier: number }): Promise<void> {
+      currentSpeedMultiplier = message.multiplier;
+      if (emulator) {
+        emulator.setSpeedMultiplier(currentSpeedMultiplier);
       }
     },
 
