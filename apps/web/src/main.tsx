@@ -7,6 +7,7 @@ import { registerServiceWorker } from "@/register-service-worker";
 import { SaveStorageProvider } from "@/hooks/use-save-storage";
 import { CurrentRomProvider } from "@/hooks/use-current-rom";
 import { EmulatorProvider } from "@/hooks/use-emulator";
+import { GameOptionsProvider } from "@/hooks/use-game-options";
 import { HomePage } from "@/routes/home";
 import { EmulatorPage } from "@/routes/emulator";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -19,13 +20,15 @@ createRoot(document.getElementById("root")!).render(
         <CurrentRomProvider>
           <SaveStorageProvider>
             <EmulatorProvider>
-              <App>
-                <Router>
-                  <Route default index component={HomePage} />
-                  <Route path="/emulator" component={EmulatorPage} />
-                  <Route path="/login" component={LoginPage} />
-                </Router>
-              </App>
+              <GameOptionsProvider>
+                <App>
+                  <Router>
+                    <Route default index component={HomePage} />
+                    <Route path="/emulator" component={EmulatorPage} />
+                    <Route path="/login" component={LoginPage} />
+                  </Router>
+                </App>
+              </GameOptionsProvider>
             </EmulatorProvider>
           </SaveStorageProvider>
         </CurrentRomProvider>

@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { RecentRomRecord } from "@/lib/recently-played";
 import { createRomId } from "@/lib/utils";
 import { storeRecentRom } from "@/lib/recently-played";
+import { useGameOptions } from "@/hooks/use-game-options";
 import { useLocation } from "preact-iso";
 import { TargetedInputEvent } from "preact";
 import { supabaseAuthClient } from "@/lib/supabase-auth-client";
@@ -15,6 +16,7 @@ import { supabaseAuthClient } from "@/lib/supabase-auth-client";
 export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { setCurrentRom } = useCurrentRom();
+  const { openOptions } = useGameOptions();
   const { session } = useAuth();
   const [recentlyPlayedRevision, setRecentlyPlayedRevision] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -110,6 +112,9 @@ export function HomePage() {
               onClick={handleOpenFilePicker}
             >
               Select ROM
+            </Button>
+            <Button type="button" variant="outline" onClick={openOptions}>
+              Options
             </Button>
             {isSignedIn ? (
               <Button

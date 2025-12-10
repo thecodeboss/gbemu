@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useCurrentRom } from "@/hooks/use-current-rom";
 import { useEmulator } from "@/hooks/use-emulator";
+import { useGameOptions } from "@/hooks/use-game-options";
 import { useSaveStorage } from "@/hooks/use-save-storage";
 import { createEmptyJoypadState } from "@gbemu/core/input";
 import { JoypadInputState } from "@gbemu/core/input";
@@ -67,6 +68,7 @@ export function EmulatorPage() {
   const { rom, setCurrentRom } = useCurrentRom();
   const romName = rom?.name ?? null;
   const { isSaveManagerOpen, openSaveManager } = useSaveStorage();
+  const { openOptions } = useGameOptions();
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const resolveFullscreenTarget = useCallback((): FullscreenElement | null => {
     if (typeof document === "undefined") {
@@ -291,6 +293,11 @@ export function EmulatorPage() {
               onFocus={preloadManageSavesDialog}
             >
               Saves
+            </Button>
+          </CardAction>
+          <CardAction>
+            <Button type="button" variant="outline" onClick={openOptions}>
+              Options
             </Button>
           </CardAction>
           {isFullscreenSupported ? (
