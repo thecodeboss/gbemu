@@ -82,14 +82,14 @@ importers:
         specifier: 2.1.1
         version: 2.1.1
       lucide-react:
-        specifier: 0.561.0
-        version: 0.561.0(@preact/compat@18.3.1(preact@10.28.0))
+        specifier: 0.562.0
+        version: 0.562.0(@preact/compat@18.3.1(preact@10.28.0))
       preact:
         specifier: 10.28.0
         version: 10.28.0
       preact-iso:
-        specifier: 2.11.0
-        version: 2.11.0(preact-render-to-string@6.6.3(preact@10.28.0))(preact@10.28.0)
+        specifier: 2.11.1
+        version: 2.11.1(preact-render-to-string@6.6.3(preact@10.28.0))(preact@10.28.0)
       react:
         specifier: npm:@preact/compat@18.3.1
         version: "@preact/compat@18.3.1(preact@10.28.0)"
@@ -99,10 +99,10 @@ importers:
     devDependencies:
       "@preact/preset-vite":
         specifier: 2.10.2
-        version: 2.10.2(@babel/core@7.28.5)(preact@10.28.0)(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1))
+        version: 2.10.2(@babel/core@7.28.5)(preact@10.28.0)(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1))
       "@tailwindcss/vite":
         specifier: 4.1.18
-        version: 4.1.18(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1))
+        version: 4.1.18(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1))
       "@types/node":
         specifier: 25.0.3
         version: 25.0.3
@@ -119,8 +119,8 @@ importers:
         specifier: 1.30.2
         version: 1.30.2
       shadcn:
-        specifier: 3.6.1
-        version: 3.6.1(@types/node@25.0.3)(typescript@5.9.3)
+        specifier: 3.6.2
+        version: 3.6.2(@types/node@25.0.3)(typescript@5.9.3)
       tailwindcss:
         specifier: 4.1.18
         version: 4.1.18
@@ -131,8 +131,8 @@ importers:
         specifier: "catalog:"
         version: 5.9.3
       vite:
-        specifier: npm:rolldown-vite@7.2.11
-        version: rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1)
+        specifier: npm:rolldown-vite@7.3.0
+        version: rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1)
       vite-bundle-analyzer:
         specifier: 1.3.2
         version: 1.3.2
@@ -4081,10 +4081,10 @@ packages:
         integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==,
       }
 
-  lucide-react@0.561.0:
+  lucide-react@0.562.0:
     resolution:
       {
-        integrity: sha512-Y59gMY38tl4/i0qewcqohPdEbieBy7SovpBL9IFebhc2mDd8x4PZSOsiFRkpPcOq6bj1r/mjH/Rk73gSlIJP2A==,
+        integrity: sha512-82hOAu7y0dbVuFfmO4bYF1XEwYk/mEbM5E+b1jgci/udUBEE/R7LF5Ip0CCEmXe8AybRM8L+04eP+LGZeDvkiw==,
       }
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -4586,10 +4586,10 @@ packages:
       }
     engines: { node: ">=20" }
 
-  preact-iso@2.11.0:
+  preact-iso@2.11.1:
     resolution:
       {
-        integrity: sha512-oThWJQcgcnaWh6UKy1qrBkxIWp5CkqvnHiFdLiDUxfNkGdpQ5veGQw9wOVS0NDp7X8xo98wxE4wng5jLv1e9Ug==,
+        integrity: sha512-rLy0RmzP/hrDjnFdnEblxFgKtzUj4njkHrpGJBGS7S4QuYw1zv0lA38qsWpeAAB10JAz/hF2CsHrLen9ufCtbw==,
       }
     peerDependencies:
       preact: ">=10 || >= 11.0.0-0"
@@ -4819,16 +4819,16 @@ packages:
       }
     engines: { iojs: ">=1.0.0", node: ">=0.10.0" }
 
-  rolldown-vite@7.2.11:
+  rolldown-vite@7.3.0:
     resolution:
       {
-        integrity: sha512-WwCantGLbztBNipg+WwcA+a1c3Mo9LPY0VZ35IFXnUsQyZzsMHtzmy+H5PqELPj3AOauI9L/HMCjoJZp3i9eFg==,
+        integrity: sha512-5hI5NCJwKBGtzWtdKB3c2fOEpI77Iaa0z4mSzZPU1cJ/OqrGbFafm90edVCd7T9Snz+Sh09TMAv4EQqyVLzuEg==,
       }
     engines: { node: ^20.19.0 || >=22.12.0 }
     hasBin: true
     peerDependencies:
       "@types/node": ^20.19.0 || >=22.12.0
-      esbuild: ^0.25.0
+      esbuild: ^0.27.0
       jiti: ">=1.21.0"
       less: ^4.0.0
       sass: ^1.70.0
@@ -4987,10 +4987,10 @@ packages:
         integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==,
       }
 
-  shadcn@3.6.1:
+  shadcn@3.6.2:
     resolution:
       {
-        integrity: sha512-ClAtlvtyWVVzM87NCQyivSNSEPQEPLOAVCvey8rr6CukNyK2JeLNzJTdo9+4kpS/BSpx2MvQT+g+/V6ymZWmoQ==,
+        integrity: sha512-2g48/7UsXTSWMFU9GYww85AN5iVTkErbeycrcleI55R+atqW8HE1M/YDFyQ+0T3Bwsd4e8vycPu9gmwODunDpw==,
       }
     hasBin: true
 
@@ -6343,18 +6343,18 @@ snapshots:
     dependencies:
       preact: 10.28.0
 
-  "@preact/preset-vite@2.10.2(@babel/core@7.28.5)(preact@10.28.0)(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1))":
+  "@preact/preset-vite@2.10.2(@babel/core@7.28.5)(preact@10.28.0)(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1))":
     dependencies:
       "@babel/core": 7.28.5
       "@babel/plugin-transform-react-jsx": 7.27.1(@babel/core@7.28.5)
       "@babel/plugin-transform-react-jsx-development": 7.27.1(@babel/core@7.28.5)
-      "@prefresh/vite": 2.4.11(preact@10.28.0)(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1))
+      "@prefresh/vite": 2.4.11(preact@10.28.0)(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1))
       "@rollup/pluginutils": 4.2.1
       babel-plugin-transform-hook-names: 1.0.2(@babel/core@7.28.5)
       debug: 4.4.3
       picocolors: 1.1.1
-      vite: rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1)
-      vite-prerender-plugin: 0.5.12(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1))
+      vite: rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1)
+      vite-prerender-plugin: 0.5.12(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1))
     transitivePeerDependencies:
       - preact
       - supports-color
@@ -6367,7 +6367,7 @@ snapshots:
 
   "@prefresh/utils@1.2.1": {}
 
-  "@prefresh/vite@2.4.11(preact@10.28.0)(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1))":
+  "@prefresh/vite@2.4.11(preact@10.28.0)(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1))":
     dependencies:
       "@babel/core": 7.28.5
       "@prefresh/babel-plugin": 0.5.2
@@ -6375,7 +6375,7 @@ snapshots:
       "@prefresh/utils": 1.2.1
       "@rollup/pluginutils": 4.2.1
       preact: 10.28.0
-      vite: rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1)
+      vite: rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -6724,12 +6724,12 @@ snapshots:
       "@tailwindcss/oxide-win32-arm64-msvc": 4.1.18
       "@tailwindcss/oxide-win32-x64-msvc": 4.1.18
 
-  "@tailwindcss/vite@4.1.18(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1))":
+  "@tailwindcss/vite@4.1.18(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1))":
     dependencies:
       "@tailwindcss/node": 4.1.18
       "@tailwindcss/oxide": 4.1.18
       tailwindcss: 4.1.18
-      vite: rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1)
+      vite: rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1)
 
   "@ts-morph/common@0.27.0":
     dependencies:
@@ -8229,7 +8229,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-react@0.561.0(@preact/compat@18.3.1(preact@10.28.0)):
+  lucide-react@0.562.0(@preact/compat@18.3.1(preact@10.28.0)):
     dependencies:
       react: "@preact/compat@18.3.1(preact@10.28.0)"
 
@@ -8518,7 +8518,7 @@ snapshots:
 
   powershell-utils@0.1.0: {}
 
-  preact-iso@2.11.0(preact-render-to-string@6.6.3(preact@10.28.0))(preact@10.28.0):
+  preact-iso@2.11.1(preact-render-to-string@6.6.3(preact@10.28.0))(preact@10.28.0):
     dependencies:
       preact: 10.28.0
       preact-render-to-string: 6.6.3(preact@10.28.0)
@@ -8656,7 +8656,7 @@ snapshots:
 
   reusify@1.1.0: {}
 
-  rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1):
+  rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1):
     dependencies:
       "@oxc-project/runtime": 0.101.0
       fdir: 6.5.0(picomatch@4.0.3)
@@ -8667,7 +8667,6 @@ snapshots:
       tinyglobby: 0.2.15
     optionalDependencies:
       "@types/node": 25.0.3
-      esbuild: 0.25.12
       fsevents: 2.3.3
       jiti: 2.6.1
       yaml: 2.8.1
@@ -8811,7 +8810,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  shadcn@3.6.1(@types/node@25.0.3)(typescript@5.9.3):
+  shadcn@3.6.2(@types/node@25.0.3)(typescript@5.9.3):
     dependencies:
       "@antfu/ni": 25.0.0
       "@babel/core": 7.28.5
@@ -9186,7 +9185,7 @@ snapshots:
 
   vite-bundle-analyzer@1.3.2: {}
 
-  vite-prerender-plugin@0.5.12(rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1)):
+  vite-prerender-plugin@0.5.12(rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1)):
     dependencies:
       kolorist: 1.8.0
       magic-string: 0.30.21
@@ -9194,7 +9193,7 @@ snapshots:
       simple-code-frame: 1.3.0
       source-map: 0.7.6
       stack-trace: 1.0.0-pre2
-      vite: rolldown-vite@7.2.11(@types/node@25.0.3)(esbuild@0.25.12)(jiti@2.6.1)(yaml@2.8.1)
+      vite: rolldown-vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.8.1)
 
   vite@7.2.4(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1):
     dependencies:
